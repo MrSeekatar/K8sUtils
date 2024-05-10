@@ -1,0 +1,116 @@
+{{- if .Values.deployment.enabled -}}
+{{- $svcPort := default 80 .Values.service.targetPort -}}
+{{- $livenessPath := default "/" .Values.livenessPath -}}
+{{- $readinessPath := default "/" .Values.readinessPath -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "Helm.fullname" . }}
+  labels:
+    {{- include "Helm.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "Helm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "Helm.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "Helm.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.initContainers }}
+      initContainers:
+      {{- toYaml .Values.initContainers | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $svcPort }}
+              protocol: TCP
+          {{- if .Values.startupPath }}
+          startupProbe:
+            periodSeconds: 5
+            failureThreshold: 12
+            httpGet:
+              path: {{ $.Values.startupPath }}
+              port: {{ $svcPort }}
+          {{- end }}
+          livenessProbe:
+            initialDelaySeconds: 10
+            timeoutSeconds: 30
+            periodSeconds: 5
+            httpGet:
+              path: {{ $livenessPath }}
+              port: {{ $svcPort }}
+          readinessProbe:
+            initialDelaySeconds: 5
+            timeoutSeconds: 30
+            periodSeconds: 2
+            httpGet:
+              path: {{ $readinessPath }}
+              port: {{ $svcPort }}
+          env:
+          {{- range $key,$value := .Values.env }}
+          - name: {{ $key | upper }}
+            value: {{ $value | quote}}
+          {{- end }}
+          {{- range $key,$value := .Values.secrets }}
+          - name: {{ $key | upper }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ $key | quote}}
+                key: {{ $value | quote}}
+          {{- end }}
+          {{- range $key,$value := .Values.configMap }}
+          - name: {{ $key | upper }}
+            valueFrom:
+              configMapKeyRef:
+                name: {{ $key | quote}}
+                key: {{ $value | quote}}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: secrets-store-inline
+              mountPath: "/secrets-store-inline"
+              readOnly: true
+          {{- if .Values.extraVolumeMounts }}
+          {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: secrets-store-inline
+          emptyDir: {}
+        {{- if .Values.extraVolumes }}
+        {{- toYaml .Values.extraVolumes | nindent 8 }}
+        {{- end }}
+{{- end }}

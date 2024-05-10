@@ -1,0 +1,159 @@
+# Default values for Helm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+appVersion: "1.17.0"
+
+replicaCount: 1
+
+deployment:
+  enabled: true
+
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  enabled: false
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: ""
+  annotations:
+    kubernetes.io/my.attribute: "true"
+    zzzzzzzzzzz: "true"
+    111111111111: "true"
+    # kubernetes.io/ingress.class: nginx
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+env:
+  test1: "testValue1"
+  test2: "testValue2"
+  test1NoQuotes: $(TEST1) # but we quote in chart
+  test2Quotes: "$(TEST2)"
+  test1LcNoQuotes: $(test1) # doesn't work since lc
+  test2LcQuotes: "$(test2)" # doesn't work since lc
+  thisissecret: secret is '$(mysecret)'
+  thisisspassword: pw is '$(mypassword)'
+  mypassword:
+    secretName: example-secret
+    secretKey: password
+  mysecret:
+    secretName: example-secret
+    secretKey: secret
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+extraVolumes:
+  - name: secrets-store-inline1
+    hostPath:
+      path: /dev
+      type: Directory
+  - name: secrets-store-inline2
+    hostPath:
+      path: /opt
+      type: Directory
+  - name: temp
+    hostPath:
+      path: /mnt/c/temp
+      type: Directory
+  - name: mt
+    emptyDir: {}
+
+secrets:
+  mysecret: "test"
+
+extraVolumeMounts:
+  - name: secrets-store-inline1
+    mountPath: "/secrets-store1"
+    readOnly: true
+
+  - name: secrets-store-inline2
+    mountPath: "/secrets-store2"
+    readOnly: true
+
+  - name: temp
+    mountPath: "/c/temp"
+    readOnly: true
+
+  - name: mt
+    mountPath: "/mt"
+    readOnly: true
+
+initContainers:
+  - name: copier
+    image: alpine:latest
+    # restartPolicy: Always
+    command: ['sh', '-c', 'echo $MYSECRET > /mt/secret.txt']
+    env:
+     - name: MYSECRET
+       valueFrom:
+         secretKeyRef:
+           name: "mysecret"
+           key: "test"
+    volumeMounts:
+      - name: temp
+        mountPath: /temp
+      - name: mt
+        mountPath: "/mt"
+

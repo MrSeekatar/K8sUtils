@@ -1,0 +1,142 @@
+# Default values for Helm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+appVersion: "1.17.0"
+
+replicaCount: 1
+
+preHook:
+  create: true
+  runCount: 1
+  fail: false
+  imageTag: latest
+
+deployment:
+  enabled: true
+
+image:
+  repository: "minimal"
+  pullPolicy: Never
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+readinessPath: /info
+livenessPath: /info
+startupPath: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  targetPort: 5095
+
+ingress:
+  enabled: true
+  className: ""
+  annotations:
+    kubernetes.io/my.attribute: "true"
+  hosts:
+    - host: my-k8s-example1.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+env:
+  failOnStart: false
+  runCount: 0
+  deployTime: "00:00:00"
+  test1: "testValue1"
+  test2: "testValue2"
+  test1NoQuotes: $(TEST1) # but we quote in chart
+  # cannot use $() for anything but constant values, no CM or Secret refs
+  DOTNET_USE_POLLING_FILE_WATCHER: "true"
+
+configMap:
+  example-config: example.property
+
+secrets:
+  example-secret: password
+  example-secret3: myconfig__secret3
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+extraVolumeMounts:
+  - name: config-map
+    mountPath: "/config-map"
+    readOnly: true
+  - name: secrets-store
+    mountPath: "/secrets/secrets-store"
+    readOnly: true
+  - name: secrets-store2
+    mountPath: "/secrets/secrets-store2"
+    readOnly: true
+  - name: mt
+    mountPath: "/mt"
+
+extraVolumes:
+  - name: config-map
+    configMap:
+      name: example-config
+  - name: secrets-store
+    secret:
+      secretName: example-secret
+  - name: secrets-store2
+    secret:
+      secretName: example-secret2
+  - name: mt
+    emptyDir: {}
+
+jobTtlSecondsAfterFinished: 600

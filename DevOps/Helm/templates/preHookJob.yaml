@@ -1,0 +1,63 @@
+{{- if .Values.preHook.create -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-prehook"
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  annotations:
+    # This is what defines this resource as a hook. Without this line, the
+    # job is considered part of the release.
+    "helm.sh/hook": pre-install, pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    # adding hook-failed deletes the job if it fails
+    # default or before-hook-creation will keep the job around, but delete before next run
+    # "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 3000
+  {{- if .Values.jobTtlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ .Values.jobTtlSecondsAfterFinished }}
+  {{- else }}
+  ttlSecondsAfterFinished: 30
+  {{- end }}
+  template:
+    metadata:
+      name: "{{ .Release.Name }}"
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: pre-install-upgrade-job
+        image: "init-app:{{ .Values.preHook.imageTag }}"
+        imagePullPolicy: Never
+        env:
+        - name: RUN_COUNT
+          value: "{{ .Values.preHook.runCount }}"
+        - name: FAIL
+          value: "{{ .Values.preHook.fail }}"
+        volumeMounts:
+        - mountPath: /mt
+          name: mt
+      initContainers:
+      - env:
+        - name: COPY_AND_EXIT
+          value: "1"
+        image:  minimal:latest
+        imagePullPolicy: Never
+        name: minimal-as-init
+        resources: {}
+        volumeMounts:
+        - mountPath: /mt
+          name: mt
+      volumes:
+      - name: mt
+        emptyDir: {}
+{{- end }}

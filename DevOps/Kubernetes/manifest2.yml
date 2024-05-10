@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: minimal2
+  name: minimal2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minimal2
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: minimal2
+    spec:
+      containers:
+      - image: minimal:latest
+        name: minimal2
+        resources: {}
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5095
+        env:
+        - name: MR_MINIMAL
+          value: "222222222222222"
+        livenessProbe: # Add this section to add a liveness probe
+          httpGet:
+            path: /info
+            port: 5095
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: minimal2
+  name: minimal2
+spec:
+  ports:
+  - name: minimal2
+    port: 80
+    protocol: TCP
+    targetPort: 5095
+  selector:
+    app: minimal2
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  creationTimestamp: null
+  name: minimal2-ingress
+  annotations:
+    22222222222: 'added in the manifest'
+spec:
+  rules:
+  - host: my-k8s-example2.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: minimal2
+            port:
+              number: 5095
+        path: /
+        pathType: Prefix
