@@ -1,16 +1,24 @@
 # K8sUtils PowerShell Module <!-- omit in toc -->
 
-This a PowerShell module is for working with Kubernetes and Helm. It was created to solve a problem when using `helm -wait` in a CI/CD pipeline. `-wait` is wonderful in that your pipeline will wait for a successful deployment, but if anything goes wrong, it will wait for the timeout and then return an error. At that point, you may have lost all the logs and events that could help diagnose the problem, and have to re-run the deployment and baby sit it to try to catch the logs or events that causes the timeout.
+- [How It Works](#how-it-works)
+- [Testing `Invoke-HelmUpgrade`](#testing-invoke-helmupgrade)
+  - [run.ps1 Tasks](#runps1-tasks)
+  - [Kubernetes Manifests](#kubernetes-manifests)
+  - [Scenarios](#scenarios)
+  - [Pester Test Coverage](#pester-test-coverage)
+  - [Test helm chart](#test-helm-chart)
 
-With `Invoke-HelmUpgrade` you get the similar functionality, but it will capture all the logs and events along the way, and if there is an error, it will return early as possible. No more waiting the 5 or 10 minutes you set on `helm -wait`.
+This PowerShell module has helpers for working with Kubernetes (K8s) and Helm. It was created to solve a problem when using `helm -wait` in a CI/CD pipeline. `-wait` is wonderful in that your pipeline will wait for a successful deployment, but if anything goes wrong, it will wait for the timeout and then return an error. At that point, you may have lost all the logs and events that could help diagnose the problem and then have to re-run the deployment and baby sit it to try to catch the logs or events that caused the timeout.
 
-There an infinite number of ways K8s can be configured and error out. This module tries to handle to most common cases, and is appended as more are discovered. It does handle preHooks and initContainers. See below for a list of all the cases that are tested.
+With `Invoke-HelmUpgrade` you get similar functionality, but it will capture all the logs and events along the way, and if there is an error, it will return early as possible. No more waiting the 5 or 10 minutes you set on `helm -wait`.
 
-> This proved to be very useful when my company created a new K8s cluster, and added deployments to it. As we worked through the many configuration and permission issues, the pipelines failed quickly with full details of the problem. We never had to even check K8s. It was a huge time saver.
+> This proved to be very useful at my company when updating pipelines to deploy to a new K8s cluster. As we worked through the many configuration and permission issues, the pipelines failed quickly with full details of the problem. We rarely had to check K8s. It was a huge time saver.
 
-## What `Invoke-HelmUpgrade` does
+There are an infinite number of ways helm and its K8s manifests can be configured and error out. This module tries to handle to most common cases, and is amended as more are discovered. It does handle Helm pre-install [hooks](https://helm.sh/docs/topics/charts_hooks/) (preHooks) and K8s [initContainers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/). See below for a list of all the cases that are tested.
 
-It calls `helm upgrade` without `-wait` and then will poll K8s during the various phases of the deployment capturing events and logs along the way.
+## How It Works
+
+`Invoke-HelmUpgrade` calls `helm upgrade` without `-wait` and then will poll K8s during the various phases of the deployment, capturing events and logs along the way.
 
 ```mermaid
 flowchart TD
@@ -37,25 +45,11 @@ flowchart TD
     failed -- No --> exit([End])
 ```
 
+## Testing `Invoke-HelmUpgrade`
 
-- [What `Invoke-HelmUpgrade` does](#what-invoke-helmupgrade-does)
-- [Kubernetes Manifests](#kubernetes-manifests)
-- [run.ps1 Tasks](#runps1-tasks)
-- [Links](#links)
+Tests can be run locally using Rancher Desktop or Docker Desktop with Kubernetes enabled. The test scripts deploy the [minimal-api](https://github.com/MrSeekatar/minimal-api) ASP.NET application. Some of these scripts assume it is in a sibling directory, and the Docker image has been built locally.
 
-## Kubernetes Manifests
-
-In the `DevOps/Kubernetes` folder are the following manifests:
-
-| Name                        | Description                                                                              |
-| --------------------------- | ---------------------------------------------------------------------------------------- |
-| busy-box.yml                | A busybox pod for testing in service-test namespace                                      |
-| manifests1.yml              | Creates a deployment, service and ingress with host my-k8s-example1.com                  |
-| manifests2.yml              | Creates a deployment, service and ingress with host my-k8s-example2.com                  |
-| powershell.yml              | A PowerShell pod for testing in service-test namespace                                   |
-| service-test-ns-service.yml | Create minimal3 service to access service 1 in service-test namespace using ExternalName |
-
-## run.ps1 Tasks
+### run.ps1 Tasks
 
 The `run.ps1` script has the following tasks that you can execute with `.\run.ps1 <task>,...`.
 
@@ -68,12 +62,23 @@ The `run.ps1` script has the following tasks that you can execute with `.\run.ps
 
 [^1]: The `config-and-secret.yaml` manifest must be applied before running this task.
 
+### Kubernetes Manifests
 
-> The [init-app](src/init-app) project is a simple console app used as both an initContainer and Helm pre-install hook. It has switches to run for a time, or to fail.
+In the `DevOps/Kubernetes` folder are the following manifests:
+
+| Name                        | Description                                                                              |
+| --------------------------- | ---------------------------------------------------------------------------------------- |
+| busy-box.yml                | A busybox pod for testing in service-test namespace                                      |
+| manifests1.yml              | Creates a deployment, service and ingress with host my-k8s-example1.com                  |
+| manifests2.yml              | Creates a deployment, service and ingress with host my-k8s-example2.com                  |
+| powershell.yml              | A PowerShell pod for testing in service-test namespace                                   |
+| service-test-ns-service.yml | Create minimal3 service to access service 1 in service-test namespace using ExternalName |
 
 > `$env:invokeHelmAllowLowTimeouts=1` to allow short timeouts for testing, otherwise will set min to 120s for prehook and 180s for main
 
-The following table shows the testing of starting the app with helm and the various ways it can fail. `Crash` means the pod/job actually crashes. `Config` means the pod/job doesn't even start due to some configuration error such as bad image tag, missing environment variable or mount, etc. The Switch column is the switch to `Deploy-Minimal` to make the app fail in that way.
+### Scenarios
+
+The following table shows the scenarios of deploying the app with helm and the various ways it can fail. `Crash` means the pod/job actually crashes. `Config` means the pod/job doesn't even start due to some configuration error such as bad image tag, missing environment variable or mount, etc. The Switch column is the switch to `Deploy-Minimal` to make the app fail in that way.
 
  | Pre-Hook | Init   | Main     | Handled | `Deploy-Minimal` Switches         |
  | -------- | ------ | -------- | :-----: | --------------------------------- |
@@ -104,7 +109,7 @@ Other cases
 | PreHook Job `restart: onFailure`             |         |                                                                   |
 | PreHook Job `activeDeadlineSeconds`          |         |                                                                   |
 
-### Pester Test Coverage <!-- omit in toc -->
+### Pester Test Coverage
 
 These are the tests in [textMinimalDeploy.tests.ps1](Tools/MinimalDeploy.tests.ps1)
 
@@ -127,7 +132,7 @@ These are the tests in [textMinimalDeploy.tests.ps1](Tools/MinimalDeploy.tests.p
  | ?                                        |                                                                  |
  | ?                                        |                                                                  |
 
-### Test helm chart <!-- omit in toc -->
+### Test helm chart
 
 The `DevOps/Helm` folder has a chart and `minimal1_values.yaml` file that can be used to test the helm chart. The `Invoke-HelmUpgrade` function in the PS module will run the upgrade with parameters to control this.
 
@@ -146,15 +151,3 @@ Values to set in the minimal to control the tests, all of these can be set with 
 | preHook.runCount       | number        | How many times to run before exiting with 1s delay                                                   |
 | preHook.fail           | false or true | If true runs runCount times, then fails                                                              |
 | preHook.imageTag       | string        | The image tag to use for the container, defaults to latest, use a bogus value to make a config error |
-
-## Links
-
-- [K8s doc: DNS](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/) mentions using names like `<serviceName>.<nsName>.svc.cluster.local` to access services in other namespaces.
-- [K8s doc: kubectl annotate](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#annotate)
-- [K8s doc: patch](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#patch)
-- [K8s doc: automount of credentials](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#opt-out-of-api-credential-automounting)
-- [Thorsten Hans Blog about reloading from ConfigMap](https://www.thorsten-hans.com/hot-reload-net-configuration-in-kubernetes-with-configmaps/)
-- Ephemeral Containers
-  - [K8s doc: Ephemeral Containers](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-running-pod/#ephemeral-container)
-  - [Navratan Lal Gupta blog - Debug Kubernetes Pods Using Ephemeral Container](https://medium.com/linux-shots/debug-kubernetes-pods-using-ephemeral-container-f01378243ff)
-  - [Ivan Velichko blog - Kubernetes Ephemeral Containers and kubectl debug Command](https://iximiuz.com/en/posts/kubernetes-ephemeral-containers/)
