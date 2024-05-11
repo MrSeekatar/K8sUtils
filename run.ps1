@@ -88,7 +88,7 @@ foreach ($currentTask in $Tasks) {
                     if ($DryRun) {
                         $parms += "--dry-run"
                     }
-                    helm upgrade --install test . -f minimal1_values.yaml --namespace default @parms
+                    helm upgrade --install test . -f minimal_values.yaml --namespace default @parms
                 }
             }
             'uninstallHelm' {

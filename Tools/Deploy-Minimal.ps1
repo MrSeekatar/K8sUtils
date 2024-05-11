@@ -133,7 +133,7 @@ function Deploy-Minimal {
     Write-Verbose ($helmSet -join " ")
 
     try {
-        $ret = Invoke-HelmUpgrade -ValueFile "minimal1_values.yaml" `
+        $ret = Invoke-HelmUpgrade -ValueFile "minimal_values.yaml" `
                            -ChartName 'minimal' `
                            -ReleaseName "test" `
                            -HelmSet $helmSet `

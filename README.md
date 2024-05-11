@@ -1,7 +1,10 @@
 # K8sUtils PowerShell Module <!-- omit in toc -->
 
-- [How It Works](#how-it-works)
-- [Using it in an Azure DevOps Pipeline](#using-it-in-an-azure-devops-pipeline)
+A PowerShell module with helpers for working with Kubernetes (K8s) and deploying applications with Helm.
+
+- [Commands](#commands)
+- [How `Invoke-HelmUpgrade` Works](#how-invoke-helmupgrade-works)
+- [Using `Invoke-HelmUpgrade` in an Azure DevOps Pipeline](#using-invoke-helmupgrade-in-an-azure-devops-pipeline)
 - [Testing `Invoke-HelmUpgrade`](#testing-invoke-helmupgrade)
   - [run.ps1 Tasks](#runps1-tasks)
   - [Kubernetes Manifests](#kubernetes-manifests)
@@ -9,15 +12,30 @@
   - [Pester Test Coverage](#pester-test-coverage)
   - [Test helm chart](#test-helm-chart)
 
-This PowerShell module has helpers for working with Kubernetes (K8s) and Helm. It was created to solve a problem when using `helm -wait` in a CI/CD pipeline. `-wait` is wonderful in that your pipeline will wait for a successful deployment, but if anything goes wrong, it will wait for the timeout and then return an error. At that point, you may have lost all the logs and events that could help diagnose the problem and then have to re-run the deployment and baby sit it to try to catch the logs or events that caused the timeout.
+This module was created to solve a problem when using `helm -wait` in a CI/CD pipeline. `-wait` is wonderful feature in that your pipeline will wait for a successful deployment instead of returning after passing manifest to K8s. If anything goes wrong, however, it will wait until the timeout and then return just a timeout error. At that point, you may have lost all the logs and events that could help diagnose the problem and then have to re-run the deployment and baby sit it to try to catch the logs or events that caused the timeout.
 
 With `Invoke-HelmUpgrade` you get similar functionality, but it will capture all the logs and events along the way, and if there is an error, it will return early as possible. No more waiting the 5 or 10 minutes you set on `helm -wait`.
 
 > This proved to be very useful at my company when updating pipelines to deploy to a new K8s cluster. As we worked through the many configuration and permission issues, the pipelines failed quickly with full details of the problem. We rarely had to check K8s. It was a huge time saver.
 
-There are an infinite number of ways helm and its K8s manifests can be configured and error out. This module tries to handle to most common cases, and is amended as more are discovered. It does handle Helm pre-install [hooks](https://helm.sh/docs/topics/charts_hooks/) (preHooks) and K8s [initContainers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/). See below for a list of all the cases that are tested.
+There are an infinite number of ways helm and its K8s manifests can be configured and error out. This `Invoke-HelmUpgrade` tries to handle to most common cases, and is amended as more are discovered. It does handle Helm pre-install [hooks](https://helm.sh/docs/topics/charts_hooks/) (preHooks) and K8s [initContainers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/). See below for a list of all the cases that are tested.
 
-## How It Works
+One thing that is required to get prehook logs is to set the `helm.sh/hook-delete-policy` to `before-hook-creation` in the prehook job manifest. This will keep the job around after the upgrade, and the `ttlSecondsAfterFinished` will delete it after 30s, if desired. This is done in the [minimal chart](DevOps/Helm/minimal/templates/preHookJob.yml).
+
+## Commands
+
+Here's a list of the commands in the module with a brief description. Use `help <command>` to get more details.
+
+| Command              | Description                                            |
+| -------------------- | ------------------------------------------------------ |
+| Get-DeploymentStatus | Get the status of the pods for a deployment            |
+| Get-PodByJobName     | Get a pod give a K8s job name                          |
+| Get-PodEvent         | Get all the K8s events for a pod                       |
+| Get-PodStatus        | Get the status of a pod, dumping events and logs       |
+| Invoke-HelmUpgrade   | Calls `helm upgrade` and polls K8s for events and logs |
+| Set-K8sUtilsDefaults | Sets type of output wanted for Invoke-HelmUpgrade      |
+
+## How `Invoke-HelmUpgrade` Works
 
 `Invoke-HelmUpgrade` calls `helm upgrade` without `-wait` and then will poll K8s during the various phases of the deployment, capturing events and logs along the way.
 
@@ -25,8 +43,8 @@ There are an infinite number of ways helm and its K8s manifests can be configure
 flowchart TD
     start([Start]) --> upgrade
 
-    upgrade[Helm upgrade] --> preHook{PreHook?}
-    preHook -- Yes --> checkJob[Log preHook\nJob status]
+    upgrade[helm upgrade] --> preHook{PreHook?}
+    preHook -- Yes --> checkJob[Log preHook\nJob events\n& logs]
     checkJob --> jobOk{Ok?}
 
     jobOk -- No --> failed
@@ -41,41 +59,43 @@ flowchart TD
 
     pod -- Error ---> failed
     running -- Yes --> ok([OK])
-    pod -- Timeout ---> failed{Rollback?}
-    failed -- Yes --> rollback([Rollback])
-    failed -- No --> exit([End])
+    pod -- Timeout ---> failed{-SkipRollback?}
+    failed -- No --> rollback([Rollback])
+    failed -- Yes --> exit([End])
+    rollback --> exit
+    ok --> exit
 ```
 
-## Using it in an Azure DevOps Pipeline
+## Using `Invoke-HelmUpgrade` in an Azure DevOps Pipeline
 
-Before the script can run, you need to do the following:
+Before the script can run, you need to do the following in your pipeline's Job:
 
 - `kubectl login`
 - `helm registry login`
 - `Install-Module K8sUtils` if you've registered it or `Import-Module` if you have it locally
 
-I've included a sanitized, opinionated version of a yaml [template](DevOps/AzureDevOpsTask/helm-upgrade.yml) used in an Azure DevOps pipeline. You can adapt it to your needs. It does the following.
+I've included a sanitized, version of a yaml [template](DevOps/AzureDevOpsTask/helm-upgrade.yml) used in an Azure DevOps pipeline. You can adapt it to your needs. It does the following.
 
 1. Logs into K8s using a AzDO Service Connection
 2. Logs into the Helm registry (with retries)
-3. Pulls K8sUtils from a NuGet repo, and installs it
+3. Pulls K8sUtils from a private NuGet repo, and installs it
 4. Runs a task to update the `values.yaml` file with parameter values
 5. Runs `Invoke-HelmUpgrade` with the updated `values.yaml` file
 
 ## Testing `Invoke-HelmUpgrade`
 
-Tests can be run locally using Rancher Desktop or Docker Desktop with Kubernetes enabled. The test scripts deploy the [minimal-api](https://github.com/MrSeekatar/minimal-api) ASP.NET application. Some of these scripts assume it is in a sibling directory, and the Docker image has been built locally.
+Tests can be run locally using [Rancher Desktop](https://rancherdesktop.io/) or [Docker Desktop](https://www.docker.com/products/docker-desktop/) with Kubernetes enabled. The Pester test scripts use `Minimal.psm1` helper module to deploy the [minimal-api](https://github.com/MrSeekatar/minimal-api) ASP.NET application, which must be built and pushed to local Docker.
 
 ### run.ps1 Tasks
 
 The `run.ps1` script has the following tasks that you can execute with `.\run.ps1 <task>,...`.
 
-| Task            | Description                                                                           |
-| --------------- | ------------------------------------------------------------------------------------- |
-| applyManifests  | Apply all the manifests in DevOps/manifests to the Kubernetes cluster                 |
-| publishK8sUtils | Publish the K8sUtils module to a NuGet repo                                           |
-| upgradeHelm[^1] | Upgrade/install the Helm chart in the Kubernetes cluster using `minimal1_values.yaml` |
-| uninstallHelm   | Uninstall the Helm chart in the Kubernetes cluster                                    |
+| Task            | Description                                                                          |
+| --------------- | ------------------------------------------------------------------------------------ |
+| applyManifests  | Apply all the manifests in DevOps/manifests to the Kubernetes cluster                |
+| publishK8sUtils | Publish the K8sUtils module to a NuGet repo                                          |
+| upgradeHelm[^1] | Upgrade/install the Helm chart in the Kubernetes cluster using `minimal_values.yaml` |
+| uninstallHelm   | Uninstall the Helm chart in the Kubernetes cluster                                   |
 
 [^1]: The `config-and-secret.yaml` manifest must be applied before running this task.
 
@@ -83,13 +103,11 @@ The `run.ps1` script has the following tasks that you can execute with `.\run.ps
 
 In the `DevOps/Kubernetes` folder are the following manifests:
 
-| Name                        | Description                                                                              |
-| --------------------------- | ---------------------------------------------------------------------------------------- |
-| busy-box.yml                | A busybox pod for testing in service-test namespace                                      |
-| manifests1.yml              | Creates a deployment, service and ingress with host my-k8s-example1.com                  |
-| manifests2.yml              | Creates a deployment, service and ingress with host my-k8s-example2.com                  |
-| powershell.yml              | A PowerShell pod for testing in service-test namespace                                   |
-| service-test-ns-service.yml | Create minimal3 service to access service 1 in service-test namespace using ExternalName |
+| Name                   | Description                                                             |
+| ---------------------- | ----------------------------------------------------------------------- |
+| config-and-secret.yaml | ConfigMap and Secret for the minimal1 deployment                        |
+| manifests1.yml         | Creates a deployment, service and ingress with host my-k8s-example1.com |
+| manifests2.yml         | Creates a deployment, service and ingress with host my-k8s-example2.com |
 
 > `$env:invokeHelmAllowLowTimeouts=1` to allow short timeouts for testing, otherwise will set min to 120s for prehook and 180s for main
 
@@ -130,28 +148,28 @@ Other cases
 
 These are the tests in [textMinimalDeploy.tests.ps1](Tools/MinimalDeploy.tests.ps1)
 
- | Test                                     | `Deploy-Minimal` Switches                                        |
- | ---------------------------------------- | ---------------------------------------------------------------- |
- | Ok, hook, init                           |                                                                  |
- | Ok, hook                                 | -SkipInit                                                        |
- | Ok, init                                 | -SkipPreHook                                                     |
- | Ok                                       | -SkipInit -SkipPreHook                                           |
- | Dry run                                  | -DryRun                                                          |
- | Main crash                               | -SkipInit -SkipPreHook -Fail                                     |
- | Main bad image tag                       | -SkipInit -SkipPreHook -ImageTag zzz                             |
- | Main bad secret name                     | -SkipInit -SkipPreHook -BadSecret                                |
- | Main times out                           | -SkipInit -SkipPreHook -RunCount 100                             |
- | Main startup probe temporarily times out | -SkipInit -SkipPreHook -TimeoutSec 60 -RunCount 10 -StartupProbe |
- | Main startup probe fails                 | -SkipInit -SkipPreHook -TimeoutSec 120 -Readiness '/fail'        |
- | Init container times out                 | -SkipPreHook -TimeoutSec 10 -InitRunCount 50                     |
- | Prehook times out                        | -SkipInit -HookRunCount 100 -PreHookTimeoutSecs 5                |
- | Prehook job crashes                      | -HookFail -TimeoutSecs 20 -PreHookTimeoutSecs 20                 |
- | ?                                        |                                                                  |
- | ?                                        |                                                                  |
+| Test                                      | `Deploy-Minimal` Switches                                        |
+| ----------------------------------------- | ---------------------------------------------------------------- |
+| hook, init ok                             |                                                                  |
+| without init ok                           | -SkipInit                                                        |
+| without prehook ok                        | -SkipPreHook                                                     |
+| without init or prehook ok                | -SkipPreHook -SkipInit                                           |
+| a dry run                                 | -DryRun                                                          |
+| main container crash                      | -SkipInit -SkipPreHook -Fail                                     |
+| main container has bad image tag          | -SkipInit -SkipPreHook -ImageTag zzz                             |
+| the main container with a bad secret name | -SkipInit -SkipPreHook -BadSecret                                |
+| the main container time out               | -SkipInit -SkipPreHook -RunCount 100                             |
+| a temporary startup timeout               | -SkipInit -SkipPreHook -TimeoutSec 60 -RunCount 10 -StartupProbe |
+| a temporary startup timeout               | -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 10 -StartupProbe |
+| a bad probe                               | -SkipInit -SkipPreHook -TimeoutSec 120 -Readiness '/fail'        |
+| a prehook job top timeout                 | -SkipInit -HookRunCount 50 -TimeoutSec 10                        |
+| an init timeout                           | -SkipPreHook -TimeoutSec 10 -InitRunCount 50                     |
+| the prehook job hook times                | -SkipInit -HookRunCount 100 -PreHookTimeoutSecs 5                |
+| prehook job crash                         | -HookFail -TimeoutSecs 20 -PreHookTimeoutSecs 20                 |
 
 ### Test helm chart
 
-The `DevOps/Helm` folder has a chart and `minimal1_values.yaml` file that can be used to test the helm chart. The `Invoke-HelmUpgrade` function in the PS module will run the upgrade with parameters to control this.
+The `DevOps/Helm` folder has a chart and `minimal_values.yaml` file that can be used to test the helm chart.
 
 See the preHookJob.yml for details on its configuration. Currently the `helm.sh/hook-delete-policy` is `before-hook-creation` so it will remain out there after the upgrade, but the `ttlSecondsAfterFinished` will delete it after 30s (or so).
 

@@ -46,7 +46,7 @@ If set, don't use color in output
               "preHook.imageTag=$HookTag," +
               "preHook.create=$(!$SkipPreHook)"
 
-    Invoke-HelmUpgrade -ValueFile "minimal1_values.yaml" `
+    Invoke-HelmUpgrade -ValueFile "minimal_values.yaml" `
                         -ChartName 'minimal' `
                         -ReleaseName "test" `
                         -HelmSet $parms `

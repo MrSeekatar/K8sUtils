@@ -10,7 +10,7 @@ BeforeAll {
 
 Describe "Deploys Minimal API" {
 
-    It "runs without errors" {
+    It "runs hook, init ok" {
         $deploy = Deploy-Minimal -PassThru
 
         Test-Deploy $deploy
@@ -20,7 +20,7 @@ Describe "Deploys Minimal API" {
         Test-MainPod $deploy.PodStatuses[0]
     } -Tag 'Happy'
 
-    It "runs without errors with no init" {
+    It "runs without init ok" {
         $deploy = Deploy-Minimal -PassThru -SkipInit
 
         Test-Deploy $deploy
@@ -30,7 +30,7 @@ Describe "Deploys Minimal API" {
         Test-MainPod $deploy.PodStatuses[0]
     } -Tag 'Happy'
 
-    It "runs without errors with no hook" {
+    It "runs without prehook ok" {
         $deploy = Deploy-Minimal -PassThru -SkipPreHook
 
         Test-Deploy $deploy
@@ -38,7 +38,7 @@ Describe "Deploys Minimal API" {
         Test-MainPod $deploy.PodStatuses[0]
     } -Tag 'Happy'
 
-    It "runs without errors with no hook or init" {
+    It "runs without init or prehook ok" {
         $deploy = Deploy-Minimal -PassThru -SkipPreHook -SkipInit
 
         Test-Deploy $deploy
@@ -46,47 +46,47 @@ Describe "Deploys Minimal API" {
         Test-MainPod $deploy.PodStatuses[0]
     } -Tag 'Happy'
 
-    It "does a dry run" {
+    It "runs a dry run" {
         $deploy = Deploy-Minimal -PassThru -DryRun 2>&1 | Out-Null
         $deploy | Should -Be $null
     } -Tag 'Happy'
 
-    It "has the main container crash" {
+    It "has main container crash" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -Fail
         Test-Deploy $deploy -Running $false
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Crash'
     } -Tag 'Crash','Negative'
 
-    It "has the main container has bad image tag" {
+    It "has main container has bad image tag" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ImageTag zzz
         Test-Deploy $deploy -Running $false
 
         Test-MainPod $deploy.PodStatuses[0] -status 'ConfigError' -reason "ErrImageNeverPull"
     } -Tag 'Config','Negative'
 
-    It "has the main container has bad secret name" {
+    It "has the main container with a bad secret name" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -BadSecret
         Test-Deploy $deploy -Running $false
 
         Test-MainPod $deploy.PodStatuses[0] -status 'ConfigError' -reason "CreateContainerConfigError"
     } -Tag 'Config','Negative'
 
-    It "has the main container that times out" {
+    It "has the main container time out" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -RunCount 100
         Test-Deploy $deploy -Running $false
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Unknown' -reason "Possible timeout"
     } -Tag 'Timeout','Negative'
 
-    It "gets a temporary startup timeout" {
+    It "has a temporary startup timeout" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 60 -RunCount 10 -StartupProbe
         Test-Deploy $deploy -Running $true
 
         Test-MainPod $deploy.PodStatuses[0]
     } -Tag 'Probe', 'Happy'
 
-    It "gets a temporary startup timeout" {
+    It "has a temporary startup timeout" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 10 -StartupProbe
         Test-Deploy $deploy -Running $false
 
@@ -102,7 +102,7 @@ Describe "Deploys Minimal API" {
         $deploy.PodStatuses[0].LastBadEvents[0] | Should -BeLike 'Readiness probe failed:*'
     } -Tag 'Negative','Probe'
 
-    It "has a prehook timeout" {
+    It "has a prehook job top timeout" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -HookRunCount 50 -TimeoutSec 10
         Test-Deploy $deploy -Running $false -podCount 0
 
@@ -116,7 +116,7 @@ Describe "Deploys Minimal API" {
         Test-MainPod $deploy.PodStatuses[0] -status 'Unknown' -reason "Possible timeout"
     } -Tag 'Negative', 'Timeout'
 
-    It "has the prehook job's container that times out" {
+    It "has the prehook job hook times" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -HookRunCount 100 -PreHookTimeoutSecs 5
         $deploy.Running | Should -Be $false
         $deploy.ReleaseName | Should -Be 'test'
@@ -124,7 +124,7 @@ Describe "Deploys Minimal API" {
         Test-PreHook $deploy.PreHookStatus # will be running
     } -Tag 'Timeout','Negative'
 
-    It "has prehook crash" {
+    It "has prehook job crash" {
         $deploy = Deploy-Minimal -PassThru -HookFail -TimeoutSecs 20 -PreHookTimeoutSecs 20
         Test-Deploy $deploy -Running $false -PodCount 0
         $deploy.PreHookStatus.Status | Should -Be 'Crash'
