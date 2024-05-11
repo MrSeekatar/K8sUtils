@@ -1,0 +1,169 @@
+# deploy using Helm using a script to catch errors and log to the console
+parameters:
+  - name: valueFile
+    type: string
+    displayName: 'Helm Value File'
+
+  - name: releaseName
+    type: string
+    displayName: 'Helm Release Name'
+
+  - name: azSubscription
+    type: string
+    displayName: 'Azure Subscription for K8s'
+
+  - name: azResourceGroup
+    type: string
+    displayName: 'Azure Resource Group for K8s'
+
+  - name: k8sCluster
+    type: string
+    displayName: 'K8s Cluster'
+
+  - name: preHookJobName
+    type: string
+    displayName: 'PreHook Job Name, usually same as releaseName'
+    default: ''
+
+  - name: registry
+    type: string
+    displayName: 'Helm Registry'
+
+  - name: k8s-user
+    type: string
+    displayName: 'K8s User'
+
+  - name: k8s-password
+    type: string
+    displayName: 'K8s Password'
+
+  - name: chartVersion
+    type: string
+    default: '3.0.0'
+
+  - name: chart
+    type: string
+    default: 'oci://YourCompany.azurecr.io/helm/YourCompany-app'
+
+  - name: chartName
+    type: string
+    default: 'YourCompany-app'
+
+  - name: namespace
+    type: string
+    default: 'default'
+    displayName: 'K8s Namespace'
+
+  - name: timeoutMin
+    type: number
+    default: 5
+    displayName: 'Timeout in minutes for Pods to be ready'
+
+  - name: preHookTimeoutMin
+    type: number
+    default: 3
+    displayName: 'Timeout in minutes for PreHook Job to complete'
+
+  - name: skipRollbackOnError
+    type: boolean
+    default: false
+    displayName: 'Do not rollback on failure'
+
+  - name: verbose
+    type: boolean
+    default: false
+
+  - name: dryRun
+    type: boolean
+    default: false
+
+  - name: adoArtifactsPat
+    type: string
+    default: $(ado-artifacts-pat)
+    displayName: 'The Personal Access Token for the Azure DevOps Artifacts (NuGet) feed'
+
+  - name: keyVaultConnection
+    type: string
+    default: YourCompany-keyvault-prod-identity-$(System.TeamProject)
+    displayName: 'The Azure Subscription for the Key Vault for Helm registry login'
+
+steps:
+  # need to run kubectl in the script below
+  - task: Kubernetes@1
+    displayName: 'Kubernetes Login'
+    inputs:
+      connectionType: Azure Resource Manager
+      useClusterAdmin: true
+      azureSubscriptionEndpoint: ${{ parameters.azSubscription }}
+      azureResourceGroup: ${{ parameters.azResourceGroup }}
+      kubernetesCluster: ${{ parameters.k8sCluster }}
+      command: 'login'
+
+  - pwsh: |
+      # https://github.com/microsoft/azure-pipelines-tasks/issues/13684 to avoid warnings about it being world-readable
+      chmod 0600 /home/vsts/work/_temp/kubectlTask/*/config
+      chmod 0600 /agent/_work/_temp/kubectlTask/*/config
+
+      $LASTEXITCODE = 0
+      for ($i = 0; $i -lt 10; $i++) {
+        helm registry login ${{ parameters.registry }} --username ${{ parameters.helmUser }} --password ${{ parameters.helmPassword }}
+        if ($LASTEXITCODE -eq 0) { break }
+        Write-Host "helm registry login failed, retrying in 3 seconds"
+        Start-Sleep -Seconds 3
+      }
+    displayName: 'Login to helm registry'
+
+  - pwsh: |
+      "Pat starts with: $($env:pat.Substring(0, 3))"
+      $patToken = $env:pat | ConvertTo-SecureString -AsPlainText -Force
+      $cred = New-Object System.Management.Automation.PSCredential("ignoredUsingPat", $patToken)
+
+      if (Get-PSRepository | Where-Object name -eq YourCompany) {
+        Write-Host "Unregistering YourCompany PS Repository already registered"
+        UnRegister-PSRepository -Name YourCompany
+      }
+      $fullUrl = "https://pkgs.dev.azure.com/YourCompanyhealth/_packaging/YourCompanyNuget/nuget/v2"
+      Register-PSRepository -Name YourCompany `
+                            -SourceLocation $fullUrl `
+                            -PublishLocation $fullUrl `
+                            -InstallationPolicy Trusted `
+                            -Credential $cred
+      Install-Module -Name K8sUtils -Repository YourCompany -Credential $cred -Force
+      Get-Command -Module K8sUtils
+    displayName: 'Install K8sUtils'
+    env:
+      pat: ${{ parameters.adoArtifactsPat }}
+
+  - task: qetza.replacetokens.replacetokens-task.replacetokens@5
+    displayName: 'Replace tokens in **/*.yaml'
+    inputs:
+      targetFiles: ${{ parameters.valueFile }}
+
+  - pwsh: |
+      $skipRollbackOnError = '${{ parameters.skipRollbackOnError }}' -eq 'true'
+      $verbose = '${{ parameters.verbose }}' -eq 'true'
+      $dryRun = '${{ parameters.dryRun }}' -eq 'true'
+      $timeoutSecs = ${{ parameters.timeoutMin }}*60
+      $preHookTimeoutSecs = ${{ parameters.preHookTimeoutMin }}*60
+
+      $deploy = Invoke-HelmUpgrade -ValueFile '${{ parameters.valueFile }}' `
+                    -Namespace ${{ parameters.namespace }} `
+                    -ChartName ${{ parameters.chartName }} `
+                    -Chart '${{ parameters.chart }}' `
+                    -ChartVersion '${{ parameters.chartVersion }}' `
+                    -ReleaseName '${{ parameters.releaseName }}' `
+                    -PreHookJobName '${{ parameters.preHookJobName }}' `
+                    -PreHookTimeoutSecs $preHookTimeoutSec `
+                    -DeploymentSelector app=${{ parameters.releaseName }} `
+                    -PodTimeoutSecs $timeoutSecs `
+                    -DryRun:$dryRun `
+                    -SkipRollbackOnError:$skipRollbackOnError `
+                    -Verbose:$verbose
+
+        $deploy | ConvertTo-Json -Depth 5 -EnumsAsStrings
+        if (!$deploy.Running)  {
+          Write-Error "Deployment failed"
+          exit 1
+        }
+
+    displayName: 'Deploy ${{ parameters.releaseName }}'

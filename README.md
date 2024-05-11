@@ -1,6 +1,7 @@
 # K8sUtils PowerShell Module <!-- omit in toc -->
 
 - [How It Works](#how-it-works)
+- [Using it in an Azure DevOps Pipeline](#using-it-in-an-azure-devops-pipeline)
 - [Testing `Invoke-HelmUpgrade`](#testing-invoke-helmupgrade)
   - [run.ps1 Tasks](#runps1-tasks)
   - [Kubernetes Manifests](#kubernetes-manifests)
@@ -44,6 +45,22 @@ flowchart TD
     failed -- Yes --> rollback([Rollback])
     failed -- No --> exit([End])
 ```
+
+## Using it in an Azure DevOps Pipeline
+
+Before the script can run, you need to do the following:
+
+- `kubectl login`
+- `helm registry login`
+- `Install-Module K8sUtils` if you've registered it or `Import-Module` if you have it locally
+
+I've included a sanitized, opinionated version of a yaml [template](DevOps/AzureDevOpsTask/helm-upgrade.yml) used in an Azure DevOps pipeline. You can adapt it to your needs. It does the following.
+
+1. Logs into K8s using a AzDO Service Connection
+2. Logs into the Helm registry (with retries)
+3. Pulls K8sUtils from a NuGet repo, and installs it
+4. Runs a task to update the `values.yaml` file with parameter values
+5. Runs `Invoke-HelmUpgrade` with the updated `values.yaml` file
 
 ## Testing `Invoke-HelmUpgrade`
 
