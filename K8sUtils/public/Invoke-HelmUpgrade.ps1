@@ -136,7 +136,7 @@ function Invoke-HelmUpgrade {
         $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json
         if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version -MemberType Property)) {
             Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning -Char '-'
-            Write-Warning ($currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)
+            Write-Warning (""+$currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)
             return
         }
         Write-Verbose "Current version of $ReleaseName is $($currentReleaseVersion.version)"
