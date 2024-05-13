@@ -1,10 +1,13 @@
 # Change Log
 
-## [1.0.7] 2024-5-9
+## [1.0.8] 2024-5-x
+
+## [1.0.7] 2024-5-13
 
 ### Fixed
 
 - Event messages no longer truncates in AzDO, or narrower consoles
+- Handle case when error only is in the pod's state, not in events
 
 ### Updated
 
