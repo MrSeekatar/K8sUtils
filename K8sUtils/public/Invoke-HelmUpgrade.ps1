@@ -160,7 +160,7 @@ function Invoke-HelmUpgrade {
                 Write-Status "helm rollback failed, trying uninstall" -LogLevel Error -Char '-'
                 helm uninstall $ReleaseName | Out-File $OutputFile -Append
             }
-            Write-Footer "End rolling back release $ReleaseName due to errors"
+            Write-Footer "End rolling back release $ReleaseName due to errors" -LogLevel Error
             Remove-Item $errFile -ErrorAction SilentlyContinue
             # throw "$msg, rolled back"
             Write-Warning "$msg, rolled back"

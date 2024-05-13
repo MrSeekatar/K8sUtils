@@ -53,8 +53,9 @@ function Write-Header() {
         [string] $OutputFile = $script:OutputFile
     )
     $headerMessage = $LogLevel -eq "error" ? "ERROR" : ""
+    $prefix = $LogLevel -eq "error" ? "" : $script:HeaderPrefix
     Write-Status -Msg $headerMessage -LogLevel $LogLevel -ColorType $ColorType -Char '-' -OutputFile $OutputFile
-    Write-Status -Msg $msg -LogLevel normal -Length $Length -ColorType ANSI -Char ',' -OutputFile $OutputFile -Prefix $script:HeaderPrefix -NoDate
+    Write-Status -Msg $msg -LogLevel normal -Length $Length -ColorType ANSI -Char ',' -OutputFile $OutputFile -Prefix $prefix -NoDate
 }
 
 function Write-Footer() {
@@ -68,8 +69,8 @@ function Write-Footer() {
         [string] $ColorType = $script:ColorType,
         [string] $OutputFile = $script:OutputFile
     )
-
-    Write-Status -Msg $msg -LogLevel normal -Length $Length -Suffix "`n" -ColorType ANSI -Char '`' -OutputFile $OutputFile -Prefix $script:FooterPrefix -NoDate
+    $prefix = $LogLevel -eq "error" ? "" : $script:FooterPrefix
+    Write-Status -Msg $msg -LogLevel normal -Length $Length -Suffix "`n" -ColorType ANSI -Char '`' -OutputFile $OutputFile -Prefix $prefix -NoDate
 }
 
 function Write-Status() {

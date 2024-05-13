@@ -2,6 +2,11 @@
 
 ## [1.0.8] 2024-5-x
 
+### Updated
+
+- Even more hints on expanding logs in AzDO
+- Do not add error data in to groups for AzDO so isn't collapsed
+
 ## [1.0.7] 2024-5-13
 
 ### Fixed
