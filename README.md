@@ -4,13 +4,9 @@ A PowerShell module with helpers for working with Kubernetes (K8s) and deploying
 
 - [Commands](#commands)
 - [How `Invoke-HelmUpgrade` Works](#how-invoke-helmupgrade-works)
+- [Using `Invoke-HelmUpgrade`](#using-invoke-helmupgrade)
 - [Using `Invoke-HelmUpgrade` in an Azure DevOps Pipeline](#using-invoke-helmupgrade-in-an-azure-devops-pipeline)
 - [Testing `Invoke-HelmUpgrade`](#testing-invoke-helmupgrade)
-  - [run.ps1 Tasks](#runps1-tasks)
-  - [Kubernetes Manifests](#kubernetes-manifests)
-  - [Scenarios](#scenarios)
-  - [Pester Test Coverage](#pester-test-coverage)
-  - [Test helm chart](#test-helm-chart)
 
 This module was created to solve a problem when using `helm -wait` in a CI/CD pipeline. `-wait` is wonderful feature in that your pipeline will wait for a successful deployment instead of returning after passing manifest to K8s. If anything goes wrong, however, it will wait until the timeout and then return just a timeout error. At that point, you may have lost all the logs and events that could help diagnose the problem and then have to re-run the deployment and baby sit it to try to catch the logs or events that caused the timeout.
 
@@ -66,6 +62,11 @@ flowchart TD
     ok --> exit
 ```
 
+## Using `Invoke-HelmUpgrade`
+
+You can run `Invoke-HelmUpgrade` from the command line or in a CI/CD pipeline to run Helm upgrade. It has a number of parameters to control its behavior, and `help Invoke-HelmUpgrade` will give you all the details.
+
+
 ## Using `Invoke-HelmUpgrade` in an Azure DevOps Pipeline
 
 Before the script can run, you need to do the following in your pipeline's Job:
@@ -86,7 +87,7 @@ I've included a sanitized, version of a yaml [template](DevOps/AzureDevOpsTask/h
 
 Tests can be run locally using [Rancher Desktop](https://rancherdesktop.io/) or [Docker Desktop](https://www.docker.com/products/docker-desktop/) with Kubernetes enabled. The Pester test scripts use `Minimal.psm1` helper module to deploy the [minimal-api](https://github.com/MrSeekatar/minimal-api) ASP.NET application, which must be built and pushed to local Docker.
 
-### run.ps1 Tasks
+### run.ps1 Tasks <!-- omit in toc -->
 
 The `run.ps1` script has the following tasks that you can execute with `.\run.ps1 <task>,...`.
 
@@ -94,12 +95,13 @@ The `run.ps1` script has the following tasks that you can execute with `.\run.ps
 | --------------- | ------------------------------------------------------------------------------------ |
 | applyManifests  | Apply all the manifests in DevOps/manifests to the Kubernetes cluster                |
 | publishK8sUtils | Publish the K8sUtils module to a NuGet repo                                          |
+| test            | Test the `Invoke-HelmUpgrade` function with various scenarios with Pester            |
 | upgradeHelm[^1] | Upgrade/install the Helm chart in the Kubernetes cluster using `minimal_values.yaml` |
 | uninstallHelm   | Uninstall the Helm chart in the Kubernetes cluster                                   |
 
 [^1]: The `config-and-secret.yaml` manifest must be applied before running this task.
 
-### Kubernetes Manifests
+### Kubernetes Manifests <!-- omit in toc -->
 
 In the `DevOps/Kubernetes` folder are the following manifests:
 
@@ -111,7 +113,7 @@ In the `DevOps/Kubernetes` folder are the following manifests:
 
 > `$env:invokeHelmAllowLowTimeouts=1` to allow short timeouts for testing, otherwise will set min to 120s for prehook and 180s for main
 
-### Scenarios
+### Scenarios <!-- omit in toc -->
 
 The following table shows the scenarios of deploying the app with helm and the various ways it can fail. `Crash` means the pod/job actually crashes. `Config` means the pod/job doesn't even start due to some configuration error such as bad image tag, missing environment variable or mount, etc. The Switch column is the switch to `Deploy-Minimal` to make the app fail in that way.
 
@@ -144,7 +146,7 @@ Other cases
 | PreHook Job `restart: onFailure`             |         |                                                                   |
 | PreHook Job `activeDeadlineSeconds`          |         |                                                                   |
 
-### Pester Test Coverage
+### Pester Test Coverage <!-- omit in toc -->
 
 These are the tests in [textMinimalDeploy.tests.ps1](Tools/MinimalDeploy.tests.ps1)
 
@@ -167,7 +169,7 @@ These are the tests in [textMinimalDeploy.tests.ps1](Tools/MinimalDeploy.tests.p
 | the prehook job hook times                | -SkipInit -HookRunCount 100 -PreHookTimeoutSecs 5                |
 | prehook job crash                         | -HookFail -TimeoutSecs 20 -PreHookTimeoutSecs 20                 |
 
-### Test helm chart
+### Test helm chart <!-- omit in toc -->
 
 The `DevOps/Helm` folder has a chart and `minimal_values.yaml` file that can be used to test the helm chart.
 

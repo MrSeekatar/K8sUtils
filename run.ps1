@@ -20,11 +20,12 @@ param (
     [string[]] $Tasks,
     [switch] $Wait,
     [switch] $DryRun,
-    [string] $K8sUtilsVersion
+    [string] $K8sUtilsVersion,
+    [string] $Repository,
+    [string] $NugetPassword = $env:nuget_password
 )
 
 $currentTask = ""
-$imageName = "minimal"
 
 # execute a script, checking lastexit code
 function executeSB {
@@ -51,10 +52,6 @@ function executeSB {
     }
 }
 
-if ($Tasks -eq "ci") {
-    $Tasks = @('CreateLocalNuget', 'Build', 'Test', 'Pack') # todo sample task expansion
-}
-
 foreach ($currentTask in $Tasks) {
 
     try {
@@ -73,12 +70,17 @@ foreach ($currentTask in $Tasks) {
                 }
             }
             'publishK8sUtils' {
-                if (!$nuget_password) {
-                    throw "nuget_password and K8sUtilsVersion must be set"
+                if (!$NugetPassword -or !$Repository) {
+                    throw "NugetPassword and Repository parameters must be set"
                 }
                 executeSB -RelativeDir "K8sUtils" {
-                    $K8sUtilsVersion
-                    Publish-Module -Repository Loyal -Path . -NuGetApiKey $nuget_password
+                    Publish-Module -Repository $Repository -Path . -NuGetApiKey $NugetPassword
+                }
+            }
+            'test' {
+                executeSB  {
+                    $result = Invoke-Pester -PassThru
+                    $result | Format-Table -AutoSize
                 }
             }
             'upgradeHelm' {

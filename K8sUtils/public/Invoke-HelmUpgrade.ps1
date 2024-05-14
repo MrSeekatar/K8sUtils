@@ -3,22 +3,28 @@
 Invoke helm upgrade using helper scripts to catch errors, and rollback
 
 .PARAMETER ValueFile
-Name of the values file to use
+Name of the helm values file to use
 
 .PARAMETER ChartName
-Name of the chart to upgrade
+Name of the helm chart to use in the upgrade
 
 .PARAMETER ReleaseName
 Name of the helm release
 
+.PARAMETER DeploymentSelector
+K8s select used to find your deployment, defaults to app.kubernetes.io/instance=$ReleaseName,app.kubernetes.io/name=$ChartName
+
 .PARAMETER Chart
 Path to the chart folder or tgz, or url, defaults to .
+
+.PARAMETER ChartVersion
+Version of the helm chart to use
 
 .PARAMETER Namespace
 K8s namespace to use, defaults to default
 
 .PARAMETER PreHookJobName
-If set runs the helm prehook job
+If set, watches for a helm pre-install job
 
 .PARAMETER HelmSet
 Any additional values to set with --set for helm
@@ -30,7 +36,10 @@ Any additional values to set with --set-json for helm
 Timeout in seconds for waiting on the pods. Defaults to 600
 
 .PARAMETER PreHookTimeoutSecs
-Timeout in seconds for waiting on the prehook job to complete, if PreHookJobName is set. Defaults to 60
+Timeout in seconds for waiting on the helm pre-install job to complete, if PreHookJobName is set. Defaults to 60
+
+.PARAMETER PollIntervalSec
+How often to poll for pod status. Defaults to 5
 
 .PARAMETER SkipRollbackOnError
 If set, don't do a helm rollback on error
@@ -38,8 +47,8 @@ If set, don't do a helm rollback on error
 .PARAMETER DryRun
 If set, don't actually do the helm upgrade
 
-.PARAMETER NoColor
-If set, don't use color in output
+.PARAMETER ColorType
+How to colorize the output. Defaults to DevOps if TF_BUILD env var, otherwise ANSI colors
 
 .EXAMPLE
     $parms = "preHook.fail=$HookFail," +
@@ -65,16 +74,16 @@ Convert-Value "~/code/BackendTemplate/DevOps/helm/values.yaml" `
             availabilityZoneLower = "sc"
         } | Out-File ./new-values.yml
 
-Invoke-HelmUpgrade -ValueFile "./new-values.yml" `
-                    -ChartName 'loyal-app' `
-                    -Chart '~/code/DevOps/helm-charts/internal-charts/loyal-app-template' `
+Invoke-HelmUpgrade -ValueFile "./values.yml" `
+                    -ChartName 'my-chart' `
+                    -Chart '~/code/DevOps/helm-charts/internal-charts/my-chart-template' `
                     -ReleaseName "backendtemplate-api" `
                     -PreHookJobName "backendtemplate-api" `
                     -PreHookTimeoutSecs 120 `
                     -DeploymentSelector app=backendtemplate-api `
                     -SkipRollbackOnError -Verbose
 
-Do a Helm upgrade of a backend template to test with a Perses prehook job
+Do a Helm upgrade of a backend template to test with a pre-install hook that has a job named backendtemplate-api
 
 .EXAMPLE
 # put secrets in the new-values.yml file
@@ -88,11 +97,11 @@ Convert-Value "~/code/BackendTemplate/DevOps/helm/values.yaml" `
         } | Out-File ./new-values.yml
 
 Invoke-HelmUpgrade -ValueFile "./new-values.yml" `
-                     -ChartName 'loyal-app' `
-                     -Chart '~/code/DevOps/helm-charts/internal-charts/loyal-app-template' `
+                     -ChartName 'my-chart' `
+                     -Chart '~/code/DevOps/helm-charts/internal-charts/my-chart-template' `
                      -ReleaseName "hrabuilder-api" `
                      -DeploymentSelector app=hrabuilder-api `
-                      -Verbose
+                     -Verbose
 
 Do a Helm upgrade of a hra builder to dev
 
@@ -133,8 +142,8 @@ function Invoke-HelmUpgrade {
         [CmdletBinding()]
         param ($SkipRollbackOnError, $releaseName, $msg, $prevVersion)
 
-        $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json
-        if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version -MemberType Property)) {
+        $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10
+        if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version)) {
             Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning -Char '-'
             Write-Warning (""+$currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)
             return
@@ -236,13 +245,14 @@ function Invoke-HelmUpgrade {
         $status = [ReleaseStatus]::new($ReleaseName)
 
         if ($PreHookJobName) {
-            $x = Get-PodStatus -Selector "job-name=$PreHookJobName" `
+            $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                                         -Namespace $Namespace `
                                                         -OutputFile $tempFile `
                                                         -TimeoutSec $PreHookTimeoutSecs `
+                                                        -PollIntervalSec $PollIntervalSec `
                                                         -IsJob
-            Write-Verbose "Prehook status is $($x | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
-            $status.PreHookStatus = $x
+            Write-Verbose "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+            $status.PreHookStatus = $hookStatus
 
             if ($upgradeExit -ne 0) {
                 $status.Running = $false

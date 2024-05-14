@@ -5,20 +5,23 @@ Get the status of the pods for a release
 .PARAMETER Selector
 K8s select for finding the pods
 
-.PARAMETER ReleaseName
-Parameter description
-
 .PARAMETER ReplicaCount
 Number of pods to wait for that match the selector
 
 .PARAMETER PollIntervalSec
-Seconds to wait between polls
+Seconds to wait between polls defaults to 5
 
-.PARAMETER HasInit
-Container has init, prefix the log output
+.PARAMETER TimeoutSecs
+Timeout in seconds for waiting on the pods. Defaults to 600
+
+.PARAMETER Namespace
+K8s namespace to use, defaults to default
 
 .PARAMETER OutputFile
 File to write output to in addition to the console
+
+.PARAMETER IsJob
+Is this pod a job's pod
 
 .EXAMPLE
 An example
@@ -34,7 +37,7 @@ param(
     [ValidateRange(1, 100)]
     [int] $ReplicaCount = 1,
     [ValidateRange(1, 600)]
-    [int] $PollIntervalSec = 1,
+    [int] $PollIntervalSec = 5,
     [int] $TimeoutSec = 600,
     [string] $Namespace = "default",
     [string] $OutputFile,

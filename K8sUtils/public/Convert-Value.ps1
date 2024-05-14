@@ -4,14 +4,15 @@ One pass replacement of variables in a file, similar to qetza.replacetokens.repl
 
 .DESCRIPTION
 This is useful if you have a values.yaml file that has #{variable}# in it, and you want to replace those with values to run locally.
+
 .PARAMETER ValuesFile
 Name of the file to replace variables in
 
+.PARAMETER Variables
+Hashtable of variables to replace, will override VariableFile
+
 .PARAMETER VariableFile
 Yaml file of variables to replace
-
-.PARAMETER Variables
-Has table of variables to replace, will override VariableFile
 
 .PARAMETER StartDelimiter
 Start delimiter for the variable to replace, defaults to #{

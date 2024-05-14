@@ -11,8 +11,11 @@ K8s namespace to use, defaults to default
 .PARAMETER TimeoutSec
 Seconds to wait for the deployment to be ready
 
-.PARAMETER NoColor
-If set, don't use color in output
+.PARAMETER PollIntervalSec
+How often to poll for pod status. Defaults to 5
+
+.PARAMETER ColorType
+How to colorize the output. Defaults to DevOps if TF_BUILD env var, otherwise ANSI colors
 
 .PARAMETER OutputFile
 File to write output to in addition to the console
@@ -38,7 +41,7 @@ function Get-DeploymentStatus {
         [string] $Selector,
         [string] $Namespace = "default",
         [int] $TimeoutSec = 30,
-        [int] $PollIntervalSec = 1,
+        [int] $PollIntervalSec = 5,
         [string] $ColorType,
         [string] $OutputFile
     )
