@@ -14,7 +14,7 @@ function Set-K8sUtilsDefaults {
         $script:FooterPrefix = "<< "
     } elseif (Test-Path env:TF_BUILD) {
         $script:ColorType = "DevOps"
-        $script:HeaderPrefix = "##[group] 👈 CLICK ▸ TO EXPAND"
+        $script:HeaderPrefix = "##[group] 👈 CLICK ▸ TO EXPAND "
         $script:FooterPrefix = "##[endgroup]"
     }
 }
