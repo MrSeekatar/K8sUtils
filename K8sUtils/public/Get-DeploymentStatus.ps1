@@ -48,7 +48,7 @@ function Get-DeploymentStatus {
 
     Set-StrictMode -Version Latest
 
-    Write-Verbose "Get-DeploymentStatus has timeout of $TimeoutSec seconds"
+    Write-Verbose "Get-DeploymentStatus has timeout of $TimeoutSec seconds and selector $Selector in namespace $Namespace"
     $createdTempFile = !$OutputFile
     if (!$OutputFile) {
         $OutputFile = Get-TempLogFile
@@ -58,7 +58,12 @@ function Get-DeploymentStatus {
     $replicas = $null
     for ( $i = 0; $i -lt 10 -and $null -eq $replicas; $i++) {
         # todo check to see if it exists, or don't use jsonpath since items[0] can fail
-        $replicas = kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items[0].spec.replicas}'
+        $items = kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20
+        if (!$items) {
+            Write-Warning "No items from kubectl get deploy -l $Selector"
+        } else {
+            $replicas = $items[0].spec.replicas
+        }
         Start-Sleep -Seconds 1
     }
     if ($LASTEXITCODE -ne 0 || $null -eq $replicas) {

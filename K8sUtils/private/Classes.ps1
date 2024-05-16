@@ -18,6 +18,15 @@ enum Status {
     ConfigError
 }
 
+enum RollbackStatus {
+    Unknown
+    DeployedOk
+    NoChange
+    HelmStatusFailed
+    Skipped
+    RolledBack
+}
+
 # state.running means running, has startedAt
 # state.terminated means crash, has optional reason, etc. only exitCode req'd
 # state.waiting means bad image, missing secret, has optional reason
@@ -95,4 +104,5 @@ class ReleaseStatus
     [bool] $Running
     [PodStatus[]] $PodStatuses
     [PodStatus] $PreHookStatus
+    [RollbackStatus] $RollbackStatus
 }

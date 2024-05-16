@@ -71,7 +71,8 @@ function Deploy-Minimal {
         [string] $ColorType = "ANSI",
         [switch] $BadSecret,
         [switch] $PassThru,
-        [switch] $StartupProbe
+        [switch] $StartupProbe,
+        [switch] $SkipDeploy
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -119,31 +120,35 @@ function Deploy-Minimal {
         $helmSet += "startupPath=/info,"
     }
 
-    $helmSet += "image.tag=$ImageTag," +
-              "replicaCount=$Replicas," +
-              "env.failOnStart=$fail," +
-              "env.runCount=$RunCount," +
-              "preHook.runCount=$HookRunCount," +
-              "preHook.fail=$HookFail," +
-              "preHook.imageTag=$HookTag," +
-              "preHook.create=$(!$SkipPreHook)," +
-              "readinessPath=$Readiness," +
-              "env.deployTime=$(Get-Date)"
+    $helmSet += "deployment.enabled=$($SkipDeploy ? "false" : "true")," +
+                "env.deployTime=$(Get-Date)," +
+                "env.failOnStart=$fail," +
+                "env.runCount=$RunCount," +
+                "image.tag=$ImageTag," +
+                "preHook.create=$(!$SkipPreHook)," +
+                "preHook.fail=$HookFail," +
+                "preHook.imageTag=$HookTag," +
+                "preHook.runCount=$HookRunCount," +
+                "readinessPath=$Readiness," +
+                "replicaCount=$Replicas"
 
     Write-Verbose ($helmSet -join " ")
-
+    $releaseName = "test"
+    $chartName = "minimal"
     try {
         $ret = Invoke-HelmUpgrade -ValueFile "minimal_values.yaml" `
-                           -ChartName 'minimal' `
-                           -ReleaseName "test" `
+                           -ChartName $chartName `
+                           -ReleaseName $releaseName `
                            -HelmSet $helmSet `
                            -HelmSetJson $helmJson `
+                           -DeploymentSelector ($SkipDeploy ? "" : "app.kubernetes.io/instance=$releaseName,app.kubernetes.io/name=$chartName") `
                            -PodTimeoutSec $TimeoutSecs `
                            -PreHookJobName ($SkipPreHook ? $Null : "test-prehook") `
                            -PreHookTimeoutSecs $PreHookTimeoutSecs `
                            -PollIntervalSec $PollIntervalSec `
                            -DryRun:$DryRun `
                            -SkipRollbackOnError:$SkipRollbackOnError `
+                           -ColorType $ColorType `
                            -Verbose:$VerbosePreference
         if ($PassThru) {
             $ret

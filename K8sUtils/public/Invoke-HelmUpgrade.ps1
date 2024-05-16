@@ -146,14 +146,14 @@ function Invoke-HelmUpgrade {
         if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version)) {
             Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning -Char '-'
             Write-Warning (""+$currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)
-            return
+            return [RollbackStatus]::HelmStatusFailed
         }
         Write-Verbose "Current version of $ReleaseName is $($currentReleaseVersion.version)"
         if (!$currentReleaseVersion -or $currentReleaseVersion.version -eq $prevVersion) {
             Write-Status "No change in release $ReleaseName, not rolling back" -LogLevel warning -Char '-'
             # throw "$msg, no change"
             Write-Warning "$msg, no change"
-            return
+            return [RollbackStatus]::NoChange
         }
 
         if (!$SkipRollbackOnError) {
@@ -173,10 +173,13 @@ function Invoke-HelmUpgrade {
             Remove-Item $errFile -ErrorAction SilentlyContinue
             # throw "$msg, rolled back"
             Write-Warning "$msg, rolled back"
+            return [RollbackStatus]::RolledBack
         } else {
             # throw "$msg, but not rolling back since -SkipRollbackOnError was specified"
             Write-Warning "$msg, but not rolling back since -SkipRollbackOnError was specified"
+            return [RollbackStatus]::Skipped
         }
+        return [RollbackStatus]::DeployedOk
     }
 
     if (!(Get-Command helm -ErrorAction SilentlyContinue) -or !(Get-Command kubectl -ErrorAction SilentlyContinue)) {
@@ -257,27 +260,32 @@ function Invoke-HelmUpgrade {
             if ($upgradeExit -ne 0) {
                 $status.Running = $false
                 Write-Output $status
-                rollbackAndWarn $SkipRollbackOnError $ReleaseName "Helm upgrade got last exit code $upgradeExit" $prevVersion
+                $status.RollbackStatus =  rollbackAndWarn $SkipRollbackOnError $ReleaseName "Helm upgrade got last exit code $upgradeExit" $prevVersion
                 return
             }
         }
 
-        $podStatuses = Get-DeploymentStatus -TimeoutSec $PodTimeoutSecs `
-                                   -Namespace $Namespace `
-                                   -Selector $DeploymentSelector `
-                                   -PollIntervalSec $PollIntervalSec `
-                                   -OutputFile $tempFile
+        if ($DeploymentSelector) {
+            $podStatuses = Get-DeploymentStatus -TimeoutSec $PodTimeoutSecs `
+                                    -Namespace $Namespace `
+                                    -Selector $DeploymentSelector `
+                                    -PollIntervalSec $PollIntervalSec `
+                                    -OutputFile $tempFile
 
-        $status.PodStatuses = @() # ?? can't assign the array to podStatuses
-        Write-Verbose "Pod statuses are $($podStatuses | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
-        $status.PodStatuses += $podStatuses
-        $status.Running = ![bool]($podStatuses | Where-Object status -ne Running)
-
+            $status.PodStatuses = @() # ?? can't assign the array to podStatuses
+            Write-Verbose "Pod statuses are $($podStatuses | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+            $status.PodStatuses += $podStatuses
+            $status.Running = ![bool]($podStatuses | Where-Object status -ne Running)
+        } else {
+            Write-Warning "No DeploymentSelector specified, not checking main pod"
+        }
         Write-Verbose "PodStatuses: $($status.PodStatuses | Format-List | Out-String)"
 
         Write-Output $status
-        if (!$status.Running) {
-            rollbackAndWarn $SkipRollbackOnError $ReleaseName "Release $ReleaseName had errors" $prevVersion
+        if ($DeploymentSelector -and !$status.Running) {
+            $status.RollbackStatus = rollbackAndWarn $SkipRollbackOnError $ReleaseName "Release $ReleaseName had errors" $prevVersion
+        } else {
+            $status.RollbackStatus = [RollbackStatus]::DeployedOk
         }
     } catch {
         Write-Error "$_`n$($_.ScriptStackTrace)"

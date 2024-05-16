@@ -80,7 +80,8 @@ foreach ($currentTask in $Tasks) {
             'test' {
                 executeSB  {
                     $result = Invoke-Pester -PassThru
-                    $result | Format-Table -AutoSize
+                    $result.tests | Where-Object executed | Select-Object name, passed, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }}
+                    $global:results = $result
                 }
             }
             'upgradeHelm' {

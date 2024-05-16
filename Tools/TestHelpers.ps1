@@ -1,8 +1,9 @@
 # mainly used in test, but split out in case you want to use them
 
-function Test-Deploy( $deploy, $running = $true, $podCount = 1 ){
+function Test-Deploy( $deploy, $running = $true, $podCount = 1, $rollbackStatus = "DeployedOk" ){
     $deploy.Running | Should -Be $running
     $deploy.ReleaseName | Should -Be 'test'
+    $deploy.RollbackStatus | Should -Be $rollbackStatus
     if ($podCount) {
         $deploy.PodStatuses.Count | Should -Be $podCount
     } else {

@@ -96,9 +96,9 @@ function Write-Status() {
         $date = "$((Get-Date).ToString("u")) "
     }
 
-    if ($VerbosePreference -ne 'Continue') {
+    # if ($VerbosePreference -ne 'Continue') {
         $Prefix += (MapColor $LogLevel $ColorType)
-    }
+    # }
 
     if ($Length -gt 0) {
         $maxWidth = $Host.UI.RawUI.WindowSize.Width
@@ -109,9 +109,9 @@ function Write-Status() {
         }
     }
 
-    if ($VerbosePreference -eq 'Continue') {
-        "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-Verbose
-    } else {
+    # if ($VerbosePreference -eq 'Continue') {
+    #     "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-Verbose
+    # } else {
         "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-Host
-    }
+    # }
 }

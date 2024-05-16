@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.0.9] 2024-5-16
+
+### Added
+
+- Allow for only having a prehook, and no deploy by passing in blank for the DeploymentSelector
+- Added RollbackStatus to output object indicating if it rolled back or not
+
+### Updated
+
+- run.ps1 `test` task dumps out the status of all tests, and saves it to $global:results
+- Get-DeploymentStatus now better handles no items returned from helm status
+
 ## [1.0.8] 2024-5-14
 
 ### Updated

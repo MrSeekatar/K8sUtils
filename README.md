@@ -39,13 +39,15 @@ Here's a list of the commands in the module with a brief description. Use `help 
 flowchart TD
     start([Start]) --> upgrade
 
-    upgrade[helm upgrade] --> preHook{PreHook?}
+    upgrade[helm upgrade] --> preHook{pre-init\nhook?}
     preHook -- Yes --> checkJob[Log preHook\nJob events\n& logs]
     checkJob --> jobOk{Ok?}
 
     jobOk -- No --> failed
-    jobOk -- Yes --> deploy
-    preHook -- No --> deploy
+    jobOk -- Yes --> hasDeploy{Deploy?}
+    preHook -- No --> hasDeploy{Deploy?}
+    hasDeploy -- Yes --> deploy
+    hasDeploy -- No --> exit2([Ok])
     deploy[Get deployment\n& replicaSet] --> pod
 
     running -- No --> pod
@@ -57,9 +59,8 @@ flowchart TD
     running -- Yes --> ok([OK])
     pod -- Timeout ---> failed{-SkipRollback?}
     failed -- No --> rollback([Rollback])
-    failed -- Yes --> exit([End])
+    failed -- Yes --> exit([End\nwith error])
     rollback --> exit
-    ok --> exit
 ```
 
 ## Using `Invoke-HelmUpgrade`
@@ -124,6 +125,7 @@ The following table shows the scenarios of deploying the app with helm and the v
  | OK       | OK     | Crash    |    ✅    | -Fail                             |
  | OK       | OK     | Config   |    ✅    | -BadSecret or delete cm or secret |
  | OK       | OK     | Config   |    ✅    | -ImageTag zzz                     |
+ | OK       | n/a    | n/a      |    ✅    | -SkipInit -SkipDeploy             |
  | OK       | Crash  | n/a      |    ✅    | -InitFail                         |
  | OK       | Config | n/a      |    ✅    | -InitTag zzz                      |
  | Crash    | n/a    | n/a      |    ✅    | -HookFail                         |
@@ -156,6 +158,7 @@ These are the tests in [textMinimalDeploy.tests.ps1](Tools/MinimalDeploy.tests.p
 | without init ok                           | -SkipInit                                                        |
 | without prehook ok                        | -SkipPreHook                                                     |
 | without init or prehook ok                | -SkipPreHook -SkipInit                                           |
+| with prehook only ok                      | -SkipInit -SkipDeploy                                            |
 | a dry run                                 | -DryRun                                                          |
 | main container crash                      | -SkipInit -SkipPreHook -Fail                                     |
 | main container has bad image tag          | -SkipInit -SkipPreHook -ImageTag zzz                             |
@@ -173,18 +176,21 @@ These are the tests in [textMinimalDeploy.tests.ps1](Tools/MinimalDeploy.tests.p
 
 The `DevOps/Helm` folder has a chart and `minimal_values.yaml` file that can be used to test the helm chart.
 
-See the preHookJob.yml for details on its configuration. Currently the `helm.sh/hook-delete-policy` is `before-hook-creation` so it will remain out there after the upgrade, but the `ttlSecondsAfterFinished` will delete it after 30s (or so).
+See the `preHookJob.yml` for details on its configuration. Currently the `helm.sh/hook-delete-policy` is `before-hook-creation` so it will remain out there after the upgrade, but the `ttlSecondsAfterFinished` will delete it after 30s (or so).
 
-Values to set in the minimal to control the tests, all of these can be set with switches to `Deploy-Minimal`:
+These values in the values file can be set with switched to `Deploy-Minimal` to test various scenarios.
 
 | Name                   | Values        | Description                                                                                          |
 | ---------------------- | ------------- | ---------------------------------------------------------------------------------------------------- |
-| failOnStart            | true or false | The image tag to use for the container, defaults to latest, use a bogus value to make a config error |
-| runCount               | number        | How many times to run before being ready with 1s delay                                               |
+| deployment.enabled     | true or false | Should the main container be deployed?                                                               |
+| env.failOnStart        | true or false | The image tag to use for the container, defaults to latest, use a bogus value to make a config error |
+| env.runCount           | number        | How many times to run before being ready with 1s delay                                               |
 | image.tag              | string        | The image tag to use for the main container                                                          |
-| initContainer.runCount | number        | How many times to run before exiting with 1s delay                                                   |
 | initContainer.fail     | false or true | If true runs runCount times, then fails                                                              |
 | initContainer.imageTag | string        | The image tag to use for the container, defaults to latest, use a bogus value to make a config error |
-| preHook.runCount       | number        | How many times to run before exiting with 1s delay                                                   |
+| initContainer.runCount | number        | How many times to run before exiting with 1s delay                                                   |
 | preHook.fail           | false or true | If true runs runCount times, then fails                                                              |
 | preHook.imageTag       | string        | The image tag to use for the container, defaults to latest, use a bogus value to make a config error |
+| preHook.runCount       | number        | How many times to run before exiting with 1s delay                                                   |
+| readinessPath          | string        | Path the the readiness URL for K8s to call                                                           |
+| replicaCount           | number        | Number of replica to run, defaults to 1                                                              |
