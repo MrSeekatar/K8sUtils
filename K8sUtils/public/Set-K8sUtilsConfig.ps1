@@ -1,4 +1,4 @@
-﻿function Set-K8sUtilsDefaults {
+﻿function Set-K8sUtilsConfig {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions','', Justification = 'Just setting variables')]
     [CmdletBinding()]
     param (

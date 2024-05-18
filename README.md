@@ -29,7 +29,7 @@ Here's a list of the commands in the module with a brief description. Use `help 
 | Get-PodEvent         | Get all the K8s events for a pod                       |
 | Get-PodStatus        | Get the status of a pod, dumping events and logs       |
 | Invoke-HelmUpgrade   | Calls `helm upgrade` and polls K8s for events and logs |
-| Set-K8sUtilsDefaults | Sets type of output wanted for Invoke-HelmUpgrade      |
+| Set-K8sConfig        | Sets type of output wanted for Invoke-HelmUpgrade      |
 
 ## How `Invoke-HelmUpgrade` Works
 
