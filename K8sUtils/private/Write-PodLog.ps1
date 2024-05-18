@@ -29,7 +29,7 @@ function Write-PodLog {
     Write-Footer "End logs for $prefix $PodName" -LogLevel $LogLevel -OutputFile $OutputFile
 
     if ($getLogsExitCode -ne 0) {
-        $msg = "Failed to get logs for pod $PodName ($LASTEXITCODE), checking status"
+        $msg = "Error getting logs for pod $PodName (exit = $getLogsExitCode), checking status"
         Write-Header $msg -LogLevel error -OutputFile $OutputFile
         $state = ,(kubectl get pod $PodName -o jsonpath="{.status.containerStatuses.*.state}" | ConvertFrom-Json -Depth 5)
         foreach ($s in $state) {

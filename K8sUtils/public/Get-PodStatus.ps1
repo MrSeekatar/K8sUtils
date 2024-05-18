@@ -165,7 +165,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit
 
                 $podStatuses[$pod.metadata.name].ContainerStatuses = @($pod.status.containerStatuses | ForEach-Object {
-                        Write-Verbose ($_ | ConvertTo-Json -Depth 10)
+                        Write-Verbose "Pod status: $($_ | ConvertTo-Json -Depth 10)"
                         [ContainerStatus]::new($_.name, $_) })
                 if ($HasInit) {
                     $podStatuses[$pod.metadata.name].InitContainerStatuses = @($pod.status.initContainerStatuses | ForEach-Object { [ContainerStatus]::new($_.name, $_) })

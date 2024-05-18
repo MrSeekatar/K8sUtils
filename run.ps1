@@ -80,7 +80,8 @@ foreach ($currentTask in $Tasks) {
             'test' {
                 executeSB  {
                     $result = Invoke-Pester -PassThru
-                    $result.tests | Where-Object { $_.executed -and !$_.passed }  | Select-Object name, passed, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }}
+                    Write-Host ($result.tests | Where-Object { $_.executed -and !$_.passed } | Select-Object name, @{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }} | Out-String)
+                    Write-Information "Test results: are in `$test_results" -InformationAction Continue
                     $global:test_results = $result
                 }
             }

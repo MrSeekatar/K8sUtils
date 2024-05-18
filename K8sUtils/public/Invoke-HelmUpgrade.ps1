@@ -259,8 +259,9 @@ function Invoke-HelmUpgrade {
 
             if ($upgradeExit -ne 0) {
                 $status.Running = $false
-                if ($hookStatus.Status -eq [Status]::Running ) { # assume timeout if prehook is running
-                    $hookStatus.Status = [Status]::Timeout
+                Write-Verbose "Helm upgrade failed, setting prehook status to timeout"
+                if ($status.PreHookStatus.Status -eq [Status]::Running ) { # assume timeout if prehook is running
+                    $status.PreHookStatus.Status = [Status]::Timeout
                 }
                 Write-Output $status
                 $status.RollbackStatus =  rollbackAndWarn $SkipRollbackOnError $ReleaseName "Helm upgrade got last exit code $upgradeExit" $prevVersion

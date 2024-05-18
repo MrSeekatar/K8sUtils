@@ -14,7 +14,7 @@ This module was created to solve a problem when using `helm -wait` in a CI/CD pi
 
 With `Invoke-HelmUpgrade` you get similar functionality, but it will capture all the logs and events along the way, and if there is an error, it will return early as possible. No more waiting the 5 or 10 minutes you set on `helm -wait`.
 
-There are an infinite number of ways helm and its K8s manifests can be configured and error out. `Invoke-HelmUpgrade` tries to handle the most common cases, and is amended as more are discovered. It does handle Helm pre-install [hooks](https://helm.sh/docs/topics/charts_hooks/) (preHooks) and K8s [initContainers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/). See [below](#scenarios) for a list of all the cases that are covered.
+There are an infinite number of ways helm and its K8s manifests can be configured and error out. `Invoke-HelmUpgrade` tries to handle the most common cases, and is amended as more are discovered. It does handle Helm pre-install [hooks](https://helm.sh/docs/topics/charts_hooks/) (preHooks) and K8s [initContainers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/). See [below](#tested-scenarios) for a list of all the cases that are covered.
 
 One thing that is required to get prehook logs is to set the `helm.sh/hook-delete-policy` to `before-hook-creation` in the prehook job manifest. This will keep the job around after the upgrade, and the `ttlSecondsAfterFinished` will delete it after 30s, if desired. This is done in the [minimal chart](DevOps\Helm\templates\preHookJob.yaml#L19).
 
@@ -113,56 +113,50 @@ In the `DevOps/Kubernetes` folder are the following manifests:
 
 > `$env:invokeHelmAllowLowTimeouts=1` to allow short timeouts for testing, otherwise will set min to 120s for prehook and 180s for main
 
-### Scenarios <!-- omit in toc -->
+### Tested Scenarios <!-- omit in toc -->
 
 The following table shows the scenarios of deploying the app with helm and the various ways it can fail. `Crash` means the pod/job actually crashes. `Config` means the pod/job doesn't even start due to some configuration error such as bad image tag, missing environment variable or mount, etc.
 
- | Pre-Hook |  Init   |   Main   | `Deploy-Minimal` Switches                                 | Test                                      |
- | :------: | :-----: | :------: | --------------------------------------------------------- | ----------------------------------------- |
- |    OK    |   OK    |    OK    |                                                           | hook, init ok                             |
- |    OK    |    -    |    OK    | -SkipInit                                                 | without init ok                           |
- |    -     |   OK    |    OK    | -SkipHook                                                 | without prehook ok                        |
- |    -     |    -    |    OK    | -SkipPreHook -SkipInit                                    | without init or prehook ok                |
- |    OK    |    -    |    -     | -SkipInit -SkipDeploy                                     | with prehook only ok                      |
- |    -     |    -    | BadProbe | -SkipInit -SkipPreHook -TimeoutSec 120 -Readiness '/fail' | a bad probe                               |
- |    -     |    -    |  Crash   | -SkipInit -SkipPreHook -Fail                              | main container crash                      |
- |    -     |    -    |  Config  | -SkipInit -SkipPreHook -BadSecret                         | the main container with a bad secret name |
- |    -     |    -    |  Config  | -SkipInit -SkipPreHook -ImageTag zzz                      | main container has bad image tag          |
- |    OK    |  Crash  |    -     | -SkipPreHook -InitFail                                    | an init failure                           |
- |    OK    | Config  |    -     | -SkipPreHook -InitTag zzz                                 | init bad config                           |
- |    -     | Timeout |    -     | -SkipPreHook -TimeoutSec 5 -InitRunCount 50               | has init timeout                          |
- |  Crash   |    -    |    -     | -HookFail                                                 | prehook job crash                         |
- |  Config  |    -    |    -     | -HookTag zzz                                              | prehook config error                      |
- | Timeout  |    -    |    -     | -PreHookTimeoutSecs 5 -HookRunCount 100                   | prehook timeout                           |
- |    -     |    -    | Timeout  | -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 100       | the main container time out               |
- |    -     |    -    | Timeout  | -SkipInit -SkipPreHook -TimeoutSec 3 -RunCount 100        | has the main container too short time out |
- |    -     |    -    |    -     | -DryRun                                                   | a dry run                                 |
+ | Pre-Hook |  Init   |   Main   | Test                                      |
+ | :------: | :-----: | :------: | ----------------------------------------- |
+ |    OK    |   OK    |    OK    | hook, init ok                             |
+ |    OK    |    -    |    OK    | without init ok                           |
+ |    -     |   OK    |    OK    | without prehook ok                        |
+ |    -     |    -    |    OK    | without init or prehook ok                |
+ |    OK    |    -    |    -     | with prehook only ok                      |
+ |    -     |    -    | BadProbe | a bad probe                               |
+ |    -     |    -    |  Crash   | main container crash                      |
+ |    -     |    -    |  Config  | the main container with a bad secret name |
+ |    -     |    -    |  Config  | main container has bad image tag          |
+ |    OK    |  Crash  |    -     | an init failure                           |
+ |    OK    | Config  |    -     | init bad config                           |
+ |    -     | Timeout |    -     | init timeout                              |
+ |  Crash   |    -    |    -     | prehook job crash                         |
+ |  Config  |    -    |    -     | prehook config error                      |
+ | Timeout  |    -    |    -     | prehook timeout                           |
+ |    -     |    -    | Timeout  | the main container time out               |
+ |    -     |    -    | Timeout  | the main container too short time out     |
+ |    -     |    -    |    -     | a dry run                                 |
+ |    -     |    -    |    OK    | a temporary startup timeout               |
+ |    -     |    -    | Timeout  | a startup timeout                         |
+ |    -     |    -    |    -     | a prehook job top timeout                 |
+ |    -     |    -    |    -     | an init timeout                           |
+ |    -     |    -    |    -     | prehook job hook timeout                  |
 
-Other cases difficult to test or not yet with tests.
+### Other Scenarios <!-- omit in toc -->
+
+These test cases are difficult to test or yet to be covered with tests.
 
 | Description                                  | Manual<br>Test | `Deploy-Minimal` Switches                                         |
 | -------------------------------------------- | :------------: | ----------------------------------------------------------------- |
 | Replica increase                             |       ✅        | -Replicas 3                                                       |
 | Replica decrease                             |       ✅        | -Replicas 1                                                       |
-| Main container liveness timeout              |       ✅        |                          |
+| Main container liveness timeout              |       ✅        |                                                                   |
 | Another operation in progress                |       ✅        | -SkipInit -HookRunCount 100 in one terminal, -SkipInit in another |
 | Main container startup timeout               |       ✅        | -SkipInit -TimeoutSec 10 -RunCount 10 -SkipPreHook -StartupProbe  |
 | Main container startup times out a few times |       ✅        | -SkipInit -TimeoutSec 60 -RunCount 10 -SkipPreHook -StartupProbe  |
 | PreHook Job `restart: onFailure`             |                |                                                                   |
 | PreHook Job `activeDeadlineSeconds`          |                |                                                                   |
-
-### Pester Test Coverage <!-- omit in toc -->
-
-These are the tests in [textMinimalDeploy.tests.ps1](Tools/MinimalDeploy.tests.ps1)
-
-| Test                        | `Deploy-Minimal` Switches                                        |
-| --------------------------- | ---------------------------------------------------------------- |
-| a temporary startup timeout | -SkipInit -SkipPreHook -TimeoutSec 60 -RunCount 10 -StartupProbe |
-| a temporary startup timeout | -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 10 -StartupProbe |
-| a prehook job top timeout   | -SkipInit -HookRunCount 50 -TimeoutSec 10                        |
-| an init timeout             | -SkipPreHook -TimeoutSec 10 -InitRunCount 50                     |
-| the prehook job hook times  | -SkipInit -HookRunCount 100 -PreHookTimeoutSecs 5                |
-| prehook job crash           | -HookFail -TimeoutSecs 20 -PreHookTimeoutSecs 20                 |
 
 ### Test helm chart <!-- omit in toc -->
 
