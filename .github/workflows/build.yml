@@ -4,6 +4,7 @@ on:
   push:
     branches:
     - main
+    - add-task
     - releases/**
   pull_request:
     branches:
