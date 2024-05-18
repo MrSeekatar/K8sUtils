@@ -1,5 +1,7 @@
 param( [bool] $Quiet = $false )
 
+$env:invokeHelmAllowLowTimeouts=1
+
 Import-Module $PSScriptRoot\..\K8sUtils\K8sUtils.psd1 -ArgumentList $true -Force
 Write-Information "Loaded K8sUtils Module in Minimal.psm1" -InformationAction Continue
 

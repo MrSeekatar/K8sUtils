@@ -45,6 +45,7 @@ param(
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
+    Write-Verbose "ResourceName: $ResourceName, AnnotationName: $AnnotationName, AnnotationValue: $AnnotationValue, Match: $Match, Namespace: $Namespace"
 
     if (!(Get-Command kubectl -ErrorAction SilentlyContinue)) {
         throw "kubectl is not installed"

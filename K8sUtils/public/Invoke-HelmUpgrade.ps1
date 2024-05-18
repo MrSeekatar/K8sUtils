@@ -3,22 +3,28 @@
 Invoke helm upgrade using helper scripts to catch errors, and rollback
 
 .PARAMETER ValueFile
-Name of the values file to use
+Name of the helm values file to use
 
 .PARAMETER ChartName
-Name of the chart to upgrade
+Name of the helm chart to use in the upgrade
 
 .PARAMETER ReleaseName
 Name of the helm release
 
+.PARAMETER DeploymentSelector
+K8s select used to find your deployment, defaults to app.kubernetes.io/instance=$ReleaseName,app.kubernetes.io/name=$ChartName
+
 .PARAMETER Chart
 Path to the chart folder or tgz, or url, defaults to .
+
+.PARAMETER ChartVersion
+Version of the helm chart to use
 
 .PARAMETER Namespace
 K8s namespace to use, defaults to default
 
 .PARAMETER PreHookJobName
-If set runs the helm prehook job
+If set, watches for a helm pre-install job
 
 .PARAMETER HelmSet
 Any additional values to set with --set for helm
@@ -30,7 +36,10 @@ Any additional values to set with --set-json for helm
 Timeout in seconds for waiting on the pods. Defaults to 600
 
 .PARAMETER PreHookTimeoutSecs
-Timeout in seconds for waiting on the prehook job to complete, if PreHookJobName is set. Defaults to 60
+Timeout in seconds for waiting on the helm pre-install job to complete, if PreHookJobName is set. Defaults to 60
+
+.PARAMETER PollIntervalSec
+How often to poll for pod status. Defaults to 5
 
 .PARAMETER SkipRollbackOnError
 If set, don't do a helm rollback on error
@@ -38,15 +47,15 @@ If set, don't do a helm rollback on error
 .PARAMETER DryRun
 If set, don't actually do the helm upgrade
 
-.PARAMETER NoColor
-If set, don't use color in output
+.PARAMETER ColorType
+How to colorize the output. Defaults to DevOps if TF_BUILD env var, otherwise ANSI colors
 
 .EXAMPLE
     $parms = "preHook.fail=$HookFail," +
               "preHook.imageTag=$HookTag," +
               "preHook.create=$(!$SkipPreHook)"
 
-    Invoke-HelmUpgrade -ValueFile "minimal1_values.yaml" `
+    Invoke-HelmUpgrade -ValueFile "minimal_values.yaml" `
                         -ChartName 'minimal' `
                         -ReleaseName "test" `
                         -HelmSet $parms `
@@ -65,16 +74,16 @@ Convert-Value "~/code/BackendTemplate/DevOps/helm/values.yaml" `
             availabilityZoneLower = "sc"
         } | Out-File ./new-values.yml
 
-Invoke-HelmUpgrade -ValueFile "./new-values.yml" `
-                    -ChartName 'loyal-app' `
-                    -Chart '~/code/DevOps/helm-charts/internal-charts/loyal-app-template' `
+Invoke-HelmUpgrade -ValueFile "./values.yml" `
+                    -ChartName 'my-chart' `
+                    -Chart '~/code/DevOps/helm-charts/internal-charts/my-chart-template' `
                     -ReleaseName "backendtemplate-api" `
                     -PreHookJobName "backendtemplate-api" `
                     -PreHookTimeoutSecs 120 `
                     -DeploymentSelector app=backendtemplate-api `
                     -SkipRollbackOnError -Verbose
 
-Do a Helm upgrade of a backend template to test with a Perses prehook job
+Do a Helm upgrade of a backend template to test with a pre-install hook that has a job named backendtemplate-api
 
 .EXAMPLE
 # put secrets in the new-values.yml file
@@ -88,17 +97,18 @@ Convert-Value "~/code/BackendTemplate/DevOps/helm/values.yaml" `
         } | Out-File ./new-values.yml
 
 Invoke-HelmUpgrade -ValueFile "./new-values.yml" `
-                     -ChartName 'loyal-app' `
-                     -Chart '~/code/DevOps/helm-charts/internal-charts/loyal-app-template' `
+                     -ChartName 'my-chart' `
+                     -Chart '~/code/DevOps/helm-charts/internal-charts/my-chart-template' `
                      -ReleaseName "hrabuilder-api" `
                      -DeploymentSelector app=hrabuilder-api `
-                      -Verbose
+                     -Verbose
 
 Do a Helm upgrade of a hra builder to dev
 
 
 #>
 function Invoke-HelmUpgrade {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingCmdletAliases','', Justification = 'Locally helm is an alias')]
     [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)]
@@ -133,24 +143,24 @@ function Invoke-HelmUpgrade {
         [CmdletBinding()]
         param ($SkipRollbackOnError, $releaseName, $msg, $prevVersion)
 
-        $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json
-        if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version -MemberType Property)) {
+        $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10
+        if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version)) {
             Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning -Char '-'
-            Write-Warning ($currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)
-            return
+            Write-Warning (""+$currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)
+            return [RollbackStatus]::HelmStatusFailed
         }
         Write-Verbose "Current version of $ReleaseName is $($currentReleaseVersion.version)"
         if (!$currentReleaseVersion -or $currentReleaseVersion.version -eq $prevVersion) {
             Write-Status "No change in release $ReleaseName, not rolling back" -LogLevel warning -Char '-'
             # throw "$msg, no change"
             Write-Warning "$msg, no change"
-            return
+            return [RollbackStatus]::NoChange
         }
 
         if (!$SkipRollbackOnError) {
             Write-Header "Rolling back release $ReleaseName due to errors" -LogLevel Error
             $errFile = Get-TempLogFile
-            helm rollback $ReleaseName 2>&1 | Tee-Object $errFile | Write-Host
+            helm rollback $ReleaseName 2>&1 | Tee-Object $errFile | Write-MyHost
             Get-Content $errFile -Raw | Out-File $tempFile -Append
             $exit = $LASTEXITCODE
             $content = Get-Content $errFile -Raw
@@ -160,14 +170,17 @@ function Invoke-HelmUpgrade {
                 Write-Status "helm rollback failed, trying uninstall" -LogLevel Error -Char '-'
                 helm uninstall $ReleaseName | Out-File $OutputFile -Append
             }
-            Write-Footer "End rolling back release $ReleaseName due to errors"
+            Write-Footer "End rolling back release $ReleaseName due to errors" -LogLevel Error
             Remove-Item $errFile -ErrorAction SilentlyContinue
             # throw "$msg, rolled back"
             Write-Warning "$msg, rolled back"
+            return [RollbackStatus]::RolledBack
         } else {
             # throw "$msg, but not rolling back since -SkipRollbackOnError was specified"
             Write-Warning "$msg, but not rolling back since -SkipRollbackOnError was specified"
+            return [RollbackStatus]::Skipped
         }
+        return [RollbackStatus]::DeployedOk
     }
 
     if (!(Get-Command helm -ErrorAction SilentlyContinue) -or !(Get-Command kubectl -ErrorAction SilentlyContinue)) {
@@ -222,11 +235,11 @@ function Invoke-HelmUpgrade {
         } else {
             $prevVersion = 0
         }
-        "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Tee-Object $tempFile -Append | Write-Host
+        "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Tee-Object $tempFile -Append | Write-MyHost
 
         Write-Header "Helm upgrade$hookMsg"
         # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
-        helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Tee-Object $tempFile -Append | Write-Host
+        helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Tee-Object $tempFile -Append | Write-MyHost
         $upgradeExit = $LASTEXITCODE
         Write-Footer "End Helm upgrade (exit code $upgradeExit)"
 
@@ -236,44 +249,57 @@ function Invoke-HelmUpgrade {
         $status = [ReleaseStatus]::new($ReleaseName)
 
         if ($PreHookJobName) {
-            $x = Get-PodStatus -Selector "job-name=$PreHookJobName" `
+            $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                                         -Namespace $Namespace `
                                                         -OutputFile $tempFile `
-                                                        -TimeoutSec $PreHookTimeoutSecs `
+                                                        -TimeoutSec 1 `
+                                                        -PollIntervalSec $PollIntervalSec `
                                                         -IsJob
-            Write-Verbose "Prehook status is $($x | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
-            $status.PreHookStatus = $x
+            Write-Verbose "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+            $status.PreHookStatus = $hookStatus
 
             if ($upgradeExit -ne 0) {
                 $status.Running = $false
+                Write-Verbose "Helm upgrade failed, setting prehook status to timeout"
+                if ($status.PreHookStatus.Status -eq [Status]::Running ) { # assume timeout if prehook is running
+                    $status.PreHookStatus.Status = [Status]::Timeout
+                }
                 Write-Output $status
-                rollbackAndWarn $SkipRollbackOnError $ReleaseName "Helm upgrade got last exit code $upgradeExit" $prevVersion
+                $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError `
+                                                         -releaseName $ReleaseName `
+                                                         -msg "Helm upgrade got last exit code $upgradeExit" `
+                                                         -prevVersion $prevVersion
                 return
             }
         }
 
-        $podStatuses = Get-DeploymentStatus -TimeoutSec $PodTimeoutSecs `
-                                   -Namespace $Namespace `
-                                   -Selector $DeploymentSelector `
-                                   -PollIntervalSec $PollIntervalSec `
-                                   -OutputFile $tempFile
+        if ($DeploymentSelector) {
+            $podStatuses = Get-DeploymentStatus -TimeoutSec $PodTimeoutSecs `
+                                    -Namespace $Namespace `
+                                    -Selector $DeploymentSelector `
+                                    -PollIntervalSec $PollIntervalSec `
+                                    -OutputFile $tempFile
 
-        $status.PodStatuses = @() # ?? can't assign the array to podStatuses
-        Write-Verbose "Pod statuses are $($podStatuses | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
-        $status.PodStatuses += $podStatuses
-        $status.Running = ![bool]($podStatuses | Where-Object status -ne Running)
-
+            $status.PodStatuses = @() # ?? can't assign the array to podStatuses
+            Write-Verbose "Pod statuses are $($podStatuses | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+            $status.PodStatuses += $podStatuses
+            $status.Running = ![bool]($podStatuses | Where-Object status -ne Running)
+        } else {
+            Write-Warning "No DeploymentSelector specified, not checking main pod"
+        }
         Write-Verbose "PodStatuses: $($status.PodStatuses | Format-List | Out-String)"
 
         Write-Output $status
-        if (!$status.Running) {
-            rollbackAndWarn $SkipRollbackOnError $ReleaseName "Release $ReleaseName had errors" $prevVersion
+        if ($DeploymentSelector -and !$status.Running) {
+            $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release $ReleaseName had errors" -PrevVersion $prevVersion
+        } else {
+            $status.RollbackStatus = [RollbackStatus]::DeployedOk
         }
     } catch {
         Write-Error "$_`n$($_.ScriptStackTrace)"
     } finally {
         Pop-Location
         $script:ColorType = $prev
-        Write-Host "Output was written to $tempFile"
+        Write-MyHost "Output was written to $tempFile"
     }
 }

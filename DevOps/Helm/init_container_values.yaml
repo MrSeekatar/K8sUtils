@@ -113,10 +113,6 @@ extraVolumes:
     hostPath:
       path: /opt
       type: Directory
-  - name: temp
-    hostPath:
-      path: /mnt/c/temp
-      type: Directory
   - name: mt
     emptyDir: {}
 
@@ -130,10 +126,6 @@ extraVolumeMounts:
 
   - name: secrets-store-inline2
     mountPath: "/secrets-store2"
-    readOnly: true
-
-  - name: temp
-    mountPath: "/c/temp"
     readOnly: true
 
   - name: mt
@@ -151,9 +143,4 @@ initContainers:
          secretKeyRef:
            name: "mysecret"
            key: "test"
-    volumeMounts:
-      - name: temp
-        mountPath: /temp
-      - name: mt
-        mountPath: "/mt"
 

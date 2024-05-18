@@ -5,20 +5,23 @@ Get the status of the pods for a release
 .PARAMETER Selector
 K8s select for finding the pods
 
-.PARAMETER ReleaseName
-Parameter description
-
 .PARAMETER ReplicaCount
 Number of pods to wait for that match the selector
 
 .PARAMETER PollIntervalSec
-Seconds to wait between polls
+Seconds to wait between polls defaults to 5
 
-.PARAMETER HasInit
-Container has init, prefix the log output
+.PARAMETER TimeoutSecs
+Timeout in seconds for waiting on the pods. Defaults to 600
+
+.PARAMETER Namespace
+K8s namespace to use, defaults to default
 
 .PARAMETER OutputFile
 File to write output to in addition to the console
+
+.PARAMETER IsJob
+Is this pod a job's pod
 
 .EXAMPLE
 An example
@@ -34,7 +37,7 @@ param(
     [ValidateRange(1, 100)]
     [int] $ReplicaCount = 1,
     [ValidateRange(1, 600)]
-    [int] $PollIntervalSec = 1,
+    [int] $PollIntervalSec = 5,
     [int] $TimeoutSec = 600,
     [string] $Namespace = "default",
     [string] $OutputFile,
@@ -47,7 +50,6 @@ Set-StrictMode -Version Latest
 $runningCount = 0
 $runningPods = @{}
 $podStatuses = @{}
-$global:pods = $podStatuses
 $createdTempFile = !$OutputFile
 
 if ($IsJob) {
@@ -101,7 +103,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         Write-Verbose "Pod $($pod.metadata.name) has init container: $HasInit."
 
         if ($timedOut) {
-            Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -PassThru -LogLevel ok -FilterStartupWarnings
+            Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -FilterStartupWarnings
             Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit
             continue
         }
@@ -117,7 +119,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
         Write-Status "Checking $prefix $i/${ReplicaCount} $prefix $($pod.metadata.name) in $($pod.status.phase) phase" -LogLevel normal -Length 0
         Write-Status "       $readyContainers/$containers containers ready. $([int](((Get-Date) - $start).TotalSeconds))s elapsed of ${TimeoutSec}s." -LogLevel normal -Length 0
-        Write-Host ""
+        Write-MyHost ""
 
         if ($VerbosePreference -eq 'Continue' ) {
             $pod | ConvertTo-Json -Depth 10 | Out-File (Join-Path ([System.IO.Path]::GetTempPath()) "pod.json")
@@ -125,11 +127,11 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
         Write-Verbose "Phases are $($phases -join ',') Phase is $($pod.status.phase)"
         if ($pod.status.phase -in $phases) {
-            # "  $prefix $($pod.metadata.name) status is $($pod.status.phase)" | Tee-Object $OutputFile -Append | Write-Host
+            # "  $prefix $($pod.metadata.name) status is $($pod.status.phase)" | Tee-Object $OutputFile -Append | Write-MyHost
             if (!$runningPods[$pod.metadata.name] -and
                 (podReady $pod.status.containerStatuses)) {
 
-                "  $prefix $($pod.metadata.name) has all containers ready or completed or timed out`n" | Tee-Object $OutputFile -Append | Write-Host
+                "  $prefix $($pod.metadata.name) has all containers ready or completed or timed out`n" | Tee-Object $OutputFile -Append | Write-MyHost
                 $runningCount += 1
                 $runningPods[$pod.metadata.name] = $true
                 $podStatuses[$pod.metadata.name].Status = [Status]::Running
@@ -162,16 +164,16 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit
 
                 $podStatuses[$pod.metadata.name].ContainerStatuses = @($pod.status.containerStatuses | ForEach-Object {
-                        Write-Verbose ($_ | ConvertTo-Json -Depth 10)
+                        Write-Verbose "Pod status: $($_ | ConvertTo-Json -Depth 10)"
                         [ContainerStatus]::new($_.name, $_) })
                 if ($HasInit) {
-                    $podStatuses[$pod.metadata.name].InitContainerStatuses = @($pod.status.initContainerStatuses | ForEach-Object { [ContainerStatus]::new($_.name, [Status]::Crash) })
+                    $podStatuses[$pod.metadata.name].InitContainerStatuses = @($pod.status.initContainerStatuses | ForEach-Object { [ContainerStatus]::new($_.name, $_) })
                 }
                 $podStatuses[$pod.metadata.name].DetermineStatus()
                 Write-Verbose "Get-PodStatus returning $($podStatuses[$pod.metadata.name] | ConvertTo-Json -Depth 10 -EnumsAsStrings)"
                 return $podStatuses.Values
             } else {
-                # "  No errors found for pod $($pod.metadata.name) yet`n" | Tee-Object $OutputFile -Append | Write-Host
+                # "  No errors found for pod $($pod.metadata.name) yet`n" | Tee-Object $OutputFile -Append | Write-MyHost
 
                 # write intermediate events and logs for this pod
                 if ($VerbosePreference -eq 'Continue') {
@@ -200,9 +202,10 @@ if (!$ok) {
     Write-Status "Timed out waiting $([int](((Get-Date) - $start).TotalSeconds))s for pods that matched selector $Selector RunningCount: $runningCount ReplicaCount: $ReplicaCount $ok" `
                 -Length 0 `
                 -LogLevel Error
+    $podStatuses.Values | ForEach-Object { $_.Status = [Status]::Timeout }
 }
 if ($createdTempFile) {
-    Write-Host "Output was written to $OutputFile"
+    Write-MyHost "Output was written to $OutputFile"
 }
 
 return $podStatuses.Values

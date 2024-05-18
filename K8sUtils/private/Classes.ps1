@@ -14,8 +14,18 @@ When in doubt, restart the session.
 enum Status {
     Unknown
     Running
+    Timeout
     Crash
     ConfigError
+}
+
+enum RollbackStatus {
+    Unknown
+    DeployedOk
+    NoChange
+    HelmStatusFailed
+    Skipped
+    RolledBack
 }
 
 # state.running means running, has startedAt
@@ -29,7 +39,7 @@ function mapContainerStatus($containerStatus) {
         return $containerStatus.state.waiting.reason -eq "CrashLoopBackOff" ? [Status]::Crash : [Status]::ConfigError,($containerStatus.state.waiting.reason)
     }
     if ((Get-Member -InputObject $containerStatus.state -Name 'terminated') -and $containerStatus.state.terminated) {
-        return [Status]::Crash,($containerStatus.state.terminated.reason)
+        return $containerStatus.state.terminated.reason -eq 'completed' ? [Status]::Running : [Status]::Crash,($containerStatus.state.terminated.reason)
     }
     return [Status]::Unknown,"Possible timeout or probe failure"
 }
@@ -95,4 +105,5 @@ class ReleaseStatus
     [bool] $Running
     [PodStatus[]] $PodStatuses
     [PodStatus] $PreHookStatus
+    [RollbackStatus] $RollbackStatus
 }

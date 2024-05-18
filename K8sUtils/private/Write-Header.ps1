@@ -12,6 +12,20 @@ function Get-TempLogFile($prefix = "k8s-") {
 
 $script:OutputFile = Get-TempLogFile
 
+function Write-MyHost {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost','', Justification = 'Write-Information need ANSI resets')]
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline=$true)]
+        [object] $msg
+    )
+    process {
+        $suffix = $script:ColorType -eq "ANSI" ? $PSStyle.Reset : ""
+        Write-Information "$msg$suffix" -InformationAction Continue
+        # Write-Host $msg
+    }
+}
+
 function MapColor([ValidateSet("error", "warning", "ok","normal")] $LogLevel,
                   [ValidateSet("None","ANSI","DevOps")] [string] $ColorType) {
 
@@ -53,8 +67,9 @@ function Write-Header() {
         [string] $OutputFile = $script:OutputFile
     )
     $headerMessage = $LogLevel -eq "error" ? "ERROR" : ""
+    $prefix = $LogLevel -eq "error" ? "" : $script:HeaderPrefix
     Write-Status -Msg $headerMessage -LogLevel $LogLevel -ColorType $ColorType -Char '-' -OutputFile $OutputFile
-    Write-Status -Msg $msg -LogLevel normal -Length $Length -ColorType ANSI -Char ',' -OutputFile $OutputFile -Prefix $script:HeaderPrefix -NoDate
+    Write-Status -Msg $msg -LogLevel normal -Length $Length -ColorType ANSI -Char ',' -OutputFile $OutputFile -Prefix $prefix -NoDate
 }
 
 function Write-Footer() {
@@ -68,8 +83,8 @@ function Write-Footer() {
         [string] $ColorType = $script:ColorType,
         [string] $OutputFile = $script:OutputFile
     )
-
-    Write-Status -Msg $msg -LogLevel normal -Length $Length -Suffix "`n" -ColorType ANSI -Char '`' -OutputFile $OutputFile -Prefix $script:FooterPrefix -NoDate
+    $prefix = $LogLevel -eq "error" ? "" : $script:FooterPrefix
+    Write-Status -Msg $msg -LogLevel normal -Length $Length -Suffix "`n" -ColorType $ColorType -Char '`' -OutputFile $OutputFile -Prefix $prefix -NoDate
 }
 
 function Write-Status() {
@@ -95,9 +110,9 @@ function Write-Status() {
         $date = "$((Get-Date).ToString("u")) "
     }
 
-    if ($VerbosePreference -ne 'Continue') {
+    # if ($VerbosePreference -ne 'Continue') {
         $Prefix += (MapColor $LogLevel $ColorType)
-    }
+    # }
 
     if ($Length -gt 0) {
         $maxWidth = $Host.UI.RawUI.WindowSize.Width
@@ -108,9 +123,9 @@ function Write-Status() {
         }
     }
 
-    if ($VerbosePreference -eq 'Continue') {
-        "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-Verbose
-    } else {
-        "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-Host
-    }
+    # if ($VerbosePreference -eq 'Continue') {
+    #     "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-Verbose
+    # } else {
+        "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-MyHost
+    # }
 }

@@ -1,4 +1,5 @@
-function Set-K8sUtilsDefaults {
+﻿function Set-K8sUtilsConfig {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions','', Justification = 'Just setting variables')]
     [CmdletBinding()]
     param (
         [string] $LogFile,
@@ -14,7 +15,7 @@ function Set-K8sUtilsDefaults {
         $script:FooterPrefix = "<< "
     } elseif (Test-Path env:TF_BUILD) {
         $script:ColorType = "DevOps"
-        $script:HeaderPrefix = "##[group] 👈 Expand"
+        $script:HeaderPrefix = "##[group] 👈 CLICK ▸ TO EXPAND "
         $script:FooterPrefix = "##[endgroup]"
     }
 }

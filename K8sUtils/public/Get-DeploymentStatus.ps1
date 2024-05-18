@@ -11,8 +11,8 @@ K8s namespace to use, defaults to default
 .PARAMETER TimeoutSec
 Seconds to wait for the deployment to be ready
 
-.PARAMETER NoColor
-If set, don't use color in output
+.PARAMETER PollIntervalSec
+How often to poll for pod status. Defaults to 5
 
 .PARAMETER OutputFile
 File to write output to in addition to the console
@@ -38,14 +38,13 @@ function Get-DeploymentStatus {
         [string] $Selector,
         [string] $Namespace = "default",
         [int] $TimeoutSec = 30,
-        [int] $PollIntervalSec = 1,
-        [string] $ColorType,
+        [int] $PollIntervalSec = 5,
         [string] $OutputFile
     )
 
     Set-StrictMode -Version Latest
 
-    Write-Verbose "Get-DeploymentStatus has timeout of $TimeoutSec seconds"
+    Write-Verbose "Get-DeploymentStatus has timeout of $TimeoutSec seconds and selector $Selector in namespace $Namespace"
     $createdTempFile = !$OutputFile
     if (!$OutputFile) {
         $OutputFile = Get-TempLogFile
@@ -55,7 +54,12 @@ function Get-DeploymentStatus {
     $replicas = $null
     for ( $i = 0; $i -lt 10 -and $null -eq $replicas; $i++) {
         # todo check to see if it exists, or don't use jsonpath since items[0] can fail
-        $replicas = kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items[0].spec.replicas}'
+        $items = kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20
+        if (!$items) {
+            Write-Warning "No items from kubectl get deploy -l $Selector"
+        } else {
+            $replicas = $items[0].spec.replicas
+        }
         Start-Sleep -Seconds 1
     }
     if ($LASTEXITCODE -ne 0 || $null -eq $replicas) {
@@ -78,10 +82,10 @@ function Get-DeploymentStatus {
                          -TimeoutSec $TimeoutSec `
                          -PollIntervalSec $PollIntervalSec
 
-    Write-Verbose "ret is ($ret | out-string)"
+    Write-Verbose "ret is $($ret | out-string)"
 
     if ($createdTempFile) {
-        Write-Host "Output was written to $OutputFile"
+        Write-MyHost "Output was written to $OutputFile"
     }
     return $ret
 }

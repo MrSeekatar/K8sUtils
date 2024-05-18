@@ -10,7 +10,7 @@ Get-ChildItem $PSScriptRoot\public\*.ps1 | ForEach-Object { . $_; $exports += $_
 
 Export-ModuleMember -Function $exports -Alias '*'
 
-Set-K8sUtilsDefaults
+Set-K8sUtilsConfig
 
 if (!$Quiet -and !(Test-Path env:TF_BUILD)) {
     $me = $MyInvocation.MyCommand.Name -split '\.' | Select-Object -First 1

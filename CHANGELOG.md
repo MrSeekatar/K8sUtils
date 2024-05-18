@@ -1,10 +1,47 @@
 # Change Log
 
-## [1.0.7] 2024-5-9
+## [1.0.10] 2024-5-x
+
+### Added
+
+- Timeout status enum for pod instead of using Unknown
+- More test coverage
+- GitHub Actions for CI/CD
+
+### Fixed
+
+- Syntax error in the event that probe fails
+
+### Updated
+
+- More accurate statuses on errors.
+- Changes for script analyzer.
+
+## [1.0.9] 2024-5-16
+
+### Added
+
+- Allow for only having a prehook, and no deploy by passing in blank for the DeploymentSelector
+- Added RollbackStatus to output object indicating if it rolled back or not
+
+### Updated
+
+- run.ps1 `test` task dumps out the status of all tests, and saves it to $global:results
+- Get-DeploymentStatus now better handles no items returned from helm status
+
+## [1.0.8] 2024-5-14
+
+### Updated
+
+- Even more hints on expanding logs in AzDO
+- Do group error events/logs for AzDO so isn't collapsed in the log
+
+## [1.0.7] 2024-5-13
 
 ### Fixed
 
 - Event messages no longer truncates in AzDO, or narrower consoles
+- Handle case when error only is in the pod's state, not in events
 
 ### Updated
 

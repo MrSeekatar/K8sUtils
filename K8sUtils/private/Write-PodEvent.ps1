@@ -57,8 +57,8 @@ function Write-PodEvent {
     if ($errors -and $FilterStartupWarnings) {
         $errors = $errors | Where-Object { $_ -notlike "Startup probe failed:*" }
     }
-    $events | Select-Object type, reason, message | Out-String -Width 200 | Tee-Object $OutputFile -Append | Write-Host
-    Write-Footer "End events for $Prefix $PodName"
+    $events | Select-Object type, reason, message | Out-String -Width 200 | Tee-Object $OutputFile -Append | Write-MyHost
+    Write-Footer "End events for $Prefix $PodName" -LogLevel ($errors ? "error" : $LogLevel)
     if ($PassThru) {
         return $errors
     }
