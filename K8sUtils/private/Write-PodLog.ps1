@@ -33,8 +33,11 @@ function Write-PodLog {
         Write-Header $msg -LogLevel error -OutputFile $OutputFile
         $state = ,(kubectl get pod $PodName -o jsonpath="{.status.containerStatuses.*.state}" | ConvertFrom-Json -Depth 5)
         foreach ($s in $state) {
+            # can have running, waiting, or terminated properties
             if ($s -and (Get-Member -InputObject $s -Name waiting) -and (Get-Member -InputObject $s.waiting -Name reason)) {
                 Write-Status ($s.waiting | Out-String -Width 500) -LogLevel error
+            } elseif ($s -and (Get-Member -InputObject $s -Name terminated) -and (Get-Member -InputObject $s.terminated -Name reason)) {
+                Write-Status ($s.terminated | Out-String -Width 500) -LogLevel error
             } else {
                 Write-Warning "Didn't get state"
                 Write-Warning ($s | Out-String)
