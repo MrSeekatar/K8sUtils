@@ -6,6 +6,7 @@
 
 - Timeout status enum for pod instead of using Unknown
 - More test coverage
+- GitHub Actions for CI/CD
 
 ### Fixed
 
@@ -14,6 +15,7 @@
 ### Updated
 
 - More accurate statuses on errors.
+- Changes for script analyzer.
 
 ## [1.0.9] 2024-5-16
 
