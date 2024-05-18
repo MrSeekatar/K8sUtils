@@ -86,7 +86,7 @@ function Get-DeploymentStatus {
                          -TimeoutSec $TimeoutSec `
                          -PollIntervalSec $PollIntervalSec
 
-    Write-Verbose "ret is ($ret | out-string)"
+    Write-Verbose "ret is $($ret | out-string)"
 
     if ($createdTempFile) {
         Write-Host "Output was written to $OutputFile"

@@ -82,8 +82,15 @@ Describe "Deploys Minimal API" {
         Test-MainPod $deploy.PodStatuses[0] -status 'ConfigError' -reason "CreateContainerConfigError"
     } -Tag 'Config','Negative'
 
+    It "has the main container too short time out" {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 3 -RunCount 100
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+
+        Test-MainPod $deploy.PodStatuses[0] -status 'Timeout' -reason "Possible timeout"
+    } -Tag 'Timeout','Negative'
+
     It "has the main container time out" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -RunCount 100
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 100
         Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Unknown' -reason "Possible timeout"
@@ -119,11 +126,28 @@ Describe "Deploys Minimal API" {
         # no pod statuses
     } -Tag 'Negative', 'Timeout'
 
-    It "has an init timeout" {
-        $deploy = Deploy-Minimal -PassThru -SkipPreHook -TimeoutSec 10 -InitRunCount 50
+    It "has an init failure" {
+        $deploy = Deploy-Minimal -PassThru -SkipPreHook -InitFail
         Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
 
-        Test-MainPod $deploy.PodStatuses[0] -status 'Unknown' -reason "Possible timeout"
+        Test-MainPod $deploy.PodStatuses[0] -status 'Crash' -reason "Possible timeout"
+    } -Tag 'Negative', 'Crash'
+
+    It "has init bad config" {
+        $deploy = Deploy-Minimal -PassThru -SkipPreHook -InitTag zzz
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+
+        Test-MainPod $deploy.PodStatuses[0] -status 'Crash' -reason "Possible timeout"
+        $deploy.PodStatuses[0].LastBadEvents.Count | Should -BeGreaterThan 1
+        $deploy.PodStatuses[0].LastBadEvents[1] | Should -Be 'Error: ErrImageNeverPull'
+
+    } -Tag 'Negative', 'Crash'
+
+    It "has an init timeout" {
+        $deploy = Deploy-Minimal -PassThru -SkipPreHook -TimeoutSec 5 -InitRunCount 50
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+
+        Test-MainPod $deploy.PodStatuses[0] -status 'Timeout' -reason "Possible timeout"
     } -Tag 'Negative', 'Timeout'
 
     It "has the prehook job hook times" {
@@ -138,7 +162,24 @@ Describe "Deploys Minimal API" {
     It "has prehook job crash" {
         $deploy = Deploy-Minimal -PassThru -HookFail -TimeoutSecs 20 -PreHookTimeoutSecs 20
         Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack'
+
         $deploy.PreHookStatus.Status | Should -Be 'Crash'
     } -Tag 'Crash','Negative'
+
+    It "has prehook config error" {
+        $deploy = Deploy-Minimal -PassThru -HookTag zzz
+        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack'
+
+        $deploy.PreHookStatus.Status | Should -Be 'ConfigError'
+        $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
+        $deploy.PreHookStatus.LastBadEvents[1] | Should -Be 'Error: ErrImageNeverPull'
+    } -Tag 'Config','Negative'
+
+    It "has prehook timeout" {
+        $deploy = Deploy-Minimal -PassThru -PreHookTimeoutSecs 5 -HookRunCount 100
+        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack'
+
+        $deploy.PreHookStatus.Status | Should -Be 'Timeout'
+    } -Tag 'Config','Negative'
 }
 

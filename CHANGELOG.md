@@ -1,5 +1,20 @@
 # Change Log
 
+## [1.0.10] 2024-5-x
+
+### Added
+
+- Timeout status enum for pod instead of using Unknown
+- More test coverage
+
+### Fixed
+
+- Syntax error in the event that probe fails
+
+### Updated
+
+- More accurate statuses on errors.
+
 ## [1.0.9] 2024-5-16
 
 ### Added

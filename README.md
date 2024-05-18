@@ -1,6 +1,8 @@
 # K8sUtils PowerShell Module <!-- omit in toc -->
 
-A PowerShell module with helpers for working with Kubernetes (K8s) and deploying applications with Helm.
+A time-saving PowerShell module for deploying Helm charts in CI/CD pipelines. It captures all the logs and events of a deployment in the pipeline's output. In the event of a failure, it will return early, instead of timing out.
+
+> This proved to be very useful at my company when updating pipelines to deploy to a new K8s cluster. As we worked through the many configuration and permission issues, the pipelines failed quickly with full details of the problem. We rarely had to check K8s. It was a huge time saver.
 
 - [Commands](#commands)
 - [How `Invoke-HelmUpgrade` Works](#how-invoke-helmupgrade-works)
@@ -8,15 +10,13 @@ A PowerShell module with helpers for working with Kubernetes (K8s) and deploying
 - [Using `Invoke-HelmUpgrade` in an Azure DevOps Pipeline](#using-invoke-helmupgrade-in-an-azure-devops-pipeline)
 - [Testing `Invoke-HelmUpgrade`](#testing-invoke-helmupgrade)
 
-This module was created to solve a problem when using `helm -wait` in a CI/CD pipeline. `-wait` is wonderful feature in that your pipeline will wait for a successful deployment instead of returning after passing manifest to K8s. If anything goes wrong, however, it will wait until the timeout and then return just a timeout error. At that point, you may have lost all the logs and events that could help diagnose the problem and then have to re-run the deployment and baby sit it to try to catch the logs or events that caused the timeout.
+This module was created to solve a problem when using `helm -wait` in a CI/CD pipeline. `-wait` is wonderful feature in that your pipeline will wait for a successful deployment instead of returning after tossing the manifests to K8s. If anything goes wrong, however, it will wait until the timeout and then return just a timeout error. At that point, you may have lost all the logs and events that could help diagnose the problem and then have to re-run the deployment and baby sit it to try to catch the logs or events from K8s.
 
 With `Invoke-HelmUpgrade` you get similar functionality, but it will capture all the logs and events along the way, and if there is an error, it will return early as possible. No more waiting the 5 or 10 minutes you set on `helm -wait`.
 
-> This proved to be very useful at my company when updating pipelines to deploy to a new K8s cluster. As we worked through the many configuration and permission issues, the pipelines failed quickly with full details of the problem. We rarely had to check K8s. It was a huge time saver.
+There are an infinite number of ways helm and its K8s manifests can be configured and error out. `Invoke-HelmUpgrade` tries to handle the most common cases, and is amended as more are discovered. It does handle Helm pre-install [hooks](https://helm.sh/docs/topics/charts_hooks/) (preHooks) and K8s [initContainers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/). See [below](#scenarios) for a list of all the cases that are covered.
 
-There are an infinite number of ways helm and its K8s manifests can be configured and error out. This `Invoke-HelmUpgrade` tries to handle to most common cases, and is amended as more are discovered. It does handle Helm pre-install [hooks](https://helm.sh/docs/topics/charts_hooks/) (preHooks) and K8s [initContainers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/). See below for a list of all the cases that are tested.
-
-One thing that is required to get prehook logs is to set the `helm.sh/hook-delete-policy` to `before-hook-creation` in the prehook job manifest. This will keep the job around after the upgrade, and the `ttlSecondsAfterFinished` will delete it after 30s, if desired. This is done in the [minimal chart](DevOps/Helm/minimal/templates/preHookJob.yml).
+One thing that is required to get prehook logs is to set the `helm.sh/hook-delete-policy` to `before-hook-creation` in the prehook job manifest. This will keep the job around after the upgrade, and the `ttlSecondsAfterFinished` will delete it after 30s, if desired. This is done in the [minimal chart](DevOps\Helm\templates\preHookJob.yaml#L19).
 
 ## Commands
 
@@ -47,7 +47,7 @@ flowchart TD
     jobOk -- Yes --> hasDeploy{Deploy?}
     preHook -- No --> hasDeploy{Deploy?}
     hasDeploy -- Yes --> deploy
-    hasDeploy -- No --> exit2([Ok])
+    hasDeploy -- No --> exit2([End Ok])
     deploy[Get deployment\n& replicaSet] --> pod
 
     running -- No --> pod
@@ -56,7 +56,7 @@ flowchart TD
     checkPod --> pod
 
     pod -- Error ---> failed
-    running -- Yes --> ok([OK])
+    running -- Yes --> ok([End OK])
     pod -- Timeout ---> failed{-SkipRollback?}
     failed -- No --> rollback([Rollback])
     failed -- Yes --> exit([End\nwith error])
@@ -65,8 +65,7 @@ flowchart TD
 
 ## Using `Invoke-HelmUpgrade`
 
-You can run `Invoke-HelmUpgrade` from the command line or in a CI/CD pipeline to run Helm upgrade. It has a number of parameters to control its behavior, and `help Invoke-HelmUpgrade` will give you all the details.
-
+You can run `Invoke-HelmUpgrade` from the command line or in a CI/CD pipeline. It has a number of parameters to control its behavior, and `help Invoke-HelmUpgrade` will give you all the details.
 
 ## Using `Invoke-HelmUpgrade` in an Azure DevOps Pipeline
 
@@ -116,61 +115,54 @@ In the `DevOps/Kubernetes` folder are the following manifests:
 
 ### Scenarios <!-- omit in toc -->
 
-The following table shows the scenarios of deploying the app with helm and the various ways it can fail. `Crash` means the pod/job actually crashes. `Config` means the pod/job doesn't even start due to some configuration error such as bad image tag, missing environment variable or mount, etc. The Switch column is the switch to `Deploy-Minimal` to make the app fail in that way.
+The following table shows the scenarios of deploying the app with helm and the various ways it can fail. `Crash` means the pod/job actually crashes. `Config` means the pod/job doesn't even start due to some configuration error such as bad image tag, missing environment variable or mount, etc.
 
- | Pre-Hook | Init   | Main     | Handled | `Deploy-Minimal` Switches         |
- | -------- | ------ | -------- | :-----: | --------------------------------- |
- | OK       | OK     | OK       |    ✅    |                                   |
- | OK       | OK     | BadProbe |    ✅    | -Readiness '/fail'                |
- | OK       | OK     | Crash    |    ✅    | -Fail                             |
- | OK       | OK     | Config   |    ✅    | -BadSecret or delete cm or secret |
- | OK       | OK     | Config   |    ✅    | -ImageTag zzz                     |
- | OK       | n/a    | n/a      |    ✅    | -SkipInit -SkipDeploy             |
- | OK       | Crash  | n/a      |    ✅    | -InitFail                         |
- | OK       | Config | n/a      |    ✅    | -InitTag zzz                      |
- | Crash    | n/a    | n/a      |    ✅    | -HookFail                         |
- | Config   | n/a    | n/a      |    ✅    | -HookTag zzz                      |
+ | Pre-Hook |  Init   |   Main   | `Deploy-Minimal` Switches                                 | Test                                      |
+ | :------: | :-----: | :------: | --------------------------------------------------------- | ----------------------------------------- |
+ |    OK    |   OK    |    OK    |                                                           | hook, init ok                             |
+ |    OK    |    -    |    OK    | -SkipInit                                                 | without init ok                           |
+ |    -     |   OK    |    OK    | -SkipHook                                                 | without prehook ok                        |
+ |    -     |    -    |    OK    | -SkipPreHook -SkipInit                                    | without init or prehook ok                |
+ |    OK    |    -    |    -     | -SkipInit -SkipDeploy                                     | with prehook only ok                      |
+ |    -     |    -    | BadProbe | -SkipInit -SkipPreHook -TimeoutSec 120 -Readiness '/fail' | a bad probe                               |
+ |    -     |    -    |  Crash   | -SkipInit -SkipPreHook -Fail                              | main container crash                      |
+ |    -     |    -    |  Config  | -SkipInit -SkipPreHook -BadSecret                         | the main container with a bad secret name |
+ |    -     |    -    |  Config  | -SkipInit -SkipPreHook -ImageTag zzz                      | main container has bad image tag          |
+ |    OK    |  Crash  |    -     | -SkipPreHook -InitFail                                    | an init failure                           |
+ |    OK    | Config  |    -     | -SkipPreHook -InitTag zzz                                 | init bad config                           |
+ |    -     | Timeout |    -     | -SkipPreHook -TimeoutSec 5 -InitRunCount 50               | has init timeout                          |
+ |  Crash   |    -    |    -     | -HookFail                                                 | prehook job crash                         |
+ |  Config  |    -    |    -     | -HookTag zzz                                              | prehook config error                      |
+ | Timeout  |    -    |    -     | -PreHookTimeoutSecs 5 -HookRunCount 100                   | prehook timeout                           |
+ |    -     |    -    | Timeout  | -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 100       | the main container time out               |
+ |    -     |    -    | Timeout  | -SkipInit -SkipPreHook -TimeoutSec 3 -RunCount 100        | has the main container too short time out |
+ |    -     |    -    |    -     | -DryRun                                                   | a dry run                                 |
 
-Other cases
+Other cases difficult to test or not yet with tests.
 
-| Description                                  | Handled | `Deploy-Minimal` Switches                                         |
-| -------------------------------------------- | :-----: | ----------------------------------------------------------------- |
-| Replica increase                             |    ✅    | -Replicas 3                                                       |
-| Replica decrease                             |    ✅    | -Replicas 1                                                       |
-| PreHook timeout                              |    ✅    | -TimeoutSecs 30 -HookRunCount 60                                  |
-| Init container timeout                       |    ✅    | -TimeoutSecs 10 -InitRunCount 40 -SkipPreHook                     |
-| Main container liveness timeout              |    ✅    | -TimeoutSecs 10 -RunCount 40 -SkipPreHook                         |
-| PreHook Job timeout                          |    ✅    | -SkipInit -HookRunCount 100 -HookTimeoutSecs                      |
-| Main container timeout                       |    ✅    | -SkipInit -RunCount 100                                           |
-| Another operation in progress                |    ✅    | -SkipInit -HookRunCount 100 in one terminal, -SkipInit in another |
-| Main container startup timeout               |    ✅    | -SkipInit -TimeoutSec 10 -RunCount 10 -SkipPreHook -StartupProbe  |
-| Main container startup times out a few times |    ✅    | -SkipInit -TimeoutSec 60 -RunCount 10 -SkipPreHook -StartupProbe  |
-| PreHook Job `restart: onFailure`             |         |                                                                   |
-| PreHook Job `activeDeadlineSeconds`          |         |                                                                   |
+| Description                                  | Manual<br>Test | `Deploy-Minimal` Switches                                         |
+| -------------------------------------------- | :------------: | ----------------------------------------------------------------- |
+| Replica increase                             |       ✅        | -Replicas 3                                                       |
+| Replica decrease                             |       ✅        | -Replicas 1                                                       |
+| Main container liveness timeout              |       ✅        |                          |
+| Another operation in progress                |       ✅        | -SkipInit -HookRunCount 100 in one terminal, -SkipInit in another |
+| Main container startup timeout               |       ✅        | -SkipInit -TimeoutSec 10 -RunCount 10 -SkipPreHook -StartupProbe  |
+| Main container startup times out a few times |       ✅        | -SkipInit -TimeoutSec 60 -RunCount 10 -SkipPreHook -StartupProbe  |
+| PreHook Job `restart: onFailure`             |                |                                                                   |
+| PreHook Job `activeDeadlineSeconds`          |                |                                                                   |
 
 ### Pester Test Coverage <!-- omit in toc -->
 
 These are the tests in [textMinimalDeploy.tests.ps1](Tools/MinimalDeploy.tests.ps1)
 
-| Test                                      | `Deploy-Minimal` Switches                                        |
-| ----------------------------------------- | ---------------------------------------------------------------- |
-| hook, init ok                             |                                                                  |
-| without init ok                           | -SkipInit                                                        |
-| without prehook ok                        | -SkipPreHook                                                     |
-| without init or prehook ok                | -SkipPreHook -SkipInit                                           |
-| with prehook only ok                      | -SkipInit -SkipDeploy                                            |
-| a dry run                                 | -DryRun                                                          |
-| main container crash                      | -SkipInit -SkipPreHook -Fail                                     |
-| main container has bad image tag          | -SkipInit -SkipPreHook -ImageTag zzz                             |
-| the main container with a bad secret name | -SkipInit -SkipPreHook -BadSecret                                |
-| the main container time out               | -SkipInit -SkipPreHook -RunCount 100                             |
-| a temporary startup timeout               | -SkipInit -SkipPreHook -TimeoutSec 60 -RunCount 10 -StartupProbe |
-| a temporary startup timeout               | -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 10 -StartupProbe |
-| a bad probe                               | -SkipInit -SkipPreHook -TimeoutSec 120 -Readiness '/fail'        |
-| a prehook job top timeout                 | -SkipInit -HookRunCount 50 -TimeoutSec 10                        |
-| an init timeout                           | -SkipPreHook -TimeoutSec 10 -InitRunCount 50                     |
-| the prehook job hook times                | -SkipInit -HookRunCount 100 -PreHookTimeoutSecs 5                |
-| prehook job crash                         | -HookFail -TimeoutSecs 20 -PreHookTimeoutSecs 20                 |
+| Test                        | `Deploy-Minimal` Switches                                        |
+| --------------------------- | ---------------------------------------------------------------- |
+| a temporary startup timeout | -SkipInit -SkipPreHook -TimeoutSec 60 -RunCount 10 -StartupProbe |
+| a temporary startup timeout | -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 10 -StartupProbe |
+| a prehook job top timeout   | -SkipInit -HookRunCount 50 -TimeoutSec 10                        |
+| an init timeout             | -SkipPreHook -TimeoutSec 10 -InitRunCount 50                     |
+| the prehook job hook times  | -SkipInit -HookRunCount 100 -PreHookTimeoutSecs 5                |
+| prehook job crash           | -HookFail -TimeoutSecs 20 -PreHookTimeoutSecs 20                 |
 
 ### Test helm chart <!-- omit in toc -->
 

@@ -104,7 +104,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         Write-Verbose "Pod $($pod.metadata.name) has init container: $HasInit."
 
         if ($timedOut) {
-            Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -PassThru -LogLevel ok -FilterStartupWarnings
+            Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -FilterStartupWarnings
             Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit
             continue
         }
@@ -168,7 +168,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                         Write-Verbose ($_ | ConvertTo-Json -Depth 10)
                         [ContainerStatus]::new($_.name, $_) })
                 if ($HasInit) {
-                    $podStatuses[$pod.metadata.name].InitContainerStatuses = @($pod.status.initContainerStatuses | ForEach-Object { [ContainerStatus]::new($_.name, [Status]::Crash) })
+                    $podStatuses[$pod.metadata.name].InitContainerStatuses = @($pod.status.initContainerStatuses | ForEach-Object { [ContainerStatus]::new($_.name, $_) })
                 }
                 $podStatuses[$pod.metadata.name].DetermineStatus()
                 Write-Verbose "Get-PodStatus returning $($podStatuses[$pod.metadata.name] | ConvertTo-Json -Depth 10 -EnumsAsStrings)"
@@ -203,6 +203,7 @@ if (!$ok) {
     Write-Status "Timed out waiting $([int](((Get-Date) - $start).TotalSeconds))s for pods that matched selector $Selector RunningCount: $runningCount ReplicaCount: $ReplicaCount $ok" `
                 -Length 0 `
                 -LogLevel Error
+    $podStatuses.Values | ForEach-Object { $_.Status = [Status]::Timeout }
 }
 if ($createdTempFile) {
     Write-Host "Output was written to $OutputFile"

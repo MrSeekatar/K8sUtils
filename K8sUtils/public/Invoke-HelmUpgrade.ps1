@@ -251,7 +251,7 @@ function Invoke-HelmUpgrade {
             $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                                         -Namespace $Namespace `
                                                         -OutputFile $tempFile `
-                                                        -TimeoutSec $PreHookTimeoutSecs `
+                                                        -TimeoutSec 1 `
                                                         -PollIntervalSec $PollIntervalSec `
                                                         -IsJob
             Write-Verbose "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
@@ -259,6 +259,9 @@ function Invoke-HelmUpgrade {
 
             if ($upgradeExit -ne 0) {
                 $status.Running = $false
+                if ($hookStatus.Status -eq [Status]::Running ) { # assume timeout if prehook is running
+                    $hookStatus.Status = [Status]::Timeout
+                }
                 Write-Output $status
                 $status.RollbackStatus =  rollbackAndWarn $SkipRollbackOnError $ReleaseName "Helm upgrade got last exit code $upgradeExit" $prevVersion
                 return

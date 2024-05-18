@@ -80,8 +80,8 @@ foreach ($currentTask in $Tasks) {
             'test' {
                 executeSB  {
                     $result = Invoke-Pester -PassThru
-                    $result.tests | Where-Object executed | Select-Object name, passed, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }}
-                    $global:results = $result
+                    $result.tests | Where-Object { $_.executed -and !$_.passed }  | Select-Object name, passed, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }}
+                    $global:test_results = $result
                 }
             }
             'upgradeHelm' {

@@ -154,7 +154,7 @@ function Deploy-Minimal {
             $ret
         } else {
             Write-Host "`n"
-            $ret | ConvertTo-Json -Depth 5 -EnumsAsStrings
+            $ret | ConvertTo-Json -Depth 10 -EnumsAsStrings
         }
     } catch {
         Write-Error "Error! $_`n$($_.ScriptStackTrace)"
