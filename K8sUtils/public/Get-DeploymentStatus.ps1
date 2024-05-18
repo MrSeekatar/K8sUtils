@@ -14,9 +14,6 @@ Seconds to wait for the deployment to be ready
 .PARAMETER PollIntervalSec
 How often to poll for pod status. Defaults to 5
 
-.PARAMETER ColorType
-How to colorize the output. Defaults to DevOps if TF_BUILD env var, otherwise ANSI colors
-
 .PARAMETER OutputFile
 File to write output to in addition to the console
 
@@ -42,7 +39,6 @@ function Get-DeploymentStatus {
         [string] $Namespace = "default",
         [int] $TimeoutSec = 30,
         [int] $PollIntervalSec = 5,
-        [string] $ColorType,
         [string] $OutputFile
     )
 
@@ -89,7 +85,7 @@ function Get-DeploymentStatus {
     Write-Verbose "ret is $($ret | out-string)"
 
     if ($createdTempFile) {
-        Write-Host "Output was written to $OutputFile"
+        Write-MyHost "Output was written to $OutputFile"
     }
     return $ret
 }

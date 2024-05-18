@@ -12,6 +12,20 @@ function Get-TempLogFile($prefix = "k8s-") {
 
 $script:OutputFile = Get-TempLogFile
 
+function Write-MyHost {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost','', Justification = 'Write-Information need ANSI resets')]
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline=$true)]
+        [object] $msg
+    )
+    process {
+        $suffix = $script:ColorType -eq "ANSI" ? $PSStyle.Reset : ""
+        Write-Information "$msg$suffix" -InformationAction Continue
+        # Write-Host $msg
+    }
+}
+
 function MapColor([ValidateSet("error", "warning", "ok","normal")] $LogLevel,
                   [ValidateSet("None","ANSI","DevOps")] [string] $ColorType) {
 
@@ -70,7 +84,7 @@ function Write-Footer() {
         [string] $OutputFile = $script:OutputFile
     )
     $prefix = $LogLevel -eq "error" ? "" : $script:FooterPrefix
-    Write-Status -Msg $msg -LogLevel normal -Length $Length -Suffix "`n" -ColorType ANSI -Char '`' -OutputFile $OutputFile -Prefix $prefix -NoDate
+    Write-Status -Msg $msg -LogLevel normal -Length $Length -Suffix "`n" -ColorType $ColorType -Char '`' -OutputFile $OutputFile -Prefix $prefix -NoDate
 }
 
 function Write-Status() {
@@ -112,6 +126,6 @@ function Write-Status() {
     # if ($VerbosePreference -eq 'Continue') {
     #     "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-Verbose
     # } else {
-        "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-Host
+        "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-MyHost
     # }
 }

@@ -44,7 +44,7 @@ Describe "Deploys Minimal API" {
         Test-Deploy $deploy
 
         Test-MainPod $deploy.PodStatuses[0]
-    } -Tag 'Happy'
+    } -Tag 'Happy',"Shortest"
 
     It "runs with prehook only ok" {
         $deploy = Deploy-Minimal -PassThru  -SkipInit -SkipDeploy

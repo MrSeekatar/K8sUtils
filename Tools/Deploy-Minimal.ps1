@@ -153,7 +153,7 @@ function Deploy-Minimal {
         if ($PassThru) {
             $ret
         } else {
-            Write-Host "`n"
+            Write-MyHost "`n"
             $ret | ConvertTo-Json -Depth 10 -EnumsAsStrings
         }
     } catch {

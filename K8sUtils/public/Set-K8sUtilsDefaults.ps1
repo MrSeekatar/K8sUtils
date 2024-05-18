@@ -1,4 +1,5 @@
-function Set-K8sUtilsDefaults {
+﻿function Set-K8sUtilsDefaults {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions','', Justification = 'Just setting variables')]
     [CmdletBinding()]
     param (
         [string] $LogFile,

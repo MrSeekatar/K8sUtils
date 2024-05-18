@@ -50,7 +50,6 @@ Set-StrictMode -Version Latest
 $runningCount = 0
 $runningPods = @{}
 $podStatuses = @{}
-$global:pods = $podStatuses
 $createdTempFile = !$OutputFile
 
 if ($IsJob) {
@@ -120,7 +119,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
         Write-Status "Checking $prefix $i/${ReplicaCount} $prefix $($pod.metadata.name) in $($pod.status.phase) phase" -LogLevel normal -Length 0
         Write-Status "       $readyContainers/$containers containers ready. $([int](((Get-Date) - $start).TotalSeconds))s elapsed of ${TimeoutSec}s." -LogLevel normal -Length 0
-        Write-Host ""
+        Write-MyHost ""
 
         if ($VerbosePreference -eq 'Continue' ) {
             $pod | ConvertTo-Json -Depth 10 | Out-File (Join-Path ([System.IO.Path]::GetTempPath()) "pod.json")
@@ -128,11 +127,11 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
         Write-Verbose "Phases are $($phases -join ',') Phase is $($pod.status.phase)"
         if ($pod.status.phase -in $phases) {
-            # "  $prefix $($pod.metadata.name) status is $($pod.status.phase)" | Tee-Object $OutputFile -Append | Write-Host
+            # "  $prefix $($pod.metadata.name) status is $($pod.status.phase)" | Tee-Object $OutputFile -Append | Write-MyHost
             if (!$runningPods[$pod.metadata.name] -and
                 (podReady $pod.status.containerStatuses)) {
 
-                "  $prefix $($pod.metadata.name) has all containers ready or completed or timed out`n" | Tee-Object $OutputFile -Append | Write-Host
+                "  $prefix $($pod.metadata.name) has all containers ready or completed or timed out`n" | Tee-Object $OutputFile -Append | Write-MyHost
                 $runningCount += 1
                 $runningPods[$pod.metadata.name] = $true
                 $podStatuses[$pod.metadata.name].Status = [Status]::Running
@@ -174,7 +173,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 Write-Verbose "Get-PodStatus returning $($podStatuses[$pod.metadata.name] | ConvertTo-Json -Depth 10 -EnumsAsStrings)"
                 return $podStatuses.Values
             } else {
-                # "  No errors found for pod $($pod.metadata.name) yet`n" | Tee-Object $OutputFile -Append | Write-Host
+                # "  No errors found for pod $($pod.metadata.name) yet`n" | Tee-Object $OutputFile -Append | Write-MyHost
 
                 # write intermediate events and logs for this pod
                 if ($VerbosePreference -eq 'Continue') {
@@ -206,7 +205,7 @@ if (!$ok) {
     $podStatuses.Values | ForEach-Object { $_.Status = [Status]::Timeout }
 }
 if ($createdTempFile) {
-    Write-Host "Output was written to $OutputFile"
+    Write-MyHost "Output was written to $OutputFile"
 }
 
 return $podStatuses.Values

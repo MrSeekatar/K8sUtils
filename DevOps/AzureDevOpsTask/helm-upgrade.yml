@@ -108,7 +108,7 @@ steps:
       for ($i = 0; $i -lt 10; $i++) {
         helm registry login ${{ parameters.registry }} --username ${{ parameters.helmUser }} --password ${{ parameters.helmPassword }}
         if ($LASTEXITCODE -eq 0) { break }
-        Write-Host "helm registry login failed, retrying in 3 seconds"
+        Write-MyHost "helm registry login failed, retrying in 3 seconds"
         Start-Sleep -Seconds 3
       }
     displayName: 'Login to helm registry'
@@ -119,7 +119,7 @@ steps:
       $cred = New-Object System.Management.Automation.PSCredential("ignoredUsingPat", $patToken)
 
       if (Get-PSRepository | Where-Object name -eq YourCompany) {
-        Write-Host "Unregistering YourCompany PS Repository already registered"
+        Write-MyHost "Unregistering YourCompany PS Repository already registered"
         UnRegister-PSRepository -Name YourCompany
       }
       $fullUrl = "https://pkgs.dev.azure.com/YourCompanyhealth/_packaging/YourCompanyNuget/nuget/v2"

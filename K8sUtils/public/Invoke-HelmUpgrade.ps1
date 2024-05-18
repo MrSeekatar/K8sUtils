@@ -108,6 +108,7 @@ Do a Helm upgrade of a hra builder to dev
 
 #>
 function Invoke-HelmUpgrade {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingCmdletAliases','', Justification = 'Locally helm is an alias')]
     [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)]
@@ -159,7 +160,7 @@ function Invoke-HelmUpgrade {
         if (!$SkipRollbackOnError) {
             Write-Header "Rolling back release $ReleaseName due to errors" -LogLevel Error
             $errFile = Get-TempLogFile
-            helm rollback $ReleaseName 2>&1 | Tee-Object $errFile | Write-Host
+            helm rollback $ReleaseName 2>&1 | Tee-Object $errFile | Write-MyHost
             Get-Content $errFile -Raw | Out-File $tempFile -Append
             $exit = $LASTEXITCODE
             $content = Get-Content $errFile -Raw
@@ -234,11 +235,11 @@ function Invoke-HelmUpgrade {
         } else {
             $prevVersion = 0
         }
-        "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Tee-Object $tempFile -Append | Write-Host
+        "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Tee-Object $tempFile -Append | Write-MyHost
 
         Write-Header "Helm upgrade$hookMsg"
         # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
-        helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Tee-Object $tempFile -Append | Write-Host
+        helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Tee-Object $tempFile -Append | Write-MyHost
         $upgradeExit = $LASTEXITCODE
         Write-Footer "End Helm upgrade (exit code $upgradeExit)"
 
@@ -264,7 +265,10 @@ function Invoke-HelmUpgrade {
                     $status.PreHookStatus.Status = [Status]::Timeout
                 }
                 Write-Output $status
-                $status.RollbackStatus =  rollbackAndWarn $SkipRollbackOnError $ReleaseName "Helm upgrade got last exit code $upgradeExit" $prevVersion
+                $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError `
+                                                         -releaseName $ReleaseName `
+                                                         -msg "Helm upgrade got last exit code $upgradeExit" `
+                                                         -prevVersion $prevVersion
                 return
             }
         }
@@ -287,7 +291,7 @@ function Invoke-HelmUpgrade {
 
         Write-Output $status
         if ($DeploymentSelector -and !$status.Running) {
-            $status.RollbackStatus = rollbackAndWarn $SkipRollbackOnError $ReleaseName "Release $ReleaseName had errors" $prevVersion
+            $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release $ReleaseName had errors" -PrevVersion $prevVersion
         } else {
             $status.RollbackStatus = [RollbackStatus]::DeployedOk
         }
@@ -296,6 +300,6 @@ function Invoke-HelmUpgrade {
     } finally {
         Pop-Location
         $script:ColorType = $prev
-        Write-Host "Output was written to $tempFile"
+        Write-MyHost "Output was written to $tempFile"
     }
 }
