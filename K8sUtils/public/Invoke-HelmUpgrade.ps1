@@ -237,14 +237,19 @@ function Invoke-HelmUpgrade {
         }
         "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Tee-Object $tempFile -Append | Write-MyHost
 
-        Write-Header "Helm upgrade$hookMsg"
+        if ($DryRun) {
+            Write-Status "Doing a helm dry run. Manifests follow."
+        } else {
+            Write-Header "Helm upgrade$hookMsg"
+        }
         # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
         helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Tee-Object $tempFile -Append | Write-MyHost
         $upgradeExit = $LASTEXITCODE
-        Write-Footer "End Helm upgrade (exit code $upgradeExit)"
 
         if ($DryRun) {
             return
+        } else {
+            Write-Footer "End Helm upgrade (exit code $upgradeExit)"
         }
         $status = [ReleaseStatus]::new($ReleaseName)
 
