@@ -238,7 +238,7 @@ function Invoke-HelmUpgrade {
         "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Tee-Object $tempFile -Append | Write-MyHost
 
         if ($DryRun) {
-            Write-Status "Doing a helm dry run. Manifests follow."
+            Write-Status "Doing a helm dry run. Helm output and manifests follow."
         } else {
             Write-Header "Helm upgrade$hookMsg"
         }
