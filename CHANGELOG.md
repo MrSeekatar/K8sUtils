@@ -1,6 +1,12 @@
 # Change Log
 
-## [1.0.10] 2024-5-x
+## [1.0.11] 2024-6-7
+
+### Updated
+
+Dry run title is better, and doesn't collapse in AzDO by default.
+
+## [1.0.10] 2024-5-18
 
 ### Added
 
