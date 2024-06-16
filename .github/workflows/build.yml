@@ -32,7 +32,7 @@ jobs:
       shell: pwsh
       working-directory: K8sUtils
       run: |
-        if ( -not (Get-Module -Name PSScriptAnalyzer ) ) { Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -Confirm:$false -SkipPublisherCheck }
+        if ( -not (Get-Command -Name Invoke-ScriptAnalyzer ) ) { Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -Confirm:$false -SkipPublisherCheck }
         $results = Invoke-ScriptAnalyzer -Path . -Recurse
         $results
         if ($results | Where-Object Severity -eq Error ) { Write-Error "Analyzer detected errors." }
