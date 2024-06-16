@@ -18,7 +18,7 @@ Describe "Deploys Minimal API" {
         Test-PreHook $deploy.PreHookStatus
 
         Test-MainPod $deploy.PodStatuses[0]
-    } -Tag 'Happy','new'
+    } -Tag 'Happy'
 
     It "runs without init ok" {
         $deploy = Deploy-Minimal -PassThru -SkipInit
@@ -189,6 +189,6 @@ Describe "Deploys Minimal API" {
         } catch {
             $_.Exception.Message | Should -BeLike "Error! When looking for preHook, nothing returned from kubectl get rs -l app.kubernetes.io/instance=test,app.kubernetes.io/name=minimal --namespace default*"
         }
-    } -Tag 'Sad'
+    } -Tag 'Config','Sad'
 }
 
