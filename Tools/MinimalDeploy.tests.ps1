@@ -182,5 +182,13 @@ Describe "Deploys Minimal API" {
 
         $deploy.PreHookStatus.Status | Should -Be 'Timeout'
     } -Tag 'Config','Sad'
+
+    It "tests error if checking preHook, but not making one" {
+        try {
+            Deploy-Minimal -AlwaysCheckPreHook
+        } catch {
+            $_.Exception.Message | Should -BeLike "Error! When looking for preHook, nothing returned from kubectl get rs -l app.kubernetes.io/instance=test,app.kubernetes.io/name=minimal --namespace default*"
+        }
+    } -Tag 'Config','Sad'
 }
 

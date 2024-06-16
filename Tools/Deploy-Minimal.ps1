@@ -72,7 +72,9 @@ function Deploy-Minimal {
         [switch] $BadSecret,
         [switch] $PassThru,
         [switch] $StartupProbe,
-        [switch] $SkipDeploy
+        [switch] $SkipDeploy,
+        [switch] $AlwaysCheckPreHook
+
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -132,7 +134,7 @@ function Deploy-Minimal {
                 "readinessPath=$Readiness," +
                 "replicaCount=$Replicas"
 
-    Write-Verbose ($helmSet -join " ")
+    Write-Verbose ("   "+($helmSet -join "`n   "))
     $releaseName = "test"
     $chartName = "minimal"
     try {
@@ -143,7 +145,7 @@ function Deploy-Minimal {
                            -HelmSetJson $helmJson `
                            -DeploymentSelector ($SkipDeploy ? "" : "app.kubernetes.io/instance=$releaseName,app.kubernetes.io/name=$chartName") `
                            -PodTimeoutSec $TimeoutSecs `
-                           -PreHookJobName ($SkipPreHook ? $Null : "test-prehook") `
+                           -PreHookJobName ($SkipPreHook -or $AlwaysCheckPreHook ? $Null : "test-prehook") `
                            -PreHookTimeoutSecs $PreHookTimeoutSecs `
                            -PollIntervalSec $PollIntervalSec `
                            -DryRun:$DryRun `
@@ -153,7 +155,7 @@ function Deploy-Minimal {
         if ($PassThru) {
             $ret
         } else {
-            Write-MyHost "`n"
+            Write-Host "`n"
             $ret | ConvertTo-Json -Depth 10 -EnumsAsStrings
         }
     } catch {
