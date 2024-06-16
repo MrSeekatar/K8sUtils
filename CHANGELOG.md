@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.12] 2024-6-16
+
+### Fixed
+
+If preHook is configured to check, but not run in helm, would give a K8s error.
+
 ## [1.0.11] 2024-6-7
 
 ### Updated
