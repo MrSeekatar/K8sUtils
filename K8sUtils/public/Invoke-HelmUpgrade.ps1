@@ -208,7 +208,22 @@ function Invoke-HelmUpgrade {
         $parms += "--version"
         $parms += $ChartVersion
     }
-    Write-Verbose "Params $($parms -join " ")"
+    Write-Verbose "Helm extra params $($parms -join " ")"
+    Write-Verbose "ValueFile: $ValueFile"
+    Write-Verbose "ChartName: $ChartName"
+    Write-Verbose "ReleaseName: $ReleaseName"
+    Write-Verbose "DeploymentSelector: $DeploymentSelector"
+    Write-Verbose "Chart: $Chart"
+    Write-Verbose "ChartVersion: $ChartVersion"
+    Write-Verbose "Namespace: $Namespace"
+    Write-Verbose "PreHookJobName: $PreHookJobName"
+    Write-Verbose "PodTimeoutSecs: $PodTimeoutSecs"
+    Write-Verbose "PreHookTimeoutSecs: $PreHookTimeoutSecs"
+    Write-Verbose "PollIntervalSec: $PollIntervalSec"
+    Write-Verbose "SkipRollbackOnError: $SkipRollbackOnError"
+    Write-Verbose "DryRun: $DryRun"
+    Write-Verbose "ColorType: $ColorType"
+
 
     $tempFile = Get-TempLogFile
 
