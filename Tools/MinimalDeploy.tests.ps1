@@ -184,11 +184,9 @@ Describe "Deploys Minimal API" {
     } -Tag 'Config','Sad'
 
     It "tests error if checking preHook, but not making one" {
-        try {
-            Deploy-Minimal -AlwaysCheckPreHook
-        } catch {
-            $_.Exception.Message | Should -BeLike "Error! When looking for preHook, nothing returned from kubectl get rs -l app.kubernetes.io/instance=test,app.kubernetes.io/name=minimal --namespace default*"
-        }
+        $deploy = Deploy-Minimal -PassThru -AlwaysCheckPreHook -SkipPreHook -SkipInit
+        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack'
+
     } -Tag 'Config','Sad'
 }
 

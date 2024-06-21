@@ -1,16 +1,23 @@
 # Change Log
 
+## [1.0.13] 2024-6-16
+
+### Fixed
+
+- Rollback status not includes in output
+- If preHook gets an error, rollback not triggered
+
 ## [1.0.12] 2024-6-16
 
 ### Fixed
 
-If preHook is configured to check, but not run in helm, would give a K8s error.
+- If preHook is configured to check, but not run in helm, would give a K8s error.
 
 ## [1.0.11] 2024-6-7
 
 ### Updated
 
-Dry run title is better, and doesn't collapse in AzDO by default.
+- Dry run title is better, and doesn't collapse in AzDO by default.
 
 ## [1.0.10] 2024-5-18
 

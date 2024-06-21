@@ -60,12 +60,19 @@ if ($IsJob) {
     $prefix = "pod"
 }
 
+# are all containers in the pod ready?
 function podReady($containerStatuses) {
     if ($IsJob) {
-        return $true # !($containerStatuses | Where-Object { (Get-Member -InputObject $_.state -Name 'terminated') -and  $_.state.terminated.reason -ne 'Completed'})
+        Write-Verbose "Checking containerStatuses for job" # that should have exited
+        Write-Verbose ($containerStatuses | ConvertTo-Json -Depth 10 -EnumsAsStrings)
+        # return !($containerStatuses| Where-Object ready -ne $true)
+        # return $true #
+        # return !($containerStatuses | Where-Object { (Get-Member -InputObject $_.state -Name 'terminated') -and  $_.state.terminated.reason -ne 'Completed'})
+        # return !($containerStatuses | Where-Object { (Get-Member -InputObject $_.state -Name 'terminated')}) #-and  $_.state.terminated.reason -ne 'Completed'})
+        return !($containerStatuses | Where-Object { $_.started -and (Get-Member -InputObject $_.state -Name 'running')})
     } else {
-        Write-Verbose "Checking containerStatuses for NON job"
-        return !($containerStatuses| Where-Object ready -ne $true)  # all containers ready
+        Write-Verbose "Checking containerStatuses for NON job" # that should be running
+        return !($containerStatuses | Where-Object ready -ne $true) # all containers ready
     }
 }
 
