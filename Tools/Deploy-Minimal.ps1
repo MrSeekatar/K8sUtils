@@ -116,10 +116,13 @@ function Deploy-Minimal {
     }
 
     if ($BadSecret) {
-        $helmSet += "secrets.example-secret3=bad-secret,"
+        $helmSet += "secrets.example-secret3=bad-secret"
     }
     if ($StartupProbe) {
-        $helmSet += "startupPath=/info,"
+        $helmSet += "startupPath=/info"
+    }
+    if ($SkipPreHook) {
+        $null = kubectl delete job test-prehook --ignore-not-found # so don't find prev one
     }
 
     $helmSet += "deployment.enabled=$($SkipDeploy ? "false" : "true")",

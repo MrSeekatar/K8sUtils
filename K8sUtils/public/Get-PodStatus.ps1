@@ -65,11 +65,8 @@ function podReady($containerStatuses) {
     if ($IsJob) {
         Write-Verbose "Checking containerStatuses for job" # that should have exited
         Write-Verbose ($containerStatuses | ConvertTo-Json -Depth 10 -EnumsAsStrings)
-        # return !($containerStatuses| Where-Object ready -ne $true)
-        # return $true #
-        # return !($containerStatuses | Where-Object { (Get-Member -InputObject $_.state -Name 'terminated') -and  $_.state.terminated.reason -ne 'Completed'})
-        # return !($containerStatuses | Where-Object { (Get-Member -InputObject $_.state -Name 'terminated')}) #-and  $_.state.terminated.reason -ne 'Completed'})
-        return !($containerStatuses | Where-Object { $_.started -and (Get-Member -InputObject $_.state -Name 'running')})
+        # return $true
+        return !($containerStatuses | Where-Object { (Get-Member -InputObject $_.state -Name 'terminated') -and  $_.state.terminated.reason -ne 'Completed'})
     } else {
         Write-Verbose "Checking containerStatuses for NON job" # that should be running
         return !($containerStatuses | Where-Object ready -ne $true) # all containers ready
@@ -132,7 +129,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             $pod | ConvertTo-Json -Depth 10 | Out-File (Join-Path ([System.IO.Path]::GetTempPath()) "pod.json")
         }
 
-        Write-Verbose "Phases are $($phases -join ',') Phase is $($pod.status.phase)"
+        Write-Verbose "Phases are $($phases -join ','). Phase is $($pod.status.phase)"
         if ($pod.status.phase -in $phases) {
             # "  $prefix $($pod.metadata.name) status is $($pod.status.phase)" | Tee-Object $OutputFile -Append | Write-MyHost
             if (!$runningPods[$pod.metadata.name] -and
@@ -205,8 +202,8 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
 $ok = [bool]($runningCount -ge $ReplicaCount)
 if (!$ok) {
-    Write-Verbose "$(Get-Date) -lt $($timeoutEnd)"
-    Write-Status "Timed out waiting $([int](((Get-Date) - $start).TotalSeconds))s for pods that matched selector $Selector RunningCount: $runningCount ReplicaCount: $ReplicaCount $ok" `
+    Write-Verbose "Times: $(Get-Date) -lt $($timeoutEnd) Values: $($podStatuses.Values.Count)"
+    Write-Status "Timed or errored out waiting $([int](((Get-Date) - $start).TotalSeconds))s for pods that matched selector $Selector RunningCount: $runningCount ReplicaCount: $ReplicaCount $ok" `
                 -Length 0 `
                 -LogLevel Error
     $podStatuses.Values | ForEach-Object { $_.Status = [Status]::Timeout }
