@@ -22,7 +22,9 @@ param (
     [switch] $DryRun,
     [string] $K8sUtilsVersion,
     [string] $Repository,
-    [string] $NugetPassword = $env:nuget_password
+    [string] $NugetPassword = $env:nuget_password,
+    [string[]] $tag = @(),
+    [switch] $prerelease
 )
 
 $currentTask = ""
@@ -74,13 +76,25 @@ foreach ($currentTask in $Tasks) {
                     throw "NugetPassword and Repository parameters must be set"
                 }
                 executeSB -RelativeDir "K8sUtils" {
-                    Publish-Module -Repository $Repository -Path . -NuGetApiKey $NugetPassword
+                    try {
+                        if ($prerelease) {
+                            Copy-Item K8sUtils.psd1 K8sUtils.psd1.bak -Force
+                            (Get-Content K8sUtils.psd1 -Raw) -replace '# Prerelease = ''''', 'Prerelease = ''prelease''' | Set-Content K8sUtils.psd1 -Encoding 'UTF8' -NoNewline
+                        }
+                        Publish-Module -Repository $Repository -Path . -NuGetApiKey $NugetPassword
+                    } finally {
+                        if ($prerelease) {
+                            Copy-Item K8sUtils.psd1.bak K8sUtils.psd1
+                            Remove-Item K8sUtils.psd1.bak -ErrorAction SilentlyContinue
+                        }
+                    }
                 }
             }
             'test' {
                 executeSB  {
-                    $result = Invoke-Pester -PassThru
-                    Write-Information ($result.tests | Where-Object { $_.executed -and !$_.passed } | Select-Object name, @{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }} | Out-String)  -InformationAction Continue
+                    $result = Invoke-Pester -PassThru -Tag $tag
+                    $i = 0
+                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }} | Out-String)  -InformationAction Continue
                     Write-Information "Test results: are in `$test_results" -InformationAction Continue
                     $global:test_results = $result
                 }

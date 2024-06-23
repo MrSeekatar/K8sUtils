@@ -68,11 +68,10 @@ function Get-DeploymentStatus {
 
     # get the current replicaSet's for hash to get pods in this deployment
     Write-Verbose "kubectl get rs -l $Selector  --namespace $Namespace --sort-by=.metadata.creationTimestamp -o jsonpath='{.items}'"
-    # $hash = kubectl get rs -l "$Selector"  --namespace $Namespace --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.labels.pod-template-hash}'
     $items = kubectl get rs -l "$Selector"  --namespace $Namespace --sort-by=.metadata.creationTimestamp -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20
     Write-Verbose "items is $items"
     if ($LASTEXITCODE -ne 0 -or !$items) {
-        throw "When looking for preHook, nothing returned from kubectl get rs -l $Selector --namespace $Namespace"
+        throw "When looking for pod, nothing returned from kubectl get rs -l $Selector --namespace $Namespace. Check selector."
     }
     $hash = $items[-1].metadata.labels."pod-template-hash"
 

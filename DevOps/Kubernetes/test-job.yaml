@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "test-job"
+  annotations:
+    # This is what defines this resource as a hook. Without this line, the
+    # job is considered part of the release.
+    "helm.sh/hook": pre-install, pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    # adding hook-failed deletes the job if it fails
+    # default or before-hook-creation will keep the job around, but delete before next run
+    # "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 3000
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      name: "test"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: pre-install-upgrade-job
+        image: "init-app:latest"
+        imagePullPolicy: Never
+        env:
+        - name: RUN_COUNT
+          value: "60"
+        - name: FAIL
+          value: "false"
+        volumeMounts:
+        - mountPath: /mt
+          name: mt
+      initContainers:
+      - env:
+        - name: COPY_AND_EXIT
+          value: "1"
+        image:  minimal:latest
+        imagePullPolicy: Never
+        name: minimal-as-init
+        resources: {}
+        volumeMounts:
+        - mountPath: /mt
+          name: mt
+      volumes:
+      - name: mt
+        emptyDir: {}

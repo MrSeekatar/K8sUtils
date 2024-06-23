@@ -143,44 +143,50 @@ function Invoke-HelmUpgrade {
         [CmdletBinding()]
         param ($SkipRollbackOnError, $releaseName, $msg, $prevVersion)
 
-        $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10
-        if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version)) {
-            Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning -Char '-'
-            Write-Warning (""+$currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)
+        try {
+            $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10
+            if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version)) {
+                Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning -Char '-'
+                Write-Warning "Current helm release: $($currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+                return [RollbackStatus]::HelmStatusFailed
+            }
+            Write-Verbose "Current version of $ReleaseName is $($currentReleaseVersion.version)"
+            if (!$currentReleaseVersion -or $currentReleaseVersion.version -eq $prevVersion) {
+                Write-Status "No change in release $ReleaseName, not rolling back" -LogLevel warning -Char '-'
+                # throw "$msg, no change"
+                Write-Warning "$msg, no change"
+                return [RollbackStatus]::NoChange
+            }
+
+            if (!$SkipRollbackOnError) {
+                Write-Header "Rolling back release $ReleaseName due to errors" -LogLevel Error
+                $errFile = Get-TempLogFile
+                helm rollback $ReleaseName 2>&1 | Tee-Object $errFile | Write-MyHost
+                Get-Content $errFile -Raw | Out-File $tempFile -Append
+                $exit = $LASTEXITCODE
+                $content = Get-Content $errFile -Raw
+                $content | Out-File $OutputFile -Append
+                if ($exit -ne 0 -and ($content -like '*Error: release has no 0 version*' -or $content -like '*Error: release: not found*')) {
+                    Write-Verbose "Last exit code on rollback was $exit. Contents of ${errFile}:`n$content"
+                    Write-Status "helm rollback failed, trying uninstall" -LogLevel Error -Char '-'
+                    helm uninstall $ReleaseName | Out-File $OutputFile -Append
+                }
+                Write-Footer "End rolling back release $ReleaseName due to errors" -LogLevel Error
+                Remove-Item $errFile -ErrorAction SilentlyContinue
+                # throw "$msg, rolled back"
+                Write-Warning "$msg, rolled back"
+                return [RollbackStatus]::RolledBack
+            } else {
+                # throw "$msg, but not rolling back since -SkipRollbackOnError was specified"
+                Write-Warning "$msg, but not rolling back since -SkipRollbackOnError was specified"
+                return [RollbackStatus]::Skipped
+            }
+            return [RollbackStatus]::DeployedOk
+        } catch {
+            Write-Warning "Caught error rolling back in catch"
+            Write-Error "$_`n$($_.ScriptStackTrace)"
             return [RollbackStatus]::HelmStatusFailed
         }
-        Write-Verbose "Current version of $ReleaseName is $($currentReleaseVersion.version)"
-        if (!$currentReleaseVersion -or $currentReleaseVersion.version -eq $prevVersion) {
-            Write-Status "No change in release $ReleaseName, not rolling back" -LogLevel warning -Char '-'
-            # throw "$msg, no change"
-            Write-Warning "$msg, no change"
-            return [RollbackStatus]::NoChange
-        }
-
-        if (!$SkipRollbackOnError) {
-            Write-Header "Rolling back release $ReleaseName due to errors" -LogLevel Error
-            $errFile = Get-TempLogFile
-            helm rollback $ReleaseName 2>&1 | Tee-Object $errFile | Write-MyHost
-            Get-Content $errFile -Raw | Out-File $tempFile -Append
-            $exit = $LASTEXITCODE
-            $content = Get-Content $errFile -Raw
-            $content | Out-File $OutputFile -Append
-            if ($exit -ne 0 -and ($content -like '*Error: release has no 0 version*' -or $content -like '*Error: release: not found*')) {
-                Write-Verbose "Last exit code on rollback was $exit. Contents of ${errFile}:`n$content"
-                Write-Status "helm rollback failed, trying uninstall" -LogLevel Error -Char '-'
-                helm uninstall $ReleaseName | Out-File $OutputFile -Append
-            }
-            Write-Footer "End rolling back release $ReleaseName due to errors" -LogLevel Error
-            Remove-Item $errFile -ErrorAction SilentlyContinue
-            # throw "$msg, rolled back"
-            Write-Warning "$msg, rolled back"
-            return [RollbackStatus]::RolledBack
-        } else {
-            # throw "$msg, but not rolling back since -SkipRollbackOnError was specified"
-            Write-Warning "$msg, but not rolling back since -SkipRollbackOnError was specified"
-            return [RollbackStatus]::Skipped
-        }
-        return [RollbackStatus]::DeployedOk
     }
 
     if (!(Get-Command helm -ErrorAction SilentlyContinue) -or !(Get-Command kubectl -ErrorAction SilentlyContinue)) {
@@ -208,7 +214,23 @@ function Invoke-HelmUpgrade {
         $parms += "--version"
         $parms += $ChartVersion
     }
-    Write-Verbose "Params $($parms -join " ")"
+    Write-Verbose "Parameters:"
+    Write-Verbose "    ValueFile: $ValueFile"
+    Write-Verbose "    ChartName: $ChartName"
+    Write-Verbose "    ReleaseName: $ReleaseName"
+    Write-Verbose "    DeploymentSelector: $DeploymentSelector"
+    Write-Verbose "    Chart: $Chart"
+    Write-Verbose "    ChartVersion: $ChartVersion"
+    Write-Verbose "    Namespace: $Namespace"
+    Write-Verbose "    PreHookJobName: $PreHookJobName"
+    Write-Verbose "    PodTimeoutSecs: $PodTimeoutSecs"
+    Write-Verbose "    PreHookTimeoutSecs: $PreHookTimeoutSecs"
+    Write-Verbose "    PollIntervalSec: $PollIntervalSec"
+    Write-Verbose "    SkipRollbackOnError: $SkipRollbackOnError"
+    Write-Verbose "    DryRun: $DryRun"
+    Write-Verbose "    ColorType: $ColorType"
+    Write-Verbose "Helm extra params $($parms -join " ")"
+
 
     $tempFile = Get-TempLogFile
 
@@ -225,6 +247,7 @@ function Invoke-HelmUpgrade {
         Write-Warning "Override allowing PreHookTimeoutSecs ($PreHookTimeoutSecs) is less than $minPreHookTimeoutSecs seconds, or PodTimeoutSecs ($PodTimeoutSecs) is less than 180 seconds."
     }
 
+    $status = [ReleaseStatus]::new($ReleaseName)
     try {
         $hookMsg = $PreHookJobName ? " waiting ${PreHookTimeoutSecs}s prehook job '$PreHookJobName'" : ""
 
@@ -240,7 +263,7 @@ function Invoke-HelmUpgrade {
         if ($DryRun) {
             Write-Status "Doing a helm dry run. Helm output and manifests follow."
         } else {
-            Write-Header "Helm upgrade$hookMsg"
+            Write-Header "Helm upgrade$hookMsg" -ColorType ANSI # never collapse
         }
         # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
         helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Tee-Object $tempFile -Append | Write-MyHost
@@ -249,10 +272,10 @@ function Invoke-HelmUpgrade {
         if ($DryRun) {
             return
         } else {
-            Write-Footer "End Helm upgrade (exit code $upgradeExit)"
+            Write-Footer "End Helm upgrade (exit code $upgradeExit)" -ColorType ANSI
         }
-        $status = [ReleaseStatus]::new($ReleaseName)
 
+        $hookStatus = $null
         if ($PreHookJobName) {
             $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                                         -Namespace $Namespace `
@@ -262,21 +285,23 @@ function Invoke-HelmUpgrade {
                                                         -IsJob
             Write-Verbose "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
             $status.PreHookStatus = $hookStatus
-
-            if ($upgradeExit -ne 0) {
-                $status.Running = $false
-                Write-Verbose "Helm upgrade failed, setting prehook status to timeout"
-                if ($status.PreHookStatus.Status -eq [Status]::Running ) { # assume timeout if prehook is running
-                    $status.PreHookStatus.Status = [Status]::Timeout
-                }
-                Write-Output $status
-                $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError `
-                                                         -releaseName $ReleaseName `
-                                                         -msg "Helm upgrade got last exit code $upgradeExit" `
-                                                         -prevVersion $prevVersion
-                return
-            }
         }
+
+        if ($upgradeExit -ne 0 -or !$hookStatus) {
+            $status.Running = $false
+            Write-Verbose "Helm upgrade failed, setting prehook status to timeout"
+            if ($status.PreHookStatus -and
+                $status.PreHookStatus.Status -eq [Status]::Running ) { # assume timeout if prehook is running
+                $status.PreHookStatus.Status = [Status]::Timeout
+            }
+            $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError `
+                                                        -releaseName $ReleaseName `
+                                                        -msg "Helm upgrade got last exit code $upgradeExit" `
+                                                        -prevVersion $prevVersion
+            Write-Output $status
+            return
+        }
+
 
         if ($DeploymentSelector) {
             $podStatuses = Get-DeploymentStatus -TimeoutSec $PodTimeoutSecs `
@@ -294,14 +319,20 @@ function Invoke-HelmUpgrade {
         }
         Write-Verbose "PodStatuses: $($status.PodStatuses | Format-List | Out-String)"
 
-        Write-Output $status
         if ($DeploymentSelector -and !$status.Running) {
             $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release $ReleaseName had errors" -PrevVersion $prevVersion
         } else {
             $status.RollbackStatus = [RollbackStatus]::DeployedOk
         }
+        Write-Output $status
     } catch {
-        Write-Error "$_`n$($_.ScriptStackTrace)"
+        $err = $_
+        if ($DeploymentSelector) {
+            $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release $ReleaseName had errors" -PrevVersion $prevVersion
+        }
+        Write-Warning "Caught error. Following status may be incomplete"
+        Write-Output $status
+        Write-Error "$err`n$($err.ScriptStackTrace)"
     } finally {
         Pop-Location
         $script:ColorType = $prev

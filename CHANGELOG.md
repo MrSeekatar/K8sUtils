@@ -1,16 +1,39 @@
 # Change Log
 
+## [1.0.14] 2024-6-24
+
+### Added
+
+- Verbose logging for all parameters
+- Prerelease support for `run.ps1` publishing
+
+### Fixed
+
+- If helm exits with an error, no longer keeps going.
+
+### Updated
+
+- Improved detection of completed jobs so can call `Get-PodStatus` on a job that is not a pre-install hook.
+- `catch` added for rollback for better error handling.
+
+## [1.0.13] 2024-6-16
+
+### Fixed
+
+- Rollback status not includes in output
+- If preHook gets an error, rollback not triggered
+
 ## [1.0.12] 2024-6-16
 
 ### Fixed
 
-If preHook is configured to check, but not run in helm, would give a K8s error.
+- If preHook is configured to check, but not run in helm, would give a K8s error.
 
 ## [1.0.11] 2024-6-7
 
 ### Updated
 
-Dry run title is better, and doesn't collapse in AzDO by default.
+- Dry run title is better, and doesn't collapse in AzDO by default.
 
 ## [1.0.10] 2024-5-18
 

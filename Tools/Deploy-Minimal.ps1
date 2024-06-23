@@ -82,7 +82,7 @@ function Deploy-Minimal {
     Push-Location (Join-Path $PSScriptRoot "../DevOps/helm")
 
     # to clear out init containers from values.yaml, don't set anything and do this, but requires newer helm
-    $helmSet = ""
+    $helmSet = @()
     # $helmSet += "--set-json"
     # $helmSet += "initContainers=[]"
 
@@ -116,36 +116,39 @@ function Deploy-Minimal {
     }
 
     if ($BadSecret) {
-        $helmSet += "secrets.example-secret3=bad-secret,"
+        $helmSet += "secrets.example-secret3=bad-secret"
     }
     if ($StartupProbe) {
-        $helmSet += "startupPath=/info,"
+        $helmSet += "startupPath=/info"
+    }
+    if ($SkipPreHook) {
+        $null = kubectl delete job test-prehook --ignore-not-found # so don't find prev one
     }
 
-    $helmSet += "deployment.enabled=$($SkipDeploy ? "false" : "true")," +
-                "env.deployTime=$(Get-Date)," +
-                "env.failOnStart=$fail," +
-                "env.runCount=$RunCount," +
-                "image.tag=$ImageTag," +
-                "preHook.create=$(!$SkipPreHook)," +
-                "preHook.fail=$HookFail," +
-                "preHook.imageTag=$HookTag," +
-                "preHook.runCount=$HookRunCount," +
-                "readinessPath=$Readiness," +
+    $helmSet += "deployment.enabled=$($SkipDeploy ? "false" : "true")",
+                "env.deployTime=$(Get-Date)",
+                "env.failOnStart=$fail",
+                "env.runCount=$RunCount",
+                "image.tag=$ImageTag",
+                "preHook.create=$(!$SkipPreHook)",
+                "preHook.fail=$HookFail",
+                "preHook.imageTag=$HookTag",
+                "preHook.runCount=$HookRunCount",
+                "readinessPath=$Readiness",
                 "replicaCount=$Replicas"
 
-    Write-Verbose ("   "+($helmSet -join "`n   "))
+    Write-Verbose ("HelmSet:`n   "+($helmSet -join "`n   "))
     $releaseName = "test"
     $chartName = "minimal"
     try {
         $ret = Invoke-HelmUpgrade -ValueFile "minimal_values.yaml" `
                            -ChartName $chartName `
                            -ReleaseName $releaseName `
-                           -HelmSet $helmSet `
+                           -HelmSet ($helmSet -join ',')`
                            -HelmSetJson $helmJson `
                            -DeploymentSelector ($SkipDeploy ? "" : "app.kubernetes.io/instance=$releaseName,app.kubernetes.io/name=$chartName") `
                            -PodTimeoutSec $TimeoutSecs `
-                           -PreHookJobName ($SkipPreHook -or $AlwaysCheckPreHook ? $Null : "test-prehook") `
+                           -PreHookJobName (!$SkipPreHook -or $AlwaysCheckPreHook ? "test-prehook" : $null) `
                            -PreHookTimeoutSecs $PreHookTimeoutSecs `
                            -PollIntervalSec $PollIntervalSec `
                            -DryRun:$DryRun `

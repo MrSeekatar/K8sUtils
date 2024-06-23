@@ -111,7 +111,7 @@ In the `DevOps/Kubernetes` folder are the following manifests:
 | manifests1.yml         | Creates a deployment, service and ingress with host my-k8s-example1.com |
 | manifests2.yml         | Creates a deployment, service and ingress with host my-k8s-example2.com |
 
-> `$env:invokeHelmAllowLowTimeouts=1` to allow short timeouts for testing, otherwise will set min to 120s for prehook and 180s for main
+> Set `$env:invokeHelmAllowLowTimeouts=1` to allow short timeouts for testing, otherwise will set minimum to 120s for prehook and 180s for main. Setting `$env:TF_BUILD=$true` will simulate running in an Azure DevOps pipeline and change header and footer output.
 
 ### Tested Scenarios <!-- omit in toc -->
 
@@ -147,16 +147,17 @@ The following table shows the scenarios of deploying the app with helm and the v
 
 These test cases are difficult to test or yet to be covered with tests.
 
-| Description                                  | Manual<br>Test | `Deploy-Minimal` Switches                                         |
-| -------------------------------------------- | :------------: | ----------------------------------------------------------------- |
-| Replica increase                             |       ✅        | -Replicas 3                                                       |
-| Replica decrease                             |       ✅        | -Replicas 1                                                       |
-| Main container liveness timeout              |       ✅        |                                                                   |
-| Another operation in progress                |       ✅        | -SkipInit -HookRunCount 100 in one terminal, -SkipInit in another |
-| Main container startup timeout               |       ✅        | -SkipInit -TimeoutSec 10 -RunCount 10 -SkipPreHook -StartupProbe  |
-| Main container startup times out a few times |       ✅        | -SkipInit -TimeoutSec 60 -RunCount 10 -SkipPreHook -StartupProbe  |
-| PreHook Job `restart: onFailure`             |                |                                                                   |
-| PreHook Job `activeDeadlineSeconds`          |                |                                                                   |
+| Description                                  | Manual<br>Test | `Deploy-Minimal` Switches                                                |
+| -------------------------------------------- | :------------: | ------------------------------------------------------------------------ |
+| Replica increase                             |       ✅        | -Replicas 3                                                              |
+| Replica decrease                             |       ✅        | -Replicas 1                                                              |
+| Main container liveness timeout              |       ✅        |                                                                          |
+| Another operation in progress                |       ✅        | -SkipInit -HookRunCount 100 in one terminal, -SkipInit in another        |
+| Main container startup timeout               |       ✅        | -SkipInit -TimeoutSec 10 -RunCount 10 -SkipPreHook -StartupProbe         |
+| Main container startup times out a few times |       ✅        | -SkipInit -TimeoutSec 60 -RunCount 10 -SkipPreHook -StartupProbe         |
+| PreHook Job `restart: onFailure`             |                |                                                                          |
+| PreHook Job `activeDeadlineSeconds`          |                |                                                                          |
+| Object not owned by Helm                     |       ✅        | `helm uninstall test` then `k apply -f .\DevOps\Kubernetes\deploy-without-helm.yaml` then deploy|
 
 ### Test helm chart <!-- omit in toc -->
 
