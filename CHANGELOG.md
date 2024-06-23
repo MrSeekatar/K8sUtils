@@ -1,5 +1,21 @@
 # Change Log
 
+## [1.0.14] 2024-6-24
+
+### Added
+
+- Verbose logging for all parameters
+- Prerelease support for `run.ps1` publishing
+
+### Fixed
+
+- If helm exits with an error, no longer keeps going.
+
+### Updated
+
+- Improved detection of completed jobs so can call `Get-PodStatus` on a job that is not a pre-install hook.
+- `catch` added for rollback for better error handling.
+
 ## [1.0.13] 2024-6-16
 
 ### Fixed

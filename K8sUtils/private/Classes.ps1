@@ -17,6 +17,7 @@ enum Status {
     Timeout
     Crash
     ConfigError
+    Completed
 }
 
 enum RollbackStatus {

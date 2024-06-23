@@ -147,7 +147,7 @@ function Invoke-HelmUpgrade {
             $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10
             if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version)) {
                 Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning -Char '-'
-                Write-Warning (""+$currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)
+                Write-Warning "Current helm release: $($currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
                 return [RollbackStatus]::HelmStatusFailed
             }
             Write-Verbose "Current version of $ReleaseName is $($currentReleaseVersion.version)"
@@ -263,7 +263,7 @@ function Invoke-HelmUpgrade {
         if ($DryRun) {
             Write-Status "Doing a helm dry run. Helm output and manifests follow."
         } else {
-            Write-Header "Helm upgrade$hookMsg"
+            Write-Header "Helm upgrade$hookMsg" -ColorType ANSI # never collapse
         }
         # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
         helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Tee-Object $tempFile -Append | Write-MyHost
@@ -272,9 +272,10 @@ function Invoke-HelmUpgrade {
         if ($DryRun) {
             return
         } else {
-            Write-Footer "End Helm upgrade (exit code $upgradeExit)"
+            Write-Footer "End Helm upgrade (exit code $upgradeExit)" -ColorType ANSI
         }
 
+        $hookStatus = $null
         if ($PreHookJobName) {
             $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                                         -Namespace $Namespace `
@@ -284,22 +285,23 @@ function Invoke-HelmUpgrade {
                                                         -IsJob
             Write-Verbose "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
             $status.PreHookStatus = $hookStatus
-
-            if ($upgradeExit -ne 0 -or !$hookStatus) {
-                $status.Running = $false
-                Write-Verbose "Helm upgrade failed, setting prehook status to timeout"
-                if ($status.PreHookStatus -and
-                    $status.PreHookStatus.Status -eq [Status]::Running ) { # assume timeout if prehook is running
-                    $status.PreHookStatus.Status = [Status]::Timeout
-                }
-                $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError `
-                                                         -releaseName $ReleaseName `
-                                                         -msg "Helm upgrade got last exit code $upgradeExit" `
-                                                         -prevVersion $prevVersion
-                Write-Output $status
-                return
-            }
         }
+
+        if ($upgradeExit -ne 0 -or !$hookStatus) {
+            $status.Running = $false
+            Write-Verbose "Helm upgrade failed, setting prehook status to timeout"
+            if ($status.PreHookStatus -and
+                $status.PreHookStatus.Status -eq [Status]::Running ) { # assume timeout if prehook is running
+                $status.PreHookStatus.Status = [Status]::Timeout
+            }
+            $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError `
+                                                        -releaseName $ReleaseName `
+                                                        -msg "Helm upgrade got last exit code $upgradeExit" `
+                                                        -prevVersion $prevVersion
+            Write-Output $status
+            return
+        }
+
 
         if ($DeploymentSelector) {
             $podStatuses = Get-DeploymentStatus -TimeoutSec $PodTimeoutSecs `

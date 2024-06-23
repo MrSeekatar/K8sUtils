@@ -52,7 +52,7 @@ Describe "Deploys Minimal API" {
         $deploy.Running | Should -Be $false
         $deploy.ReleaseName | Should -Be 'test'
         $deploy.PodStatuses | Should -Be $null
-        $deploy.PreHookStatus.Status | Should -Be 'Running'
+        $deploy.PreHookStatus.Status | Should -Be 'Completed'
         $deploy.RollbackStatus | Should -Be 'DeployedOk'
     } -Tag 'Happy','t5'
 
@@ -62,7 +62,7 @@ Describe "Deploys Minimal API" {
     } -Tag 'Happy','t6'
 
     It "has main container crash" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -Fail
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -Fail -Verbose
         Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Crash'

@@ -23,7 +23,8 @@ param (
     [string] $K8sUtilsVersion,
     [string] $Repository,
     [string] $NugetPassword = $env:nuget_password,
-    [string[]] $tag = @()
+    [string[]] $tag = @(),
+    [switch] $prerelease
 )
 
 $currentTask = ""
@@ -75,7 +76,18 @@ foreach ($currentTask in $Tasks) {
                     throw "NugetPassword and Repository parameters must be set"
                 }
                 executeSB -RelativeDir "K8sUtils" {
-                    Publish-Module -Repository $Repository -Path . -NuGetApiKey $NugetPassword
+                    try {
+                        if ($prerelease) {
+                            Copy-Item K8sUtils.psd1 K8sUtils.psd1.bak -Force
+                            (Get-Content K8sUtils.psd1 -Raw) -replace '# Prerelease = ''''', 'Prerelease = ''prelease''' | Set-Content K8sUtils.psd1 -Encoding 'UTF8' -NoNewline
+                        }
+                        Publish-Module -Repository $Repository -Path . -NuGetApiKey $NugetPassword
+                    } finally {
+                        if ($prerelease) {
+                            Copy-Item K8sUtils.psd1.bak K8sUtils.psd1
+                            Remove-Item K8sUtils.psd1.bak -ErrorAction SilentlyContinue
+                        }
+                    }
                 }
             }
             'test' {
