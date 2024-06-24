@@ -81,7 +81,7 @@ Invoke-HelmUpgrade -ValueFile "./values.yml" `
                     -PreHookJobName "backendtemplate-api" `
                     -PreHookTimeoutSecs 120 `
                     -DeploymentSelector app=backendtemplate-api `
-                    -SkipRollbackOnError -Verbose
+                    -SkipRollbackOnError
 
 Do a Helm upgrade of a backend template to test with a pre-install hook that has a job named backendtemplate-api
 
@@ -100,8 +100,7 @@ Invoke-HelmUpgrade -ValueFile "./new-values.yml" `
                      -ChartName 'my-chart' `
                      -Chart '~/code/DevOps/helm-charts/internal-charts/my-chart-template' `
                      -ReleaseName "hrabuilder-api" `
-                     -DeploymentSelector app=hrabuilder-api `
-                     -Verbose
+                     -DeploymentSelector app=hrabuilder-api
 
 Do a Helm upgrade of a hra builder to dev
 
@@ -147,19 +146,19 @@ function Invoke-HelmUpgrade {
             $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10
             if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version)) {
                 Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning -Char '-'
-                Write-Warning "Current helm release: $($currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+                Write-Status "Current helm release: $($currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
                 return [RollbackStatus]::HelmStatusFailed
             }
             Write-Verbose "Current version of $ReleaseName is $($currentReleaseVersion.version)"
             if (!$currentReleaseVersion -or $currentReleaseVersion.version -eq $prevVersion) {
-                Write-Status "No change in release $ReleaseName, not rolling back" -LogLevel warning -Char '-'
+                Write-Status "No change in release '$ReleaseName', not rolling back" -LogLevel warning -Char '-'
                 # throw "$msg, no change"
                 Write-Warning "$msg, no change"
                 return [RollbackStatus]::NoChange
             }
 
             if (!$SkipRollbackOnError) {
-                Write-Header "Rolling back release $ReleaseName due to errors" -LogLevel Error
+                Write-Header "Rolling back release '$ReleaseName' due to errors" -LogLevel Error
                 $errFile = Get-TempLogFile
                 helm rollback $ReleaseName 2>&1 | Tee-Object $errFile | Write-MyHost
                 Get-Content $errFile -Raw | Out-File $tempFile -Append
@@ -171,7 +170,7 @@ function Invoke-HelmUpgrade {
                     Write-Status "helm rollback failed, trying uninstall" -LogLevel Error -Char '-'
                     helm uninstall $ReleaseName | Out-File $OutputFile -Append
                 }
-                Write-Footer "End rolling back release $ReleaseName due to errors" -LogLevel Error
+                Write-Footer "End rolling back release '$ReleaseName' due to errors" -LogLevel Error
                 Remove-Item $errFile -ErrorAction SilentlyContinue
                 # throw "$msg, rolled back"
                 Write-Warning "$msg, rolled back"
@@ -263,7 +262,7 @@ function Invoke-HelmUpgrade {
         if ($DryRun) {
             Write-Status "Doing a helm dry run. Helm output and manifests follow."
         } else {
-            Write-Header "Helm upgrade$hookMsg" -ColorType ANSI # never collapse
+            Write-Status ">> Helm upgrade$hookMsg"
         }
         # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
         helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Tee-Object $tempFile -Append | Write-MyHost
@@ -272,7 +271,7 @@ function Invoke-HelmUpgrade {
         if ($DryRun) {
             return
         } else {
-            Write-Footer "End Helm upgrade (exit code $upgradeExit)" -ColorType ANSI
+            Write-Status "<< End Helm upgrade (exit code $upgradeExit)"
         }
 
         $hookStatus = $null
@@ -287,12 +286,12 @@ function Invoke-HelmUpgrade {
             $status.PreHookStatus = $hookStatus
         }
 
-        if ($upgradeExit -ne 0 -or !$hookStatus) {
+        if ($upgradeExit -ne 0 -or ($status.PreHookStatus -and $status.PreHookStatus.Status -ne [Status]::Completed)) {
             $status.Running = $false
-            Write-Verbose "Helm upgrade failed, setting prehook status to timeout"
             if ($status.PreHookStatus -and
-                $status.PreHookStatus.Status -eq [Status]::Running ) { # assume timeout if prehook is running
-                $status.PreHookStatus.Status = [Status]::Timeout
+                $status.PreHookStatus.Status -eq [Status]::Running ) { # timeout
+                    Write-Verbose "Helm upgrade failed, setting prehook status to timeout"
+                    $status.PreHookStatus.Status = [Status]::Timeout
             }
             $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError `
                                                         -releaseName $ReleaseName `
@@ -320,7 +319,7 @@ function Invoke-HelmUpgrade {
         Write-Verbose "PodStatuses: $($status.PodStatuses | Format-List | Out-String)"
 
         if ($DeploymentSelector -and !$status.Running) {
-            $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release $ReleaseName had errors" -PrevVersion $prevVersion
+            $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release '$ReleaseName' had errors" -PrevVersion $prevVersion
         } else {
             $status.RollbackStatus = [RollbackStatus]::DeployedOk
         }
@@ -328,7 +327,7 @@ function Invoke-HelmUpgrade {
     } catch {
         $err = $_
         if ($DeploymentSelector) {
-            $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release $ReleaseName had errors" -PrevVersion $prevVersion
+            $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release '$ReleaseName' had errors" -PrevVersion $prevVersion
         }
         Write-Warning "Caught error. Following status may be incomplete"
         Write-Output $status

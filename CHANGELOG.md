@@ -1,5 +1,16 @@
 # Change Log
 
+## [1.0.15] 2024-6-25
+
+### Fixed
+
+- Falsely errors out if no pre-install hook
+- Stop if no pre-install hook, but told to check for it.
+
+### Updated
+
+- Get a pods latest status on error since may report last state as containerCreating since it's a bit stale
+
 ## [1.0.14] 2024-6-24
 
 ### Added
