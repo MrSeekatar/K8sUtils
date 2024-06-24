@@ -64,7 +64,7 @@ if ($IsJob) {
 function podReady($containerStatuses) {
 
     $readyContainers = @()
-    Write-Warning "ContainerStatuses: $($containerStatuses | ConvertTo-Json -Depth 10 -EnumsAsStrings)"
+    Write-Verbose "ContainerStatuses: $($containerStatuses | ConvertTo-Json -Depth 10 -EnumsAsStrings)"
     if ($IsJob) {
         # for a job, all containers need to be complete
         $readyContainers += $containerStatuses | Where-Object { (Get-Member -InputObject $_.state -Name 'terminated') -and $_.state.terminated.reason -eq 'Completed'}
@@ -168,10 +168,14 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             Write-Verbose "Got $($events.items.count) events for pod $($pod.metadata.name) "
             Write-Verbose "Got $($errors.count) errors"
             if ($errors -or $pod.status.phase -eq "Failed" ) {
+                Write-Status "Pod $($pod.metadata.name) has $($errors.count) errors" -LogLevel Error
                 # write final events and logs for this pod
                 Write-Verbose "Calling Write-PodEvent for pod $($pod.metadata.name) with LogLevel Error"
                 $podStatuses[$pod.metadata.name].LastBadEvents = Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
                 Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit
+
+                # get latest pod status since sometimes get containerCreating status here
+                $pod = kubectl get pod --namespace $Namespace $pod.metadata.name -o json | ConvertFrom-Json
 
                 $podStatuses[$pod.metadata.name].ContainerStatuses = @($pod.status.containerStatuses | ForEach-Object {
                         Write-Verbose "Pod status: $($_ | ConvertTo-Json -Depth 10)"
@@ -208,11 +212,17 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
 $ok = [bool]($runningCount -ge $ReplicaCount)
 if (!$ok) {
-    Write-Verbose "Times: $(Get-Date) -lt $($timeoutEnd) Values: $($podStatuses.Values.Count)"
+    Write-Verbose "Times: $(Get-Date) -lt $($timeoutEnd) Values count: $($podStatuses.Values.Count)"
     Write-Status "Timed or errored out waiting $([int](((Get-Date) - $start).TotalSeconds))s for pods that matched selector $Selector RunningCount: $runningCount ReplicaCount: $ReplicaCount $ok" `
                 -Length 0 `
                 -LogLevel Error
+    if ($podStatuses.Count -eq 0) {
+        $status = [PodStatus]::new("<no pods found>")
+        $status.Status = [Status]::Timeout
+        $podStatuses["<no pods found>"] = $status
+    }
     $podStatuses.Values | ForEach-Object { $_.Status = [Status]::Timeout }
+
 }
 if ($createdTempFile) {
     Write-MyHost "Output was written to $OutputFile"

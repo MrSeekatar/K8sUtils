@@ -62,7 +62,7 @@ Describe "Deploys Minimal API" {
     } -Tag 'Happy','t6'
 
     It "has main container crash" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -Fail -Verbose
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -Fail
         Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Crash'
@@ -151,7 +151,7 @@ Describe "Deploys Minimal API" {
     } -Tag 'Sad', 'Timeout', 't18'
 
     It "has prehook job hook timeout" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -HookRunCount 100 -PreHookTimeoutSecs 5 -Verbose
+        $deploy = Deploy-Minimal -PassThru -SkipInit -HookRunCount 100 -PreHookTimeoutSecs 5
         $global:deploy = $deploy
         $deploy.Running | Should -Be $false
         $deploy.RollbackStatus | Should -Be 'RolledBack'
