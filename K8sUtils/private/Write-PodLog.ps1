@@ -24,7 +24,7 @@ function Write-PodLog {
 
     Write-Header $msg -LogLevel $LogLevel -OutputFile $OutputFile
     kubectl logs --namespace $Namespace $PodName $extraLogParams 2>&1 |
-        Where-Object { $_ -NotMatch 'Error.*: (PodInitializing|ContainerCreating)' } | Tee-Object $OutputFile -Append | Write-MyHost
+        Where-Object { $_ -NotMatch 'Error.*: (PodInitializing|ContainerCreating)' } | Write-Plain
     $getLogsExitCode = $LASTEXITCODE
     Write-Footer "End logs for $prefix $PodName" -LogLevel $LogLevel -OutputFile $OutputFile
 

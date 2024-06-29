@@ -1,6 +1,4 @@
-# Default values for Helm.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# Values file for deploying the minimal test app
 appVersion: "1.17.0"
 
 replicaCount: 1

@@ -3,7 +3,7 @@
 Get the status of the pods for a release
 
 .PARAMETER Selector
-K8s select for finding the pods
+K8s selector for finding the pods
 
 .PARAMETER ReplicaCount
 Number of pods to wait for that match the selector
@@ -21,10 +21,17 @@ K8s namespace to use, defaults to default
 File to write output to in addition to the console
 
 .PARAMETER IsJob
-Is this pod a job's pod
+If true, all containers must be terminated ok, instead of ready
 
 .EXAMPLE
-An example
+$hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
+                                            -Namespace $Namespace `
+                                            -OutputFile $tempFile `
+                                            -TimeoutSec 1 `
+                                            -PollIntervalSec $PollIntervalSec `
+                                            -IsJob
+
+Get the status of a job pod
 
 .OUTPUTS
 $True if all pods are running, $False if not
@@ -53,15 +60,15 @@ $podStatuses = @{}
 $createdTempFile = !$OutputFile
 
 if ($IsJob) {
-    $phases = ,"Succeeded"
+    $okPhase = "Succeeded"
     $prefix = "preHook job pod"
 } else {
-    $phases = ,"Running"
+    $okPhase = ,"Running"
     $prefix = "pod"
 }
 
 # are all containers in the pod ready?
-function podReady($containerStatuses) {
+function allContainersReady($containerStatuses) {
 
     $readyContainers = @()
     Write-Verbose "ContainerStatuses: $($containerStatuses | ConvertTo-Json -Depth 10 -EnumsAsStrings)"
@@ -73,7 +80,7 @@ function podReady($containerStatuses) {
         $readyContainers += $containerStatuses | Where-Object ready -eq $true
     }
     $podIsReady = $readyContainers.Count -eq $containerStatuses.Count
-    Write-Verbose "Checking containerStatuses for $($IsJob ? 'job' : 'NON job'). PodReady = $podIsReady"
+    Write-Verbose "Checking containerStatuses for $($IsJob ? 'job' : 'NON job'). PodIsReady = $podIsReady"
     return $podIsReady
 }
 
@@ -103,23 +110,17 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
     $i = 0
     foreach ($pod in $pods) {
 
+        $i += 1
+        if ($runningPods[$pod.metadata.name]) {
+            continue
+        }
+
         if (!$podStatuses[$pod.metadata.name]) {
             $podStatuses[$pod.metadata.name] = [PodStatus]::new($pod.metadata.name)
         }
 
         $HasInit = [bool](Get-Member -InputObject $pod.spec -Name initContainers -ErrorAction SilentlyContinue)
         Write-Verbose "Pod $($pod.metadata.name) has init container: $HasInit."
-
-        if ($timedOut) {
-            Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -FilterStartupWarnings
-            Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit
-            continue
-        }
-
-        $i += 1
-        if ($runningPods[$pod.metadata.name]) {
-            continue
-        }
 
         $containers = $pod.status.containerStatuses.Count
         $readyContainers = @($pod.status.containerStatuses | Where-Object ready -eq $true).Count
@@ -133,16 +134,17 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             $pod | ConvertTo-Json -Depth 10 | Out-File (Join-Path ([System.IO.Path]::GetTempPath()) "pod.json")
         }
 
-        Write-Verbose "Phases are $($phases -join ','). Phase is $($pod.status.phase)"
-        if ($pod.status.phase -in $phases) {
-            # "  $prefix $($pod.metadata.name) status is $($pod.status.phase)" | Tee-Object $OutputFile -Append | Write-MyHost
-            if (!$runningPods[$pod.metadata.name] -and
-                (podReady $pod.status.containerStatuses)) {
+        Write-Verbose "Ok phases is $okPhase. Pod's phase is $($pod.status.phase)"
+        if ($pod.status.phase -eq $okPhase) {
+            Write-Verbose "  $prefix $($pod.metadata.name) status is $($pod.status.phase)"
+            if (allContainersReady $pod.status.containerStatuses) {
 
                 $status = $IsJob ? [Status]::Completed : [Status]::Running
-                "  $prefix $($pod.metadata.name) has all containers ready or completed. Status is $status`n" | Tee-Object $OutputFile -Append | Write-MyHost
+                Write-Plain "  $prefix $($pod.metadata.name) has all containers ready or completed. Status is $status"
+
                 $runningCount += 1
                 $runningPods[$pod.metadata.name] = $true
+
                 $podStatuses[$pod.metadata.name].Status = $status
                 $podStatuses[$pod.metadata.name].ContainerStatuses = @($pod.status.containerStatuses | ForEach-Object { [ContainerStatus]::new($_.name, $status) })
                 if ($HasInit) {
@@ -157,6 +159,13 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             } else {
                 Write-Verbose "Pod $($pod.metadata.name) is ready, but pod containerStatuses are: $($pod.status.containerStatuses | out-string)"
             }
+        }
+
+        # not ready
+        if ($timedOut) {
+            Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -FilterStartupWarnings
+            Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit
+            continue
         }
 
         # check for any errors since not ready yet
@@ -187,7 +196,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 Write-Verbose "Get-PodStatus returning $($podStatuses[$pod.metadata.name] | ConvertTo-Json -Depth 10 -EnumsAsStrings)"
                 return $podStatuses.Values
             } else {
-                # "  No errors found for pod $($pod.metadata.name) yet`n" | Tee-Object $OutputFile -Append | Write-MyHost
+                Write-Verbose "No errors found for pod $($pod.metadata.name) yet"
 
                 # write intermediate events and logs for this pod
                 if ($VerbosePreference -eq 'Continue') {

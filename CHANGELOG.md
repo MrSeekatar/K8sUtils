@@ -1,5 +1,12 @@
 # Change Log
 
+## [1.0.16] 2024-7-1
+
+### Updated
+
+- Code cleanup
+- Get-PodStatus delays timeout check until after one last check
+
 ## [1.0.15] 2024-6-25
 
 ### Fixed
