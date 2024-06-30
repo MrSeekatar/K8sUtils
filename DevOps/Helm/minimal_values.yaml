@@ -9,6 +9,9 @@ preHook:
   fail: false
   imageTag: latest
 
+job:
+  create: false
+
 deployment:
   enabled: true
 

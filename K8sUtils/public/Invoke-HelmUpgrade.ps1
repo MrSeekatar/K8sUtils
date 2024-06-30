@@ -281,7 +281,7 @@ function Invoke-HelmUpgrade {
                                                         -OutputFile $tempFile `
                                                         -TimeoutSec 1 `
                                                         -PollIntervalSec $PollIntervalSec `
-                                                        -IsJob
+                                                        -PodType PreInstallJob
             Write-Verbose "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
             $status.PreHookStatus = $hookStatus
         }
@@ -314,7 +314,7 @@ function Invoke-HelmUpgrade {
             $status.PodStatuses += $podStatuses
             $status.Running = ![bool]($podStatuses | Where-Object status -ne Running)
         } else {
-            Write-Warning "No DeploymentSelector specified, not checking main pod"
+            Write-Status "No DeploymentSelector specified, not checking main pod. Ok if this is a job"
         }
         Write-Verbose "PodStatuses: $($status.PodStatuses | Format-List | Out-String)"
 

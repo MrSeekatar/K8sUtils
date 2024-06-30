@@ -20,8 +20,8 @@ K8s namespace to use, defaults to default
 .PARAMETER OutputFile
 File to write output to in addition to the console
 
-.PARAMETER IsJob
-If true, all containers must be terminated ok, instead of ready
+.PARAMETER PodType
+If Pod, all containers must be running, otherwise for jobs all must be terminated ok
 
 .EXAMPLE
 $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
@@ -29,12 +29,12 @@ $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                             -OutputFile $tempFile `
                                             -TimeoutSec 1 `
                                             -PollIntervalSec $PollIntervalSec `
-                                            -IsJob
+                                            -PodType PreInstallJob
 
-Get the status of a job pod
+Get the status of a pre-install job pod
 
 .OUTPUTS
-$True if all pods are running, $False if not
+PodStatus object
 #>
 function Get-PodStatus {
 [CmdletBinding()]
@@ -48,7 +48,8 @@ param(
     [int] $TimeoutSec = 600,
     [string] $Namespace = "default",
     [string] $OutputFile,
-    [switch] $IsJob
+    [ValidateSet("Pod", "PreInstallJob", "Job")]
+    [string] $PodType = "Pod"
 
 )
 $ErrorActionPreference = 'Stop'
@@ -59,10 +60,16 @@ $runningPods = @{}
 $podStatuses = @{}
 $createdTempFile = !$OutputFile
 
-if ($IsJob) {
+if ($PodType -eq "PreInstallJob" ) {
+    $IsJob = $true
     $okPhase = "Succeeded"
     $prefix = "preHook job pod"
+} elseif ($PodType -eq "Job") {
+    $IsJob = $true
+    $okPhase = "Succeeded"
+    $prefix = "job pod"
 } else {
+    $IsJob = $false
     $okPhase = ,"Running"
     $prefix = "pod"
 }
@@ -205,6 +212,10 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 }
             }
        }
+       # TODO we've seen case where pod.status.containerStatuses.state.waiting has
+       #   message: secret "eventhub-disabled-bootstrap-servers" not found
+       #   reason: CreateContainerConfigErrorreason: ImagePullBackOff
+       # but nothing in events. Local testing always has events.
     } # end foreach pod
 
     if ($runningCount -ge $ReplicaCount) {
