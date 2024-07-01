@@ -37,8 +37,8 @@ function Test-MainPod( $podStatus, $status = 'Running', $reason = $null) {
     Test-Pod $podStatus -Status $status -ContainerStatus $status -Reason $reason 'test-minimal-*' 'minimal'
 }
 
-function Test-Job($jobStatus, $running = $false, $rollbackStatus = "DeployedOk", $status = 'Completed') {
+function Test-Job($jobStatus, $running = $false, $rollbackStatus = "DeployedOk", $status = 'Completed', $reason = $null) {
     $jobStatus.Count | Should -Be 2
     Test-Deploy $jobStatus[0] -running $running -PodCount 0 -rollbackStatus $rollbackStatus
-    Test-Pod $jobStatus[1] -status $status -containerStatus $status -reason $null -nameLike 'test-job-*' -containerName 'pre-install-upgrade-job'
+    Test-Pod $jobStatus[1] -status $status -containerStatus $status -reason $reason -nameLike 'test-job-*' -containerName 'pre-install-upgrade-job'
 }

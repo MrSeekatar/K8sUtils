@@ -52,11 +52,11 @@ function Deploy-MinimalJob {
         [switch] $DryRun,
         [int] $InitRunCount = 1,
         [switch] $InitFail,
-        [int] $JobRunCount = 1,
-        [switch] $JobFail,
+        [int] $RunCount = 1,
+        [switch] $Fail,
         [switch] $SkipInit,
         [string] $InitTag = "latest",
-        [string] $JobTag = "latest",
+        [string] $ImageTag = "latest",
         [switch] $SkipRollbackOnError,
         [int] $TimeoutSecs = 600,
         [int] $PollIntervalSec = 3,
@@ -112,9 +112,9 @@ function Deploy-MinimalJob {
 
     $helmSet += "deployment.enabled=false",
                 "job.create=true",
-                "job.fail=$JobFail",
-                "job.imageTag=$JobTag",
-                "job.runCount=$JobRunCount"
+                "job.fail=$Fail",
+                "job.imageTag=$ImageTag",
+                "job.runCount=$RunCount"
 
     Write-Verbose ("HelmSet:`n   "+($helmSet -join "`n   "))
     $releaseName = "test"
