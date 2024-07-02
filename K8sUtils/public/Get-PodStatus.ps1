@@ -34,7 +34,7 @@ $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
 Get the status of a pre-install job pod
 
 .OUTPUTS
-PodStatus object
+Array of PodStatus object
 #>
 function Get-PodStatus {
 [CmdletBinding()]
@@ -192,6 +192,10 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
                 # get latest pod status since sometimes get containerCreating status here
                 $pod = kubectl get pod --namespace $Namespace $pod.metadata.name -o json | ConvertFrom-Json
+                if (!$pod -or !(Get-Member -InputObject $pod -Name metadata)) {
+                    Write-Warning ($pod | ConvertTo-Json -Depth 10)
+                    throw "Unexpected response from kubectl get pod --namespace $Namespace $($pod.metadata.name)"
+                }
 
                 $podStatuses[$pod.metadata.name].ContainerStatuses = @($pod.status.containerStatuses | ForEach-Object {
                         Write-Verbose "Pod status: $($_ | ConvertTo-Json -Depth 10)"

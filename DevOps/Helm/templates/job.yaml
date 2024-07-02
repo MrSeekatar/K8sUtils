@@ -34,6 +34,13 @@ spec:
           value: "{{ .Values.job.runCount }}"
         - name: FAIL
           value: "{{ .Values.job.fail }}"
+        {{- range $key,$value := .Values.secrets }}
+        - name: {{ $key | upper }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ $key | quote}}
+              key: {{ $value | quote}}
+        {{- end }}
         volumeMounts:
         - mountPath: /mt
           name: mt
