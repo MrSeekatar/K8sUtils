@@ -37,18 +37,12 @@ spec:
         volumeMounts:
         - mountPath: /mt
           name: mt
-      initContainers:
-      - env:
-        - name: COPY_AND_EXIT
-          value: "1"
-        image:  minimal:latest
-        imagePullPolicy: Never
-        name: minimal-as-init
-        resources: {}
-        volumeMounts:
-        - mountPath: /mt
-          name: mt
       volumes:
       - name: mt
         emptyDir: {}
+
+      {{- if .Values.initContainers }}
+      initContainers:
+      {{- toYaml .Values.initContainers | nindent 8 }}
+      {{- end }}
 {{- end }}

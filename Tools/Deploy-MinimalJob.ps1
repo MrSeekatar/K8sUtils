@@ -43,6 +43,9 @@ If set, don't do a helm rollback on error
 
 .EXAMPLE
 
+.OUTPUTS
+Array of two items, first is the ReleaseStatus object, second is a PodStatus object
+
 .NOTES
 General notes
 #>
@@ -111,6 +114,9 @@ function Deploy-MinimalJob {
     $null = kubectl delete job test-job --ignore-not-found # so don't find prev one
 
     $helmSet += "deployment.enabled=false",
+                "service.enabled=false",
+                "preHook.create=false",
+                "ingress.enabled=false",
                 "job.create=true",
                 "job.fail=$Fail",
                 "job.imageTag=$ImageTag",
