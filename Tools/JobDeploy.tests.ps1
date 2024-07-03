@@ -39,42 +39,32 @@ Describe "Deploys Minimal API" {
 
     It "has the main container with a bad secret name" {
         $deploy = Deploy-MinimalJob -PassThru -SkipInit -BadSecret
-        Test-Job $deploy -Running $false -status 'ConfigError' -reason "CreateContainerConfigError" -rollbackStatus 'RolledBack'
+        Test-Job $deploy -Running $false -status 'ConfigError' -reason "CreateContainerConfigError"
     } -Tag 'Config','Sad','j9'
 
     It "has the main container too short time out" {
         $deploy = Deploy-MinimalJob -PassThru -SkipInit -TimeoutSec 3 -RunCount 100
-        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout" -rollbackStatus 'RolledBack'
+        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout"
     } -Tag 'Timeout','Sad','j10'
 
     It "has the main container time out" {
         $deploy = Deploy-MinimalJob -PassThru -SkipInit -TimeoutSec 10 -RunCount 100
-        Test-Job $deploy -Running $false -status 'Unknown' -reason "Possible timeout" -rollbackStatus 'RolledBack'
+        Test-Job $deploy -Running $false -status 'Unknown' -reason "Possible timeout"
     } -Tag 'Timeout','Sad','j11'
-
-    It "has a temporary startup timeout" {
-        $deploy = Deploy-MinimalJob -PassThru -SkipInit -TimeoutSec 60 -RunCount 10 -StartupProbe
-        Test-Job $deploy -Running $true
-    } -Tag 'Probe', 'Happy', 'j12'
-
-    It "has a startup timeout" {
-        $deploy = Deploy-MinimalJob -PassThru -SkipInit -TimeoutSec 10 -RunCount 10 -StartupProbe
-        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout" -rollbackStatus 'RolledBack'
-    } -Tag 'Sad', 'Timeout', 'Probe', 'j13'
 
     It "has an init failure" {
         $deploy = Deploy-MinimalJob -PassThru -InitFail
-        Test-Job $deploy -Running $false -status 'Crash' -reason "Possible timeout" -rollbackStatus 'RolledBack'
+        Test-Job $deploy -Running $false -status 'Crash' -reason "Possible timeout"
     } -Tag 'Sad', 'Crash', 'j16'
 
     It "has init bad config" {
         $deploy = Deploy-MinimalJob -PassThru -InitTag zzz
-        Test-Job $deploy -Running $false -status 'ConfigError' -reason "Possible timeout" -rollbackStatus 'RolledBack'
+        Test-Job $deploy -Running $false -status 'ConfigError' -reason "Possible timeout"
     } -Tag 'Sad', 'Crash', 'j17'
 
     It "has an init timeout" {
         $deploy = Deploy-MinimalJob -PassThru -TimeoutSec 5 -InitRunCount 50
-        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout" -rollbackStatus 'RolledBack'
+        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout"
     } -Tag 'Sad', 'Timeout', 'j18'
 }
 

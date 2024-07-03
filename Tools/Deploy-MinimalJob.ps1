@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-Helper function to deploy the minimal chart
+Helper function to deploy a job via Helm
 
 .PARAMETER DryRun
 If set, don't actually do the helm upgrade
 
 .PARAMETER Fail
-Have the main container fail on start
+Have the job fail on start
 
 .PARAMETER InitRunCount
 How many times to log a message in the init container, e.g. number of seconds before it exits, defaults to 1
@@ -14,29 +14,14 @@ How many times to log a message in the init container, e.g. number of seconds be
 .PARAMETER InitFail
 Have the init container fail after InitRunCount loops
 
-.PARAMETER HookRunCount
-How many times to log a message in the helm job job, e.g. number of seconds before it exits, defaults to 1
-
-.PARAMETER Skipjob
-Do not run the job job
-
-.PARAMETER HookFail
-Have the job job fail after HookRunCount loops
+.PARAMETER RunCount
+How many times to log a message in the job, e.g. number of seconds before it exits, defaults to 1
 
 .PARAMETER ImageTag
-Tag to use for the main container, defaults to latest
+Tag to use for the job, defaults to latest
 
 .PARAMETER InitTag
 Tag to use for the init container, defaults to latest
-
-.PARAMETER HookTag
-Tag to use for the job job, defaults to latest
-
-.PARAMETER StartupProbe
-Add a startup probe to the main container
-
-.PARAMETER Readiness
-Readiness url to use, defaults to /info
 
 .PARAMETER SkipRollbackOnError
 If set, don't do a helm rollback on error
@@ -46,8 +31,6 @@ If set, don't do a helm rollback on error
 .OUTPUTS
 Array of two items, first is the ReleaseStatus object, second is a PodStatus object
 
-.NOTES
-General notes
 #>
 function Deploy-MinimalJob {
     [CmdletBinding()]
@@ -67,7 +50,6 @@ function Deploy-MinimalJob {
         [string] $ColorType = "ANSI",
         [switch] $BadSecret,
         [switch] $PassThru
-
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -144,7 +126,7 @@ function Deploy-MinimalJob {
             $ret | ConvertTo-Json -Depth 10 -EnumsAsStrings
         }
         if (!$DryRun) {
-            $ret = Get-PodStatus -Selector "batch.kubernetes.io/job-name=test-job" -PodType Job -TimeoutSec $TimeoutSecs -Verbose:$VerbosePreference
+            $ret = Get-PodStatus -Selector "batch.kubernetes.io/job-name=test-job" -PodType Job -TimeoutSec $TimeoutSecs -PollIntervalSec $PollIntervalSec -Verbose:$VerbosePreference
             if ($PassThru) {
                 $ret
             } else {

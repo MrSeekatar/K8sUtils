@@ -2,6 +2,10 @@
 
 ## [1.0.16] 2024-7-1
 
+### Added
+
+- Better support in Get-PodStatus for checking the status of a job started via Helm or a kubectl apply
+
 ### Updated
 
 - Code cleanup

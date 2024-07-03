@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-Helper function to deploy the minimal chart
+Helper function to deploy a job via K8s
 
 .PARAMETER DryRun
-If set, don't actually do the helm upgrade
+If set, dump out the manifest instead of applying it
 
 .PARAMETER Fail
-Have the main container fail on start
+Have the job fail on start
 
 .PARAMETER InitRunCount
 How many times to log a message in the init container, e.g. number of seconds before it exits, defaults to 1
@@ -14,81 +14,114 @@ How many times to log a message in the init container, e.g. number of seconds be
 .PARAMETER InitFail
 Have the init container fail after InitRunCount loops
 
-.PARAMETER HookRunCount
-How many times to log a message in the helm preHook job, e.g. number of seconds before it exits, defaults to 1
-
-.PARAMETER SkipPreHook
-Do not run the preHook job
-
-.PARAMETER HookFail
-Have the preHook job fail after HookRunCount loops
+.PARAMETER RunCount
+How many times to log a message in the job, e.g. number of seconds before it exits, defaults to 1
 
 .PARAMETER ImageTag
-Tag to use for the main container, defaults to latest
+Tag to use for the job, defaults to latest
 
 .PARAMETER InitTag
 Tag to use for the init container, defaults to latest
 
-.PARAMETER HookTag
-Tag to use for the preHook job, defaults to latest
-
-.PARAMETER StartupProbe
-Add a startup probe to the main container
-
-.PARAMETER Readiness
-Readiness url to use, defaults to /info
-
-.PARAMETER SkipRollbackOnError
-If set, don't do a helm rollback on error
-
 .EXAMPLE
 
-.NOTES
-General notes
 #>
 function Deploy-MinimalJobK8s {
     [CmdletBinding()]
     param (
         [switch] $DryRun,
-        [switch] $Fail,
-        [int] $RunCount = 0,
         [int] $InitRunCount = 1,
         [switch] $InitFail,
-        [int] $HookRunCount = 1,
-        [switch] $SkipPreHook,
-        [switch] $HookFail,
+        [int] $RunCount = 1,
+        [switch] $Fail,
         [switch] $SkipInit,
-        [string] $ImageTag = "latest",
         [string] $InitTag = "latest",
-        [string] $HookTag = "latest",
-        [string] $Readiness = "/info",
-        [switch] $SkipRollbackOnError,
+        [string] $ImageTag = "latest",
         [int] $TimeoutSecs = 600,
-        [int] $PreHookTimeoutSecs = 15,
         [int] $PollIntervalSec = 3,
-        [int] $Replicas = 1,
         [ValidateSet("None", "ANSI", "DevOps")]
         [string] $ColorType = "ANSI",
-        [switch] $BadSecret,
-        [switch] $PassThru,
-        [switch] $StartupProbe,
-        [switch] $SkipDeploy,
-        [switch] $AlwaysCheckPreHook
-
+        [switch] $BadSecret
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
 
-    Push-Location (Join-Path $PSScriptRoot "../DevOps/Kubernetes")
+    $initContainer = $SkipInit ? "" : @"
+      initContainers:
+      - env:
+        - name: RUN_COUNT
+          value: "$InitRunCount"
+        - name: FAIL
+          value: "$InitFail"
+        volumeMounts:
+        - mountPath: /mt
+          name: mt
+        image: init-app:$InitTag
+        imagePullPolicy: Never
+        name: minimal-as-init
+        resources: {}
+"@
 
+    $secret = $BadSecret ? "example-secret3" : "myconfig__secret3"
+
+    $manifest = @"
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "test-job"
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 3000
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      name: "test"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: test-job
+        image: "init-app:$ImageTag"
+        imagePullPolicy: Never
+        env:
+        - name: RUN_COUNT
+          value: "$RunCount"
+        - name: FAIL
+          value: "$Fail"
+        - name: example-secret3
+          valueFrom:
+            secretKeyRef:
+              name: example-secret3
+              key: $secret
+
+        volumeMounts:
+        - mountPath: /mt
+          name: mt
+$initContainer
+      volumes:
+      - name: mt
+        emptyDir: {}
+"@
+
+    if ($DryRun) {
+        Write-Output $manifest
+        return
+    }
+    Write-Verbose $manifest
     try {
-        kubectl apply -f .\test-job.yaml
-        Get-PodStatus -Selector "batch.kubernetes.io/job-name=test-job" -ReplicaCount 1 -PodType PreInstallJob -Verbose:$VerbosePreference
-        kubectl delete job test-job --ignore-not-found
+        $manifest | kubectl apply -f - -o yaml
+        if ($LASTEXITCODE -ne 0) {
+            throw "kubectl apply failed"
+        }
+        Get-PodStatus -Selector "batch.kubernetes.io/job-name=test-job" `
+                      -ReplicaCount 1 `
+                      -PodType Job `
+                      -Verbose:$VerbosePreference `
+                      -TimeoutSec $TimeoutSecs `
+                      -PollIntervalSec $PollIntervalSec
     } catch {
         Write-Error "Error! $_`n$($_.ScriptStackTrace)"
     } finally {
-        Pop-Location
+        kubectl delete job test-job --ignore-not-found
     }
 
 }
