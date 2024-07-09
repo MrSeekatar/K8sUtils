@@ -1,9 +1,10 @@
 # Change Log
 
-## [1.0.16] 2024-7-1
+## [1.0.16] 2024-7-9
 
 ### Added
 
+- Get-JobStatus added to check the status of a K8s job
 - Better support in Get-PodStatus for checking the status of a job started via Helm or a kubectl apply
 
 ### Updated

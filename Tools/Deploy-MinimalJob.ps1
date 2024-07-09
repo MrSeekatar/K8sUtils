@@ -126,7 +126,8 @@ function Deploy-MinimalJob {
             $ret | ConvertTo-Json -Depth 10 -EnumsAsStrings
         }
         if (!$DryRun) {
-            $ret = Get-PodStatus -Selector "batch.kubernetes.io/job-name=test-job" -PodType Job -TimeoutSec $TimeoutSecs -PollIntervalSec $PollIntervalSec -Verbose:$VerbosePreference
+            Write-Host ">>> Helm upgrade done, waiting for job to finish..."
+            $ret = Get-JobStatus -JobName "test-job" -TimeoutSec $TimeoutSecs -PollIntervalSec $PollIntervalSec -Verbose:$VerbosePreference
             if ($PassThru) {
                 $ret
             } else {

@@ -108,6 +108,15 @@ foreach ($currentTask in $Tasks) {
                     $global:test_results = $result
                 }
             }
+            'testJobK8s' {
+                executeSB  {
+                    $result = Invoke-Pester -PassThru -Tag $tag -Path Tools/JobDeployK8s.tests.ps1
+                    $i = 0
+                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }} | Out-String)  -InformationAction Continue
+                    Write-Information "Test results: are in `$test_results" -InformationAction Continue
+                    $global:test_results = $result
+                }
+            }
             'upgradeHelm' {
                 executeSB -RelativeDirectory DevOps/Helm {
                     Import-Module ../../K8sUtils/K8sUtils.psm1 -Force

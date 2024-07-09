@@ -270,8 +270,12 @@ function Invoke-HelmUpgrade {
 
         if ($DryRun) {
             return
+        } elseif ($upgradeExit -eq 0) {
+            Write-Status "<< End Helm upgrade OK. (exit code $upgradeExit)"
         } else {
-            Write-Status "<< End Helm upgrade (exit code $upgradeExit)"
+            Write-Status "<< 👆 Check output for error message 👆"
+            Write-Status "<< Helm upgrade exited with: $upgradeExit"
+            Write-Status "<<"
         }
 
         $hookStatus = $null

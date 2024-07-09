@@ -108,20 +108,21 @@ $initContainer
     }
     Write-Verbose $manifest
     try {
-        $manifest | kubectl apply -f - -o yaml
+        $output = $manifest | kubectl apply -f - -o yaml
+        Write-Verbose ($output | Out-String)
         if ($LASTEXITCODE -ne 0) {
             throw "kubectl apply failed"
         }
-        Get-PodStatus -Selector "batch.kubernetes.io/job-name=test-job" `
+
+        Get-JobStatus -JobName "test-job" `
                       -ReplicaCount 1 `
-                      -PodType Job `
                       -Verbose:$VerbosePreference `
                       -TimeoutSec $TimeoutSecs `
                       -PollIntervalSec $PollIntervalSec
     } catch {
         Write-Error "Error! $_`n$($_.ScriptStackTrace)"
     } finally {
-        kubectl delete job test-job --ignore-not-found
+        kubectl delete job test-job --ignore-not-found | Write-Host
     }
 
 }
