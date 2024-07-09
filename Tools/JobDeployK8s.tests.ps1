@@ -23,48 +23,48 @@ Describe "Deploys Minimal API" {
     } -Tag 'Happy','k2'
 
     It "runs a dry run" {
-        $deploy = Deploy-MinimalJobK8s -DryRun 2>&1 | Out-Null
-        $deploy | Should -Be $null
+        $manifest = Deploy-MinimalJobK8s -DryRun
+        $manifest | Should -Match "^apiVersion: batch/v1\s+kind: Job"
     } -Tag 'Happy','k6'
 
     It "has main container crash" {
         $deploy = Deploy-MinimalJobK8s -SkipInit -Fail
-        Test-Job $deploy -Running $false -status 'Crash'
+        Test-Pod $deploy -nameLike 'test-job-*' -containerName 'test-job' -status 'Crash' -containerStatus 'Crash'
     } -Tag 'Crash','Sad','k7'
 
     It "has main container has bad image tag" {
         $deploy = Deploy-MinimalJobK8s -SkipInit -ImageTag zzz
-        Test-Job $deploy -Running $false -status 'ConfigError' -reason "ErrImageNeverPull"
+        Test-Pod $deploy -nameLike 'test-job-*' -containerName 'test-job' -status 'ConfigError' -containerStatus 'ConfigError'
     } -Tag 'Config','Sad','k8'
 
     It "has the main container with a bad secret name" {
         $deploy = Deploy-MinimalJobK8s -SkipInit -BadSecret
-        Test-Job $deploy -Running $false -status 'ConfigError' -reason "CreateContainerConfigError"
+        Test-Pod $deploy -nameLike 'test-job-*' -containerName 'test-job' -status 'ConfigError' -containerStatus 'ConfigError'
     } -Tag 'Config','Sad','k9'
 
     It "has the main container too short time out" {
         $deploy = Deploy-MinimalJobK8s -SkipInit -TimeoutSec 3 -RunCount 100
-        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout"
+        Test-Pod $deploy -nameLike 'test-job-*' -containerName 'test-job' -status 'Timeout' -containerStatus 'Timeout' -Reason "Possible timeout"
     } -Tag 'Timeout','Sad','k10'
 
     It "has the main container time out" {
         $deploy = Deploy-MinimalJobK8s -SkipInit -TimeoutSec 10 -RunCount 100
-        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout"
+        Test-Pod $deploy -nameLike 'test-job-*' -containerName 'test-job' -status 'Timeout' -containerStatus 'Timeout' -Reason "Possible timeout"
     } -Tag 'Timeout','Sad','k11'
 
     It "has an init failure" {
         $deploy = Deploy-MinimalJobK8s -InitFail
-        Test-Job $deploy -Running $false -status 'Crash' -reason "Possible timeout"
+        Test-Pod $deploy -nameLike 'test-job-*' -containerName 'test-job' -status 'Crash' -containerStatus 'Crash' -Reason "Possible timeout"
     } -Tag 'Sad', 'Crash', 'k16'
 
     It "has init bad config" {
         $deploy = Deploy-MinimalJobK8s -InitTag zzz
-        Test-Job $deploy -Running $false -status 'ConfigError' -reason "Possible timeout"
+        Test-Pod $deploy -nameLike 'test-job-*' -containerName 'test-job' -status 'ConfigError' -containerStatus 'ConfigError' -Reason "Possible timeout"
     } -Tag 'Sad', 'Crash', 'k17'
 
     It "has an init timeout" {
         $deploy = Deploy-MinimalJobK8s -TimeoutSec 5 -InitRunCount 50
-        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout"
+        Test-Pod $deploy -nameLike 'test-job-*' -containerName 'test-job' -status 'Timeout' -containerStatus 'Timeout' -Reason "Possible timeout"
     } -Tag 'Sad', 'Timeout', 'k18'
 }
 
