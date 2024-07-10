@@ -143,7 +143,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             $pod | ConvertTo-Json -Depth 10 | Out-File (Join-Path ([System.IO.Path]::GetTempPath()) "pod.json")
         }
 
-        Write-Verbose "Ok phases is $okPhase. Pod's phase is $($pod.status.phase)"
+        Write-Verbose "Ok phase is $okPhase. Pod's phase is $($pod.status.phase)"
         if ($pod.status.phase -eq $okPhase) {
             Write-Verbose "  $prefix $($pod.metadata.name) status is $($pod.status.phase)"
             if (allContainersReady $pod.status.containerStatuses) {

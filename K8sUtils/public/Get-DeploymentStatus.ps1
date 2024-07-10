@@ -52,13 +52,15 @@ function Get-DeploymentStatus {
 
     # get the deployment to get the replica count, loop since it may not be ready yet
     $replicas = $null
+    $uid = $null
     for ( $i = 0; $i -lt 10 -and $null -eq $replicas; $i++) {
         # todo check to see if it exists, or don't use jsonpath since items[0] can fail
-        $items = kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20
-        if (!$items) {
-            Write-Warning "No items from kubectl get deploy -l $Selector"
+        $deployments = kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20
+        if (!$deployments) {
+            Write-Warning "No items from kubectl get deploy -l $Selector. Trying again in 1 second."
         } else {
-            $replicas = $items[0].spec.replicas
+            $replicas = $deployments[0].spec.replicas
+            $uid = $deployments[0].metadata.uid
         }
         Start-Sleep -Seconds 1
     }
@@ -67,13 +69,18 @@ function Get-DeploymentStatus {
     }
 
     # get the current replicaSet's for hash to get pods in this deployment
-    Write-Verbose "kubectl get rs -l $Selector  --namespace $Namespace --sort-by=.metadata.creationTimestamp -o jsonpath='{.items}'"
-    $items = kubectl get rs -l "$Selector"  --namespace $Namespace --sort-by=.metadata.creationTimestamp -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20
-    Write-Verbose "items is $items"
-    if ($LASTEXITCODE -ne 0 -or !$items) {
+    Write-Verbose "kubectl get rs -l $Selector --namespace $Namespace -o jsonpath='{.items}'"
+    $replicaSets = @(kubectl get rs -l "$Selector" --namespace $Namespace -o jsonpath='{.items}' |
+                            ConvertFrom-Json -Depth 20 |
+                            Sort-Object { [int]($_.metadata.annotations.'deployment.kubernetes.io/revision') })
+
+    if ($LASTEXITCODE -ne 0 -or !$replicaSets) {
         throw "When looking for pod, nothing returned from kubectl get rs -l $Selector --namespace $Namespace. Check selector."
     }
-    $hash = $items[-1].metadata.labels."pod-template-hash"
+    Write-Verbose "Found $($replicaSets.Count) replicaSets for deployment $Selector in namespace $Namespace"
+    $rs = $replicaSets[-1]
+    $hash = $rs.metadata.labels."pod-template-hash"
+    Write-Verbose "rs pod-template-hash is $hash"
 
     Write-Status "Looking for $replicas pod$($replicas -eq 1 ? '' : 's') with pod-template-hash=$hash" -Length 0 -LogLevel Normal
     $podSelector = "pod-template-hash=$hash"
