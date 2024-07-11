@@ -131,7 +131,13 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         $HasInit = [bool](Get-Member -InputObject $pod.spec -Name initContainers -ErrorAction SilentlyContinue)
         Write-Verbose "Pod $($pod.metadata.name) has init container: $HasInit."
 
-        $containers = $pod.status.containerStatuses.Count
+        if (!(Get-Member -InputObject $pod.status -Name containerStatuses)) {
+            Write-Warning "Pod $($pod.metadata.name) has no status.containerStatuses. Pod:"
+            Write-Warning ($pod | ConvertTo-Json -Depth 10)
+            continue
+        }
+
+        $containers = @($pod.status.containerStatuses).Count
         $readyContainers = @($pod.status.containerStatuses | Where-Object ready -eq $true).Count
         Write-Verbose "ReplicaCount: $ReplicaCount RunningCount: $RunningCount PodCount: $($pods.Count)"
 

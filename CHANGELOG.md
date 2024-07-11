@@ -1,6 +1,6 @@
 # Change Log
 
-## [1.0.16] 2024-7-9
+## [1.0.16] 2024-7-12
 
 ### Added
 
@@ -12,6 +12,7 @@
 - Code cleanup
 - Get-PodStatus delays timeout check until after one last check
 - Get-PodStatus uses deployment's revision instead of creationTimestamp to get the current rs since rollback may make an older one active
+- Get-PodStatus checks to see if status has containerStatues since have seen it not be there
 
 ## [1.0.15] 2024-6-25
 
