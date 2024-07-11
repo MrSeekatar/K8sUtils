@@ -61,6 +61,7 @@ function Get-DeploymentStatus {
         } else {
             $replicas = $deployments[0].spec.replicas
             $uid = $deployments[0].metadata.uid
+            $revision = $deployments[0].metadata.annotations.'deployment.kubernetes.io/revision'
         }
         Start-Sleep -Seconds 1
     }
@@ -77,8 +78,9 @@ function Get-DeploymentStatus {
     if ($LASTEXITCODE -ne 0 -or !$replicaSets) {
         throw "When looking for pod, nothing returned from kubectl get rs -l $Selector --namespace $Namespace. Check selector."
     }
-    Write-Verbose "Found $($replicaSets.Count) replicaSets for deployment $Selector in namespace $Namespace"
-    $rs = $replicaSets[-1]
+    Write-Verbose "Found $($replicaSets.Count) replicaSets for deployment $Selector in namespace $Namespace. Looking for revision $revision"
+    Write-Verbose ($replicaSets | Select-Object @{n='name';e={$_.metadata.name}},@{n='replicas';e={$_.spec.replicas}},@{n='revision';e={$_.metadata.annotations.'deployment.kubernetes.io/revision'}},@{n='created';e={$_.metadata.creationTimestamp}},@{n='uid';e={$_.metadata.uid}} | Format-Table | Out-String)
+    $rs = $replicaSets | Where-Object { $_.metadata.annotations.'deployment.kubernetes.io/revision' -eq $revision }
     $hash = $rs.metadata.labels."pod-template-hash"
     Write-Verbose "rs pod-template-hash is $hash"
 

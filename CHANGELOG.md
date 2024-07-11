@@ -11,7 +11,7 @@
 
 - Code cleanup
 - Get-PodStatus delays timeout check until after one last check
-- Get-PodStatus uses highest revision instead of creationTimestamp to get the current rs since rollback may make an older one active
+- Get-PodStatus uses deployment's revision instead of creationTimestamp to get the current rs since rollback may make an older one active
 
 ## [1.0.15] 2024-6-25
 
