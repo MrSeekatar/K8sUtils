@@ -273,8 +273,8 @@ function Invoke-HelmUpgrade {
         } elseif ($upgradeExit -eq 0) {
             Write-Status "<< End Helm upgrade OK. (exit code $upgradeExit)"
         } else {
-            Write-Status "<< 👆 Check output for error message 👆"
-            Write-Status "<< Helm upgrade exited with: $upgradeExit"
+            Write-Status "<< 👆 Check Helm output for error message 👆"
+            Write-Status "<< helm upgrade exited with: $upgradeExit"
             Write-Status "<<"
         }
 

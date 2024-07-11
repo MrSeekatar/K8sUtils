@@ -166,7 +166,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit
                 continue
             } else {
-                Write-Verbose "Pod $($pod.metadata.name) is ready, but pod containerStatuses are: $($pod.status.containerStatuses | out-string)"
+                Write-Verbose "Pod $($pod.metadata.name) is ready (phase = $okPhase), but pod containerStatuses are: $($pod.status.containerStatuses | out-string)"
             }
         }
 
@@ -179,10 +179,10 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         # check for any errors since not ready yet
         $lastEventTime = Get-Date
         Write-Verbose "kubectl get events --namespace $Namespace --field-selector `"involvedObject.name=$($pod.metadata.name)`" -o json"
-        $events = kubectl get events --namespace $Namespace --field-selector "involvedObject.name=$($pod.metadata.name)" -o json | ConvertFrom-Json
+        $events = Get-PodEvent -Namespace $Namespace -PodName $pod.metadata.name
         if ($events) {
-            $errors = @($events.items | Where-Object { $_.type -ne "Normal" -and $_.message -notlike "Startup probe failed:*"})
-            Write-Verbose "Got $($events.items.count) events for pod $($pod.metadata.name) "
+            $errors = @($events | Where-Object { $_.type -ne "Normal" -and $_.message -notlike "Startup probe failed:*"})
+            Write-Verbose "Got $($events.count) events for pod $($pod.metadata.name) "
             Write-Verbose "Got $($errors.count) errors"
             if ($errors -or $pod.status.phase -eq "Failed" ) {
                 Write-Status "Pod $($pod.metadata.name) has $($errors.count) errors" -LogLevel Error
@@ -192,10 +192,12 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit
 
                 # get latest pod status since sometimes get containerCreating status here
-                $pod = kubectl get pod --namespace $Namespace $pod.metadata.name -o json | ConvertFrom-Json
+                $name = $pod.metadata.name
+                $podJson = kubectl get pod --namespace $Namespace $name -o json
+                $pod = $podJson | ConvertFrom-Json
                 if (!$pod -or !(Get-Member -InputObject $pod -Name metadata)) {
-                    Write-Warning ($pod | ConvertTo-Json -Depth 10)+""
-                    throw "Unexpected response from kubectl get pod --namespace $Namespace $($pod.metadata.name)"
+                    Write-Warning "Unexpected pod json is: $podJson"
+                    throw "Unexpected response from kubectl get pod --namespace $Namespace $name"
                 }
 
                 $podStatuses[$pod.metadata.name].ContainerStatuses = @($pod.status.containerStatuses | ForEach-Object {

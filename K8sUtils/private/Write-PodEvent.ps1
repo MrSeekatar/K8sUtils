@@ -38,13 +38,11 @@ function Write-PodEvent {
         [switch] $FilterStartupWarnings
     )
 
-    $podEvents = kubectl get events --namespace $Namespace --field-selector "involvedObject.name=$PodName" -o json | ConvertFrom-Json
-    $getEventsExitCode = $LASTEXITCODE
-    if ($getEventsExitCode -ne 0) {
+    $events = Get-PodEvent -Namespace $Namespace -PodName $PodName
+    if (!$events) {
         Write-Error "Failed to get events for pod $PodName"
         return
     }
-    $events = $podEvents.items
     $msg = "Events for $Prefix $PodName"
     if ($Since) {
         $msg += " since $($Since.ToString("HH:mm:ss"))"
@@ -55,7 +53,7 @@ function Write-PodEvent {
 
     Write-Header $msg -LogLevel ($errors ? "error" : $LogLevel)
     if ($errors -and $FilterStartupWarnings) {
-        $errors = $errors | Where-Object { $_ -notlike "Startup probe failed:*" }
+        $errors = $errors | Where-Object { $_ -notLike "Startup probe failed:*" }
     }
     $events | Select-Object type, reason, message | Out-String | Write-Plain
     Write-Footer "End events for $Prefix $PodName" -LogLevel ($errors ? "error" : $LogLevel)
