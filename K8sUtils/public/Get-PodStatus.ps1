@@ -184,10 +184,9 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
         # check for any errors since not ready yet
         $lastEventTime = Get-Date
-        Write-Verbose "kubectl get events --namespace $Namespace --field-selector `"involvedObject.name=$($pod.metadata.name)`" -o json"
         $events = Get-PodEvent -Namespace $Namespace -PodName $pod.metadata.name
         if ($events) {
-            $errors = @($events | Where-Object { $_.type -ne "Normal" -and $_.message -notlike "Startup probe failed:*"})
+            $errors = @($events | Where-Object { $_.type -ne "Normal" -and $_.message -notlike "Startup probe failed:*" -and $_.reason -ne "FailedScheduling"})
             Write-Verbose "Got $($events.count) events for pod $($pod.metadata.name) "
             Write-Verbose "Got $($errors.count) errors"
             if ($errors -or $pod.status.phase -eq "Failed" ) {

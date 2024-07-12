@@ -24,13 +24,16 @@ Get all non-normal events for pod mypod in namespace test
 .OUTPUTS
 One or more event objects for the pod, $null if error
 #>
-function Get-PodEvent(
-    [Parameter(Mandatory = $true)]
-    [string] $PodName,
-    [switch] $NoNormal,
-    [string] $Namespace = "default"
+function Get-PodEvent {
+    param (
+        [CmdletBinding()]
+        [Parameter(Mandatory = $true)]
+        [string] $PodName,
+        [switch] $NoNormal,
+        [string] $Namespace = "default"
     )
-{
+    Write-Verbose "kubectl get events --namespace $Namespace --field-selector `"involvedObject.name=$PodName`" -o json"
+
     $events = kubectl get events --namespace $Namespace --field-selector "involvedObject.name=$PodName" -o json | ConvertFrom-Json
 
     if ($LASTEXITCODE -ne 0 -or $null -eq $events) {
