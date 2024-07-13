@@ -1,5 +1,20 @@
 # Change Log
 
+## [1.0.18] 2024-7-12
+
+### Added
+
+- Get-JobStatus added to check the status of a K8s job
+- Better support in Get-PodStatus for checking the status of a job started via Helm or a kubectl apply
+
+### Updated
+
+- Code cleanup
+- Get-PodStatus delays timeout check until after one last check
+- Get-PodStatus uses deployment's revision instead of creationTimestamp to get the current rs since rollback may make an older one active
+- Get-PodStatus checks to see if status has containerStatues since have seen it not be there
+- Get-PodStatus doesn't consider an event of FailedScheduling as a failure
+
 ## [1.0.15] 2024-6-25
 
 ### Fixed

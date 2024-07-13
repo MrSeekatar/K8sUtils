@@ -13,10 +13,10 @@ function Get-TempLogFile($prefix = "k8s-") {
 $script:OutputFile = Get-TempLogFile
 
 function Write-MyHost {
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost','', Justification = 'Write-Information need ANSI resets')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '', Justification = 'Write-Information need ANSI resets')]
     [CmdletBinding()]
     param(
-        [Parameter(ValueFromPipeline=$true)]
+        [Parameter(ValueFromPipeline = $true)]
         [object] $msg
     )
     process {
@@ -26,30 +26,50 @@ function Write-MyHost {
     }
 }
 
-function MapColor([ValidateSet("error", "warning", "ok","normal")] $LogLevel,
-                  [ValidateSet("None","ANSI","DevOps")] [string] $ColorType) {
+function MapColor([ValidateSet("error", "warning", "ok", "normal")] $LogLevel,
+    [ValidateSet("None", "ANSI", "DevOps")] [string] $ColorType) {
 
     switch ($ColorType) {
         "ANSI" {
             switch ($LogLevel) {
-                "error" { return $PSStyle.Formatting.Error }
-                "warning" { return $PSStyle.Formatting.Warning }
-                "ok" { return $PSStyle.Formatting.FormatAccent }
-                default { return "" }
+                "error" {
+                    return $PSStyle.Formatting.Error
+                }
+                "warning" {
+                    return $PSStyle.Formatting.Warning
+                }
+                "ok" {
+                    return $PSStyle.Formatting.FormatAccent
+                }
+                default {
+                    return ""
+                }
             }
         }
         "DevOps" {
             switch ($LogLevel) {
-                "error" { return "##[error]" }
-                "warning" { return "##[warning]" }
-                default { "" }
+                "error" {
+                    return "##[error]"
+                }
+                "warning" {
+                    return "##[warning]"
+                }
+                default {
+                    ""
+                }
             }
         }
         default {
             switch ($LogLevel) {
-                "error" { return " [ERR] " }
-                "warning" { return "[WRN]" }
-                default { return " [INF] " }
+                "error" {
+                    return " [ERR] "
+                }
+                "warning" {
+                    return "[WRN]"
+                }
+                default {
+                    return " [INF] "
+                }
             }
         }
     }
@@ -59,10 +79,10 @@ function Write-Header() {
     [CmdletBinding()]
     param(
         [string]$msg,
-        [ValidateSet("error", "warning", "ok","normal")]
+        [ValidateSet("error", "warning", "ok", "normal")]
         [string] $LogLevel = "normal",
         [int]$Length = $script:Dashes,
-        [ValidateSet("None","ANSI","DevOps")]
+        [ValidateSet("None", "ANSI", "DevOps")]
         [string] $ColorType = $script:ColorType,
         [string] $OutputFile = $script:OutputFile
     )
@@ -76,10 +96,10 @@ function Write-Footer() {
     [CmdletBinding()]
     param(
         [string]$msg,
-        [ValidateSet("error", "warning", "ok","normal")]
+        [ValidateSet("error", "warning", "ok", "normal")]
         [string] $LogLevel = "normal",
         [int]$Length = $script:Dashes,
-        [ValidateSet("None","ANSI","DevOps")]
+        [ValidateSet("None", "ANSI", "DevOps")]
         [string] $ColorType = $script:ColorType,
         [string] $OutputFile = $script:OutputFile
     )
@@ -90,42 +110,59 @@ function Write-Footer() {
 function Write-Status() {
     [CmdletBinding()]
     param(
+        [Parameter(ValueFromPipeline)]
         [string]$msg = "",
         [ValidateSet("error", "warning", "ok", "normal")]
         [string] $LogLevel = "normal",
         [int]$Length = $script:Dashes,
         [string] $Prefix = "",
         [string] $Suffix = "",
-        [ValidateSet("None","ANSI","DevOps")]
+        [ValidateSet("None", "ANSI", "DevOps")]
         [string] $ColorType = $script:ColorType,
         [string] $Char = '-',
         [string] $OutputFile = $script:OutputFile,
         [switch] $NoDate
     )
-    Set-StrictMode -Version Latest
 
-    if ($NoDate) {
-        $date = ""
-    } else {
-        $date = "$((Get-Date).ToString("u")) "
-    }
+    process {
+        Set-StrictMode -Version Latest
 
-    # if ($VerbosePreference -ne 'Continue') {
-        $Prefix += (MapColor $LogLevel $ColorType)
-    # }
-
-    if ($Length -gt 0) {
-        $maxWidth = $Host.UI.RawUI.WindowSize.Width
-        $msgLen = ($Prefix + $date + $msg + $Suffix).Length
-        if ($msgLen -lt $maxWidth) {
-            $Length = [Math]::Min($Length, $maxWidth - $msgLen - 1)
-            $msg = ($Char * $Length) + " $msg "
+        if ($NoDate) {
+            $date = ""
+        } else {
+            $date = "$((Get-Date).ToString("u")) "
         }
-    }
 
-    # if ($VerbosePreference -eq 'Continue') {
-    #     "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-Verbose
-    # } else {
-        "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-MyHost
-    # }
+        # if ($VerbosePreference -ne 'Continue') {
+        $Prefix += (MapColor $LogLevel $ColorType)
+        # }
+
+        if ($Length -gt 0) {
+            $maxWidth = $Host.UI.RawUI.WindowSize.Width
+            $msgLen = ($Prefix + $date + $msg + $Suffix).Length
+            if ($msgLen -lt $maxWidth) {
+                $Length = [Math]::Min($Length, $maxWidth - $msgLen - 1)
+                $msg = ($Char * $Length) + " $msg "
+            }
+        }
+
+        # if ($VerbosePreference -eq 'Continue') {
+        #     "${Prefix}${date}${msg}${Suffix}" | Tee-Object $OutputFile -Append | Write-Verbose
+        # } else {
+        "${Prefix}${date}${msg}${Suffix}" | Write-Plain
+        # }
+    }
+}
+
+function Write-Plain() {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline)]
+        [string]$msg,
+        [string] $OutputFile = $script:OutputFile
+    )
+
+    process {
+        $msg | Tee-Object $OutputFile -Append | Write-MyHost
+    }
 }

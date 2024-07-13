@@ -22,9 +22,10 @@ param (
     [switch] $DryRun,
     [string] $K8sUtilsVersion,
     [string] $Repository,
-    [string] $NugetPassword = $env:nuget_password,
+    [string] $NuGetApiKey = $env:nuget_password,
     [string[]] $tag = @(),
-    [switch] $prerelease
+    [switch] $prerelease,
+    [string] $KubeContext = "rancher-desktop"
 )
 
 $currentTask = ""
@@ -54,11 +55,14 @@ function executeSB {
     }
 }
 
-foreach ($currentTask in $Tasks) {
+$prevContext = kubectl config current-context
+$prevPref = $ErrorActionPreference
 
-    try {
-        $prevPref = $ErrorActionPreference
-        $ErrorActionPreference = "Stop"
+try {
+    $ErrorActionPreference = "Stop"
+    kubectl config use-context $KubeContext
+
+    foreach ($currentTask in $Tasks) {
 
         "-------------------------------"
         "Starting $currentTask"
@@ -72,16 +76,17 @@ foreach ($currentTask in $Tasks) {
                 }
             }
             'publishK8sUtils' {
-                if (!$NugetPassword -or !$Repository) {
-                    throw "NugetPassword and Repository parameters must be set"
+                if (!$NuGetApiKey -or !$Repository) {
+                    throw "NuGetApiKey and Repository parameters must be set"
                 }
+                "Using password that starts with $($NuGetApiKey.Substring(0, 3)) and repository $Repository"
                 executeSB -RelativeDir "K8sUtils" {
                     try {
                         if ($prerelease) {
                             Copy-Item K8sUtils.psd1 K8sUtils.psd1.bak -Force
                             (Get-Content K8sUtils.psd1 -Raw) -replace '# Prerelease = ''''', 'Prerelease = ''prelease''' | Set-Content K8sUtils.psd1 -Encoding 'UTF8' -NoNewline
                         }
-                        Publish-Module -Repository $Repository -Path . -NuGetApiKey $NugetPassword
+                        Publish-Module -Repository $Repository -Path . -NuGetApiKey $NuGetApiKey
                     } finally {
                         if ($prerelease) {
                             Copy-Item K8sUtils.psd1.bak K8sUtils.psd1
@@ -92,7 +97,25 @@ foreach ($currentTask in $Tasks) {
             }
             'test' {
                 executeSB  {
-                    $result = Invoke-Pester -PassThru -Tag $tag
+                    $result = Invoke-Pester -PassThru -Tag $tag -Path Tools/MinimalDeploy.tests.ps1
+                    $i = 0
+                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }} | Out-String)  -InformationAction Continue
+                    Write-Information "Test results: are in `$test_results" -InformationAction Continue
+                    $global:test_results = $result
+                }
+            }
+            'testJob' {
+                executeSB  {
+                    $result = Invoke-Pester -PassThru -Tag $tag -Path Tools/JobDeploy.tests.ps1
+                    $i = 0
+                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }} | Out-String)  -InformationAction Continue
+                    Write-Information "Test results: are in `$test_results" -InformationAction Continue
+                    $global:test_results = $result
+                }
+            }
+            'testJobK8s' {
+                executeSB  {
+                    $result = Invoke-Pester -PassThru -Tag $tag -Path Tools/JobDeployK8s.tests.ps1
                     $i = 0
                     Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }} | Out-String)  -InformationAction Continue
                     Write-Information "Test results: are in `$test_results" -InformationAction Continue
@@ -118,9 +141,9 @@ foreach ($currentTask in $Tasks) {
                 throw "Invalid task name $currentTask"
             }
         }
-
     }
-    finally {
-        $ErrorActionPreference = $prevPref
-    }
+}
+finally {
+    $ErrorActionPreference = $prevPref
+    kubectl config use-context $prevContext
 }

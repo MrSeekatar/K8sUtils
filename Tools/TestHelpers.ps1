@@ -2,7 +2,7 @@
 
 function Test-Deploy( $deploy, $running = $true, $podCount = 1, $rollbackStatus = "DeployedOk" ){
     if (!(Get-Member -InputObject $deploy -Name 'Running' -MemberType Property)) {
-        Write-Warning "deploy object is missing Running property, full object:"
+        Write-Warning "Test-Deploy found that deploy object is missing Running property, full object:"
         Write-Warning ($deploy | ConvertTo-Json -Depth 5)
     }
     $deploy.Running | Should -Be $running
@@ -35,4 +35,10 @@ function Test-PreHook( $podStatus, $status = 'Completed', $containerStatus = 'Co
 
 function Test-MainPod( $podStatus, $status = 'Running', $reason = $null) {
     Test-Pod $podStatus -Status $status -ContainerStatus $status -Reason $reason 'test-minimal-*' 'minimal'
+}
+
+function Test-Job($jobStatus, $running = $false, $rollbackStatus = "DeployedOk", $status = 'Completed', $reason = $null) {
+    $jobStatus.Count | Should -Be 2
+    Test-Deploy $jobStatus[0] -running $running -PodCount 0 -rollbackStatus $rollbackStatus
+    Test-Pod $jobStatus[1] -status $status -containerStatus $status -reason $reason -nameLike 'test-job-*' -containerName 'pre-install-upgrade-job'
 }

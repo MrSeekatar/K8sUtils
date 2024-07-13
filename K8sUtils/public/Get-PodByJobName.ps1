@@ -20,6 +20,12 @@ function Get-PodByJobName {
         [string] $Namespace = "default"
     )
 
-    (kubectl get pod --namespace $Namespace --selector "job-name=$JobName" -o json | ConvertFrom-Json).items
+    $job = kubectl get job $JobName --namespace $Namespace -o json | ConvertFrom-Json
+    if ($job) {
+        (kubectl get pod --namespace $Namespace --selector "batch.kubernetes.io/controller-uid=$($job.metadata.labels.'batch.kubernetes.io/controller-uid')" -o json | ConvertFrom-Json).items
+    } else {
+        Write-Warning "Job $JobName not found in namespace $Namespace"
+    }
+    return @()
 }
 

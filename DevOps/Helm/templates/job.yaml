@@ -1,0 +1,55 @@
+{{- if .Values.job.create -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-job"
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 3000
+  {{- if .Values.jobTtlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ .Values.jobTtlSecondsAfterFinished }}
+  {{- else }}
+  ttlSecondsAfterFinished: 30
+  {{- end }}
+  template:
+    metadata:
+      name: "{{ .Release.Name }}"
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: pre-install-upgrade-job
+        image: "init-app:{{ .Values.job.imageTag }}"
+        imagePullPolicy: Never
+        env:
+        - name: RUN_COUNT
+          value: "{{ .Values.job.runCount }}"
+        - name: FAIL
+          value: "{{ .Values.job.fail }}"
+        {{- range $key,$value := .Values.secrets }}
+        - name: {{ $key | upper }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ $key | quote}}
+              key: {{ $value | quote}}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /mt
+          name: mt
+      volumes:
+      - name: mt
+        emptyDir: {}
+
+      {{- if .Values.initContainers }}
+      initContainers:
+      {{- toYaml .Values.initContainers | nindent 8 }}
+      {{- end }}
+{{- end }}

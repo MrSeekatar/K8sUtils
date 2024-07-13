@@ -9,6 +9,9 @@ A time-saving PowerShell module for deploying Helm charts in CI/CD pipelines. It
 - [Using `Invoke-HelmUpgrade`](#using-invoke-helmupgrade)
 - [Using `Invoke-HelmUpgrade` in an Azure DevOps Pipeline](#using-invoke-helmupgrade-in-an-azure-devops-pipeline)
 - [Testing `Invoke-HelmUpgrade`](#testing-invoke-helmupgrade)
+- [Pod Phases](#pod-phases)
+- [Container States](#container-states)
+- [Links](#links)
 
 This module was created to solve a problem when using `helm -wait` in a CI/CD pipeline. `-wait` is wonderful feature in that your pipeline will wait for a successful deployment instead of returning after tossing the manifests to K8s. If anything goes wrong, however, it will wait until the timeout and then return just a timeout error. At that point, you may have lost all the logs and events that could help diagnose the problem and then have to re-run the deployment and baby sit it to try to catch the logs or events from K8s.
 
@@ -39,11 +42,12 @@ Here's a list of the commands in the module with a brief description. Use `help 
 flowchart TD
     start([Start]) --> upgrade
 
-    upgrade[helm upgrade] --> preHook{pre-init\nhook?}
+    upgrade[helm upgrade] --> preHook{pre-install\nhook?}
     preHook -- Yes --> checkJob[Log preHook\nJob events\n& logs]
-    checkJob --> jobOk{Ok?}
+    checkJob -- Poll\nuntil end\nor timeout --> checkJob
+    checkJob --> jobOk{Succeeded?}
 
-    jobOk -- No --> failed
+    jobOk -- Failed\nor timeout --> failed
     jobOk -- Yes --> hasDeploy{Deploy?}
     preHook -- No --> hasDeploy{Deploy?}
     hasDeploy -- Yes --> deploy
@@ -55,7 +59,7 @@ flowchart TD
     pod -- Not Running --> checkPod[Log pod\nstatus]
     checkPod --> pod
 
-    pod -- Error ---> failed
+    pod -- Failed ---> failed
     running -- Yes --> ok([End OK])
     pod -- Timeout ---> failed{-SkipRollback?}
     failed -- No --> rollback([Rollback])
@@ -181,3 +185,42 @@ These values in the values file can be set with switched to `Deploy-Minimal` to 
 | preHook.runCount       | number        | How many times to run before exiting with 1s delay                                                   |
 | readinessPath          | string        | Path the the readiness URL for K8s to call                                                           |
 | replicaCount           | number        | Number of replica to run, defaults to 1                                                              |
+
+## Pod Phases
+
+To be "ok" we look for `Succeeded` for pre-install jobs and `Running` for the main pod. For both we look for `Failed`, and if it doesn't reach an "ok" state within the timeout, we return a timeout error. Stored in `pod.status.phase`.
+
+```mermaid
+stateDiagram
+    [*] --> Pending
+    Pending --> Running: Pod scheduled
+    Running --> Succeeded
+    Running --> Failed
+    Failed --> [*]
+    Succeeded --> [*]
+    Unknown
+```
+
+## Container States
+
+Within a pod, the container states are tracked in `pod.status.containerStatuses[].state`
+
+- `waiting` has: reason, message
+- `terminated` has: containerID, exitCode, finishedAt, reason, message, signal, startedAt
+- `running` has: startedAt
+
+```mermaid
+stateDiagram
+    [*] --> waiting
+    waiting --> running
+    running --> terminated: Succeeded or Failed
+    terminated --> [*]
+```
+
+## Links
+
+- K8s Doc
+  - [Init Containers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/)
+  - [Pod Lifecycle](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/)
+- Helm Doc
+  - [Helm Hooks](https://helm.sh/docs/topics/charts_hooks/)

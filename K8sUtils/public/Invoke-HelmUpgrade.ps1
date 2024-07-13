@@ -270,8 +270,12 @@ function Invoke-HelmUpgrade {
 
         if ($DryRun) {
             return
+        } elseif ($upgradeExit -eq 0) {
+            Write-Status "<< End Helm upgrade OK. (exit code $upgradeExit)"
         } else {
-            Write-Status "<< End Helm upgrade (exit code $upgradeExit)"
+            Write-Status "<< 👆 Check Helm output for error message 👆"
+            Write-Status "<< helm upgrade exited with: $upgradeExit"
+            Write-Status "<<"
         }
 
         $hookStatus = $null
@@ -281,7 +285,7 @@ function Invoke-HelmUpgrade {
                                                         -OutputFile $tempFile `
                                                         -TimeoutSec 1 `
                                                         -PollIntervalSec $PollIntervalSec `
-                                                        -IsJob
+                                                        -PodType PreInstallJob
             Write-Verbose "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
             $status.PreHookStatus = $hookStatus
         }
@@ -314,7 +318,7 @@ function Invoke-HelmUpgrade {
             $status.PodStatuses += $podStatuses
             $status.Running = ![bool]($podStatuses | Where-Object status -ne Running)
         } else {
-            Write-Warning "No DeploymentSelector specified, not checking main pod"
+            Write-Status "No DeploymentSelector specified, not checking main pod. Ok if this is a job"
         }
         Write-Verbose "PodStatuses: $($status.PodStatuses | Format-List | Out-String)"
 
@@ -327,6 +331,7 @@ function Invoke-HelmUpgrade {
     } catch {
         $err = $_
         if ($DeploymentSelector) {
+            Write-Warning "Rolling back due to error in catch block"
             $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release '$ReleaseName' had errors" -PrevVersion $prevVersion
         }
         Write-Warning "Caught error. Following status may be incomplete"
