@@ -6,7 +6,7 @@ Get events for a pod
 Name of the pod to get events for
 
 .PARAMETER NoNormal
-If set, don't return normal events
+If set, don't return normal events, only warnings
 
 .PARAMETER Namespace
 K8s namespace to use, defaults to default

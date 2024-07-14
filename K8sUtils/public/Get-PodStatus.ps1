@@ -105,8 +105,6 @@ $timedOut = $false
 Write-Status "Checking status of pods that match selector $Selector"
 while ($runningCount -lt $ReplicaCount -and !$timedOut)
 {
-    $timedOut = (Get-Date) -gt $timeoutEnd
-
     # $pods = kubectl get pod --namespace $Namespace --selector "$LabelName=$AppName" --field-selector "status.phase!=Running" -o json | ConvertFrom-Json
     $pods = kubectl get pod --namespace $Namespace --selector $Selector --sort-by=.metadata.name -o json | ConvertFrom-Json
 
@@ -118,6 +116,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
     $i = 0
     foreach ($pod in $pods) {
+        $timedOut = (Get-Date) -gt $timeoutEnd
 
         $i += 1
         if ($runningPods[$pod.metadata.name]) {
@@ -132,9 +131,22 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         Write-Verbose "Pod $($pod.metadata.name) has init container: $HasInit."
 
         if (!(Get-Member -InputObject $pod.status -Name containerStatuses)) {
-            Write-Warning "Pod $($pod.metadata.name) has no status.containerStatuses. Pod:"
-            Write-Warning ($pod | ConvertTo-Json -Depth 10)
-            continue
+            Write-Status "Pod $($pod.metadata.name) has no status.containerStatuses. May not be schedulable yet." -LogLevel warning
+            Write-Verbose "Pod:`n$($pod | ConvertTo-Json -Depth 10)"
+            if (!$timedOut) {
+                continue
+            }
+            $podStatuses[$pod.metadata.name].Status = [Status]::Timeout
+
+            # write final events and logs for this pod
+            Write-Verbose "Calling Write-PodEvent for pod $($pod.metadata.name) with LogLevel ok and FilterStartupWarnings"
+            $podStatuses[$pod.metadata.name].LastBadEvents = Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name `
+                                                                            -Namespace $Namespace `
+                                                                            -PassThru `
+                                                                            -LogLevel error `
+                                                                            -FilterStartupWarnings
+            # no logs since no containers
+            break
         }
 
         $containers = @($pod.status.containerStatuses).Count
@@ -168,7 +180,12 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
                 # write final events and logs for this pod
                 Write-Verbose "Calling Write-PodEvent for pod $($pod.metadata.name) with LogLevel ok and FilterStartupWarnings"
-                $podStatuses[$pod.metadata.name].LastBadEvents = Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -PassThru -LogLevel ok -FilterStartupWarnings
+                $podStatuses[$pod.metadata.name].LastBadEvents = Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name `
+                                                                                -Namespace $Namespace `
+                                                                                -PassThru `
+                                                                                -LogLevel ok `
+                                                                                -FilterStartupWarnings
+
                 Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit
                 continue
             } else {
@@ -177,8 +194,8 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         }
 
         if ($timedOut) {
-            Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -FilterStartupWarnings
-            Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit
+            Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -FilterStartupWarnings
+            Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -HasInit:$HasInit
             break
         }
 
@@ -187,8 +204,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         $events = Get-PodEvent -Namespace $Namespace -PodName $pod.metadata.name
         if ($events) {
             $errors = @($events | Where-Object { $_.type -ne "Normal" -and $_.message -notlike "Startup probe failed:*" -and $_.reason -ne "FailedScheduling"})
-            Write-Verbose "Got $($events.count) events for pod $($pod.metadata.name) "
-            Write-Verbose "Got $($errors.count) errors"
+            Write-Verbose "Got $($errors.count) error of $($events.count) events for pod $($pod.metadata.name) "
             if ($errors -or $pod.status.phase -eq "Failed" ) {
                 Write-Status "Pod $($pod.metadata.name) has $($errors.count) errors" -LogLevel Error
                 # write final events and logs for this pod
@@ -214,16 +230,14 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 $podStatuses[$pod.metadata.name].DetermineStatus()
                 Write-Verbose "Get-PodStatus returning $($podStatuses[$pod.metadata.name] | ConvertTo-Json -Depth 10 -EnumsAsStrings)"
                 return $podStatuses.Values
-            } else {
-                Write-Verbose "No errors found for pod $($pod.metadata.name) yet"
 
-                # write intermediate events and logs for this pod
-                if ($VerbosePreference -eq 'Continue') {
-                    Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
-                    Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since $logSeconds -Namespace $Namespace -HasInit:$HasInit
-                }
+            } elseif ($VerbosePreference -eq 'Continue') {
+                Write-Verbose "No errors found in events for pod $($pod.metadata.name) yet"
+
+                Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
+                Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since $logSeconds -Namespace $Namespace -HasInit:$HasInit
             }
-       }
+       } # else no events
        # TODO we've seen case where pod.status.containerStatuses.state.waiting has
        #   message: secret "eventhub-disabled-bootstrap-servers" not found
        #   reason: CreateContainerConfigErrorreason: ImagePullBackOff
@@ -243,7 +257,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 $ok = [bool]($runningCount -ge $ReplicaCount)
 if (!$ok) {
     Write-Verbose "Times: $(Get-Date) -lt $($timeoutEnd) Values count: $($podStatuses.Values.Count)"
-    Write-Status "Error getting status after $([int](((Get-Date) - $start).TotalSeconds))s for pods that matched selector $Selector" `
+    Write-Status "Error getting status for pods that matched selector $Selector after $([int](((Get-Date) - $start).TotalSeconds))s" `
                 -Length 0 `
                 -LogLevel Error
     Write-Status "    RunningCount: $runningCount ReplicaCount: $ReplicaCount Ok: $ok TimedOut $timedOut" `

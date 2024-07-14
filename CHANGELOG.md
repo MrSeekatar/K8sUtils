@@ -1,5 +1,13 @@
 # Change Log
 
+## [1.0.19] 2024-7-15
+
+### Updated
+
+- Get-PodStatus has better handling for scheduling errors
+- Logging improvements. Footer always matches the header now
+- Logging improvements. Use box drawing characters in header and footer to be clearer
+
 ## [1.0.18] 2024-7-12
 
 ### Added

@@ -32,7 +32,7 @@ function Write-PodEvent {
         [string]$Prefix,
         [DateTime]$Since,
         [string] $Namespace = "default",
-        [ValidateSet("error", "warning", "ok","normal")]
+        [ValidateSet("error", "warning", "ok", "normal")]
         [string] $LogLevel = "ok",
         [switch] $PassThru,
         [switch] $FilterStartupWarnings
@@ -51,12 +51,12 @@ function Write-PodEvent {
 
     $errors = $events | Where-Object { $_.type -ne "Normal" } | Select-Object -ExpandProperty Message
 
-    Write-Header $msg -LogLevel ($errors ? "error" : $LogLevel)
+    Write-Header $msg -LogLevel $LogLevel
     if ($errors -and $FilterStartupWarnings) {
         $errors = $errors | Where-Object { $_ -notLike "Startup probe failed:*" }
     }
     $events | Select-Object type, reason, message, @{n='creationTimestamp';e={$_.metadata.creationTimestamp}} | Out-String | Write-Plain
-    Write-Footer "End events for $Prefix $PodName" -LogLevel ($errors ? "error" : $LogLevel)
+    Write-Footer "End events for $Prefix $PodName"
     if ($PassThru) {
         return $errors
     }

@@ -84,27 +84,31 @@ function Write-Header() {
         [int]$Length = $script:Dashes,
         [ValidateSet("None", "ANSI", "DevOps")]
         [string] $ColorType = $script:ColorType,
-        [string] $OutputFile = $script:OutputFile
+        [string] $OutputFile = $script:OutputFile,
+        [string] $HeaderPrefix = $script:HeaderPrefix
     )
     $headerMessage = $LogLevel -eq "error" ? "ERROR" : ""
-    $prefix = $LogLevel -eq "error" ? "" : $script:HeaderPrefix
-    Write-Status -Msg $headerMessage -LogLevel $LogLevel -ColorType $ColorType -Char '-' -OutputFile $OutputFile
-    Write-Status -Msg $msg -LogLevel normal -Length $Length -ColorType ANSI -Char ',' -OutputFile $OutputFile -Prefix $prefix -NoDate
+    $prefix = $LogLevel -eq "error" ? "" : $HeaderPrefix
+    Write-Status -Msg $headerMessage -LogLevel $LogLevel -ColorType $ColorType -Char '╒═╕' -OutputFile $OutputFile -Length 80
+    Write-Status -Msg $msg -LogLevel normal -Length $Length -ColorType ANSI -Char '─' -OutputFile $OutputFile -Prefix $prefix -NoDate
+
+    $script:headerLogLevel = $LogLevel
+    $script:headerLength = $Length
+    $script:headerColorType = $ColorType
+    $script:headerOutputFile = $OutputFile
 }
 
 function Write-Footer() {
     [CmdletBinding()]
     param(
         [string]$msg,
-        [ValidateSet("error", "warning", "ok", "normal")]
-        [string] $LogLevel = "normal",
-        [int]$Length = $script:Dashes,
-        [ValidateSet("None", "ANSI", "DevOps")]
-        [string] $ColorType = $script:ColorType,
-        [string] $OutputFile = $script:OutputFile
+        [string] $FooterPrefix = $script:FooterPrefix
     )
-    $prefix = $LogLevel -eq "error" ? "" : $script:FooterPrefix
-    Write-Status -Msg $msg -LogLevel normal -Length $Length -Suffix "`n" -ColorType $ColorType -Char '`' -OutputFile $OutputFile -Prefix $prefix -NoDate
+    $prefix = $script:headerLogLevel -eq "error" ? "" : $FooterPrefix
+    Write-Status -Msg $msg -LogLevel normal -Length $script:headerLength -ColorType $script:headerColorType -Char '─' -OutputFile $script:headerOutputFile -Prefix $prefix -NoDate
+    Write-Status -LogLevel $script:headerLogLevel -ColorType $script:headerColorType -Char '╘═╛' -OutputFile $script:headerOutputFile -Length 80
+
+    # Write-Status -Msg $msg -LogLevel normal -Length $Length -Suffix "`n" -ColorType $ColorType -Char '╘═╛' -OutputFile $OutputFile -Prefix $prefix -NoDate
 }
 
 function Write-Status() {
@@ -119,7 +123,7 @@ function Write-Status() {
         [string] $Suffix = "",
         [ValidateSet("None", "ANSI", "DevOps")]
         [string] $ColorType = $script:ColorType,
-        [string] $Char = '-',
+        [string] $Char = '─',
         [string] $OutputFile = $script:OutputFile,
         [switch] $NoDate
     )
@@ -142,7 +146,11 @@ function Write-Status() {
             $msgLen = ($Prefix + $date + $msg + $Suffix).Length
             if ($msgLen -lt $maxWidth) {
                 $Length = [Math]::Min($Length, $maxWidth - $msgLen - 1)
-                $msg = ($Char * $Length) + " $msg "
+                if ($Char.Length -eq 3) {
+                    $msg = ($Char[1].ToString() * ($Length-2)) + $Char[2] + " $msg "
+                } else {
+                    $msg = ($Char * $Length) + " $msg "
+                }
             }
         }
 

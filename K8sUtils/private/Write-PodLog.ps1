@@ -26,7 +26,7 @@ function Write-PodLog {
     kubectl logs --namespace $Namespace $PodName $extraLogParams 2>&1 |
         Where-Object { $_ -NotMatch 'Error.*: (PodInitializing|ContainerCreating)' } | Write-Plain
     $getLogsExitCode = $LASTEXITCODE
-    Write-Footer "End logs for $prefix $PodName" -LogLevel $LogLevel -OutputFile $OutputFile
+    Write-Footer "End logs for $prefix $PodName"
 
     if ($getLogsExitCode -ne 0) {
         $msg = "Error getting logs for pod $PodName (exit = $getLogsExitCode), checking status"
@@ -48,6 +48,6 @@ function Write-PodLog {
                 Write-Warning ($s | Out-String)
             }
         }
-        Write-Footer "End status for $prefix $PodName" -LogLevel error -OutputFile $OutputFile
+        Write-Footer "End status for $prefix $PodName"
     }
 }
