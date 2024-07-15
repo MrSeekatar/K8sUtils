@@ -92,9 +92,11 @@ $extraSeconds = 1 # extra seconds to add to logSeconds to avoid missing somethin
 $lastEventTime = (Get-Date).AddMinutes(-5)
 $timedOut = $false
 
-Write-Status "Checking status of pods that match selector $Selector"
+Write-Status "Checking status of pods that match selector $Selector for ${TimeoutSec}s"
 while ($runningCount -lt $ReplicaCount -and !$timedOut)
 {
+    $timedOut = (Get-Date) -gt $timeoutEnd
+
     # $pods = kubectl get pod --namespace $Namespace --selector "$LabelName=$AppName" --field-selector "status.phase!=Running" -o json | ConvertFrom-Json
     $pods = kubectl get pod --namespace $Namespace --selector $Selector --sort-by=.metadata.name -o json | ConvertFrom-Json
 
@@ -106,7 +108,6 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
     $i = 0
     foreach ($pod in $pods) {
-        $timedOut = (Get-Date) -gt $timeoutEnd
 
         $i += 1
         if ($runningPods[$pod.metadata.name]) {

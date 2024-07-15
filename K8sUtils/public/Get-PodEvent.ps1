@@ -36,8 +36,11 @@ function Get-PodEvent {
 
     $events = kubectl get events --namespace $Namespace --field-selector "involvedObject.name=$PodName" -o json | ConvertFrom-Json
 
-    if ($LASTEXITCODE -ne 0 -or $null -eq $events) {
+    if ($LASTEXITCODE -ne 0) {
         return $null
+    }
+    if ($null -eq $events) { # valid if no events, such as it didn't need to create a new pod
+        return @()
     }
     if ($NoNormal) {
         $events.items | Where-Object { $_.type -ne "Normal" }

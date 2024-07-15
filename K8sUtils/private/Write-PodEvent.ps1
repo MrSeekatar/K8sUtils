@@ -39,8 +39,8 @@ function Write-PodEvent {
     )
 
     $events = Get-PodEvent -Namespace $Namespace -PodName $PodName
-    if (!$events) {
-        Write-Error "Failed to get events for pod $PodName"
+    if ($null -eq $events) {
+        Write-Status "Get-PodEvent returned null for pod $PodName" -LogLevel warning
         return
     }
     $msg = "Events for $Prefix $PodName"

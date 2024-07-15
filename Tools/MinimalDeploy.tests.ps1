@@ -184,7 +184,7 @@ Describe "Deploys Minimal API" {
     } -Tag 'Config','Sad','t22'
 
     It "tests error if checking preHook, but not making one" {
-        $deploy = Deploy-Minimal -PassThru -AlwaysCheckPreHook -SkipPreHook -SkipInit
+        $deploy = Deploy-Minimal -PassThru -AlwaysCheckPreHook -SkipPreHook -SkipInit -TimeoutSecs 10
         Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack'
 
     } -Tag 'Config','Sad','t23'

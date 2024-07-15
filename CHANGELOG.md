@@ -1,6 +1,10 @@
 # Change Log
 
-## [1.0.19] 2024-7-15
+## [1.0.21] 2024-7-15
+
+### Fixed
+
+- Erroring out in case when no events are returned from a pod, which may be valid
 
 ### Updated
 
