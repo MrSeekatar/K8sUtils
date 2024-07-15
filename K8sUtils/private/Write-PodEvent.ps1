@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Private function to write the events for a pod to the output and OutputFile
+Private function to write the events for a pod to the output
 
 .PARAMETER PodName
 Name of the pod to get events for

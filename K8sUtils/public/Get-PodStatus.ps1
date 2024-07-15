@@ -17,16 +17,12 @@ Timeout in seconds for waiting on the pods. Defaults to 600
 .PARAMETER Namespace
 K8s namespace to use, defaults to default
 
-.PARAMETER OutputFile
-File to write output to in addition to the console
-
 .PARAMETER PodType
 If Pod, all containers must be running, otherwise for jobs all must be terminated ok
 
 .EXAMPLE
 $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                             -Namespace $Namespace `
-                                            -OutputFile $tempFile `
                                             -TimeoutSec 1 `
                                             -PollIntervalSec $PollIntervalSec `
                                             -PodType PreInstallJob
@@ -47,7 +43,6 @@ param(
     [int] $PollIntervalSec = 5,
     [int] $TimeoutSec = 600,
     [string] $Namespace = "default",
-    [string] $OutputFile,
     [ValidateSet("Pod", "PreInstallJob", "Job")]
     [string] $PodType = "Pod"
 
@@ -58,7 +53,6 @@ Set-StrictMode -Version Latest
 $runningCount = 0
 $runningPods = @{}
 $podStatuses = @{}
-$createdTempFile = !$OutputFile
 
 if ($PodType -eq "PreInstallJob" ) {
     $IsJob = $true
@@ -89,10 +83,6 @@ function allContainersReady($containerStatuses) {
     $podIsReady = $readyContainers.Count -eq $containerStatuses.Count
     Write-Verbose "Checking containerStatuses for $($IsJob ? 'job' : 'NON job'). PodIsReady = $podIsReady"
     return $podIsReady
-}
-
-if (!$OutputFile) {
-    $OutputFile = Get-TempLogFile
 }
 
 $start = Get-Date
@@ -155,7 +145,6 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
         Write-Status "Checking $prefix $i/${ReplicaCount} $prefix $($pod.metadata.name) in $($pod.status.phase) phase" -LogLevel normal -Length 0
         Write-Status "       $readyContainers/$containers containers ready. $([int](((Get-Date) - $start).TotalSeconds))s elapsed of ${TimeoutSec}s." -LogLevel normal -Length 0
-        Write-MyHost ""
 
         if ($VerbosePreference -eq 'Continue' ) {
             $pod | ConvertTo-Json -Depth 10 | Out-File (Join-Path ([System.IO.Path]::GetTempPath()) "pod.json")
@@ -167,7 +156,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             if (allContainersReady $pod.status.containerStatuses) {
 
                 $status = $IsJob ? [Status]::Completed : [Status]::Running
-                Write-Plain "  $prefix $($pod.metadata.name) has all containers ready or completed. Status is $status"
+                Write-Status "$prefix $($pod.metadata.name) has all containers ready or completed. Status is $status"
 
                 $runningCount += 1
                 $runningPods[$pod.metadata.name] = $true
@@ -270,9 +259,6 @@ if (!$ok) {
     }
     $podStatuses.Values | ForEach-Object { $_.Status = [Status]::Timeout }
 
-}
-if ($createdTempFile) {
-    Write-MyHost "Output was written to $OutputFile"
 }
 
 return $podStatuses.Values

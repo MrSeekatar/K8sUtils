@@ -14,9 +14,6 @@ Seconds to wait for the deployment to be ready
 .PARAMETER PollIntervalSec
 How often to poll for pod status. Defaults to 5
 
-.PARAMETER OutputFile
-File to write output to in addition to the console
-
 .EXAMPLE
 Get-DeploymentStatus -TimeoutSec $timeoutSec `
                      -Selector "app.kubernetes.io/instance=$ReleaseName,app.kubernetes.io/name=$ChartName"
@@ -38,17 +35,12 @@ function Get-DeploymentStatus {
         [string] $Selector,
         [string] $Namespace = "default",
         [int] $TimeoutSec = 30,
-        [int] $PollIntervalSec = 5,
-        [string] $OutputFile
+        [int] $PollIntervalSec = 5
     )
 
     Set-StrictMode -Version Latest
 
     Write-Verbose "Get-DeploymentStatus has timeout of $TimeoutSec seconds and selector $Selector in namespace $Namespace"
-    $createdTempFile = !$OutputFile
-    if (!$OutputFile) {
-        $OutputFile = Get-TempLogFile
-    }
 
     # get the deployment to get the replica count, loop since it may not be ready yet
     $replicas = $null
@@ -88,16 +80,14 @@ function Get-DeploymentStatus {
     $podSelector = "pod-template-hash=$hash"
 
     $ret = Get-PodStatus -Selector $podSelector `
-                         -OutputFile $OutputFile `
+                         `
                          -ReplicaCount $replicas `
                          -Namespace $Namespace `
                          -TimeoutSec $TimeoutSec `
                          -PollIntervalSec $PollIntervalSec
 
+    Write-Footer
     Write-Verbose "ret is $($ret | out-string)"
 
-    if ($createdTempFile) {
-        Write-MyHost "Output was written to $OutputFile"
-    }
     return $ret
 }

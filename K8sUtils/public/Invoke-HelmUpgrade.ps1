@@ -159,19 +159,14 @@ function Invoke-HelmUpgrade {
 
             if (!$SkipRollbackOnError) {
                 Write-Header "Rolling back release '$ReleaseName' due to errors" -LogLevel Error
-                $errFile = Get-TempLogFile
-                helm rollback $ReleaseName 2>&1 | Tee-Object $errFile | Write-MyHost
-                Get-Content $errFile -Raw | Out-File $tempFile -Append
+                helm rollback $ReleaseName 2>&1 | Write-MyHost
                 $exit = $LASTEXITCODE
-                $content = Get-Content $errFile -Raw
-                $content | Out-File $OutputFile -Append
                 if ($exit -ne 0 -and ($content -like '*Error: release has no 0 version*' -or $content -like '*Error: release: not found*')) {
-                    Write-Verbose "Last exit code on rollback was $exit. Contents of ${errFile}:`n$content"
+                    Write-Verbose "Last exit code on rollback was $exit."
                     Write-Status "helm rollback failed, trying uninstall" -LogLevel Error -Char '-'
-                    helm uninstall $ReleaseName | Out-File $OutputFile -Append
+                    helm uninstall $ReleaseName
                 }
                 Write-Footer "End rolling back release '$ReleaseName' due to errors"
-                Remove-Item $errFile -ErrorAction SilentlyContinue
                 # throw "$msg, rolled back"
                 Write-Warning "$msg, rolled back"
                 return [RollbackStatus]::RolledBack
@@ -231,8 +226,6 @@ function Invoke-HelmUpgrade {
     Write-Verbose "Helm extra params $($parms -join " ")"
 
 
-    $tempFile = Get-TempLogFile
-
     if (!$env:invokeHelmAllowLowTimeouts){
         if ($PreHookTimeoutSecs -lt $minPreHookTimeoutSecs) {
             Write-Warning "PreHookTimeoutSecs ($PreHookTimeoutSecs) is less than $minPreHookTimeoutSecs seconds, setting to $minPreHookTimeoutSecs."
@@ -257,7 +250,7 @@ function Invoke-HelmUpgrade {
         } else {
             $prevVersion = 0
         }
-        "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Tee-Object $tempFile -Append | Write-MyHost
+        "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Write-MyHost
 
         if ($DryRun) {
             Write-Status "Doing a helm dry run. Helm output and manifests follow."
@@ -265,7 +258,7 @@ function Invoke-HelmUpgrade {
             Write-Header -Msg "Helm upgrade$hookMsg" -HeaderPrefix ""
         }
         # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
-        helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Tee-Object $tempFile -Append | Write-MyHost
+        helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Write-MyHost
         $upgradeExit = $LASTEXITCODE
 
         if ($DryRun) {
@@ -281,7 +274,6 @@ function Invoke-HelmUpgrade {
         if ($PreHookJobName) {
             $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                                         -Namespace $Namespace `
-                                                        -OutputFile $tempFile `
                                                         -TimeoutSec 1 `
                                                         -PollIntervalSec $PollIntervalSec `
                                                         -PodType PreInstallJob
@@ -309,8 +301,7 @@ function Invoke-HelmUpgrade {
             $podStatuses = Get-DeploymentStatus -TimeoutSec $PodTimeoutSecs `
                                     -Namespace $Namespace `
                                     -Selector $DeploymentSelector `
-                                    -PollIntervalSec $PollIntervalSec `
-                                    -OutputFile $tempFile
+                                    -PollIntervalSec $PollIntervalSec
 
             $status.PodStatuses = @() # ?? can't assign the array to podStatuses
             Write-Verbose "Pod statuses are $($podStatuses | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
@@ -339,6 +330,5 @@ function Invoke-HelmUpgrade {
     } finally {
         Pop-Location
         $script:ColorType = $prev
-        Write-MyHost "Output was written to $tempFile"
     }
 }
