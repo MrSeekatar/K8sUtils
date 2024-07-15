@@ -4,9 +4,12 @@
 
 ### Updated
 
-- Get-PodStatus has better handling for scheduling errors
-- Logging improvements. Footer always matches the header now
-- Logging improvements. Use box drawing characters in header and footer to be clearer
+- Get-PodStatus has better handling for scheduling errors, such as taints, memory, etc.
+- Logging improvements:
+  - Footer always matches the header now
+  - Use box drawing characters in header and footer to be cleaner
+  - Removed output file logging code since Start-Transcript works fine
+  - Removed timestamps for TF_BUILD environment since it's already in the log
 
 ## [1.0.18] 2024-7-12
 

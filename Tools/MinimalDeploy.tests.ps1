@@ -188,5 +188,18 @@ Describe "Deploys Minimal API" {
         Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack'
 
     } -Tag 'Config','Sad','t23'
+
+    It "tests taints" {
+        $node = k get node -o jsonpath="{.items[0].metadata.name}"
+        kubectl taint nodes $node key1=value1:NoSchedule
+        try {
+            $deploy = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -RunCount 1 -PreHookTimeoutSecs 5 -TimeoutSecs 5
+            Test-Deploy $deploy -Running $false -PodCount 1 -RollbackStatus 'RolledBack'
+            $deploy.PodStatuses[0].LastBadEvents[0] | Should -BeLike '*schedul*'
+        }
+        finally {
+            kubectl taint nodes $node key1:NoSchedule-
+        }
+    } -Tag 'Sad','t24'
 }
 
