@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.22] 2024-7-23
+
+### Fixed
+
+- Handle case when duplicate env vars of different case
+
 ## [1.0.21] 2024-7-15
 
 ### Fixed

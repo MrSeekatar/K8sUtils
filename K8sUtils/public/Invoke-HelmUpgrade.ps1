@@ -143,7 +143,7 @@ function Invoke-HelmUpgrade {
         param ($SkipRollbackOnError, $releaseName, $msg, $prevVersion)
 
         try {
-            $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10
+            $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10 -AsHashtable
             if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version)) {
                 Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning -Char '-'
                 Write-Status "Current helm release: $($currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
@@ -240,15 +240,14 @@ function Invoke-HelmUpgrade {
     }
 
     $status = [ReleaseStatus]::new($ReleaseName)
+    $prevVersion = 0
     try {
         $hookMsg = $PreHookJobName ? " waiting ${PreHookTimeoutSecs}s prehook job '$PreHookJobName'" : ""
 
-        $prevReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json
+        $prevReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -AsHashtable
         if ($prevReleaseVersion -and (Get-Member -InputObject $prevReleaseVersion -Name version -MemberType Property)) {
             $prevVersion = $prevReleaseVersion.version
             Write-Verbose "Previous version of $ReleaseName was $prevVersion"
-        } else {
-            $prevVersion = 0
         }
         "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Write-MyHost
 
