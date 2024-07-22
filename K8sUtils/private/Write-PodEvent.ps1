@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Private function to write the events for a pod to the output and OutputFile
+Private function to write the events for a pod to the output
 
 .PARAMETER PodName
 Name of the pod to get events for
@@ -32,15 +32,15 @@ function Write-PodEvent {
         [string]$Prefix,
         [DateTime]$Since,
         [string] $Namespace = "default",
-        [ValidateSet("error", "warning", "ok","normal")]
+        [ValidateSet("error", "warning", "ok", "normal")]
         [string] $LogLevel = "ok",
         [switch] $PassThru,
         [switch] $FilterStartupWarnings
     )
 
     $events = Get-PodEvent -Namespace $Namespace -PodName $PodName
-    if (!$events) {
-        Write-Error "Failed to get events for pod $PodName"
+    if ($null -eq $events) {
+        Write-Status "Get-PodEvent returned null for pod $PodName" -LogLevel warning
         return
     }
     $msg = "Events for $Prefix $PodName"
@@ -51,12 +51,12 @@ function Write-PodEvent {
 
     $errors = $events | Where-Object { $_.type -ne "Normal" } | Select-Object -ExpandProperty Message
 
-    Write-Header $msg -LogLevel ($errors ? "error" : $LogLevel)
+    Write-Header $msg -LogLevel $LogLevel
     if ($errors -and $FilterStartupWarnings) {
         $errors = $errors | Where-Object { $_ -notLike "Startup probe failed:*" }
     }
     $events | Select-Object type, reason, message, @{n='creationTimestamp';e={$_.metadata.creationTimestamp}} | Out-String | Write-Plain
-    Write-Footer "End events for $Prefix $PodName" -LogLevel ($errors ? "error" : $LogLevel)
+    Write-Footer "End events for $Prefix $PodName"
     if ($PassThru) {
         return $errors
     }

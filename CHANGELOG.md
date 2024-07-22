@@ -1,5 +1,20 @@
 # Change Log
 
+## [1.0.21] 2024-7-15
+
+### Fixed
+
+- Erroring out in case when no events are returned from a pod, which may be valid
+
+### Updated
+
+- Get-PodStatus has better handling for scheduling errors, such as taints, memory, etc.
+- Logging improvements:
+  - Footer always matches the header now
+  - Use box drawing characters in header and footer to be cleaner
+  - Removed output file logging code since Start-Transcript works fine
+  - Removed timestamps for TF_BUILD environment since it's already in the log
+
 ## [1.0.18] 2024-7-12
 
 ### Added

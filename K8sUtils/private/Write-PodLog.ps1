@@ -8,8 +8,7 @@ function Write-PodLog {
         [string] $Namespace = "default",
         [string] $Since,
         [ValidateSet("error", "warning", "ok","normal")]
-        [string] $LogLevel = "ok",
-        [string] $OutputFile = $script:OutputFile
+        [string] $LogLevel = "ok"
     )
     $extraLogParams = @()
 
@@ -22,15 +21,15 @@ function Write-PodLog {
         $extraLogParams = "--prefix", "--all-containers"
     }
 
-    Write-Header $msg -LogLevel $LogLevel -OutputFile $OutputFile
+    Write-Header $msg -LogLevel $LogLevel
     kubectl logs --namespace $Namespace $PodName $extraLogParams 2>&1 |
         Where-Object { $_ -NotMatch 'Error.*: (PodInitializing|ContainerCreating)' } | Write-Plain
     $getLogsExitCode = $LASTEXITCODE
-    Write-Footer "End logs for $prefix $PodName" -LogLevel $LogLevel -OutputFile $OutputFile
+    Write-Footer "End logs for $prefix $PodName"
 
     if ($getLogsExitCode -ne 0) {
         $msg = "Error getting logs for pod $PodName (exit = $getLogsExitCode), checking status"
-        Write-Header $msg -LogLevel error -OutputFile $OutputFile
+        Write-Header $msg -LogLevel error
         # TODO if you have multiple containers, this returns multiple chunks of json, but not in an array
         $state = ,(kubectl get pod $PodName -o jsonpath="{.status.containerStatuses.*.state}" | ConvertFrom-Json -Depth 5)
         foreach ($s in $state) {
@@ -48,6 +47,6 @@ function Write-PodLog {
                 Write-Warning ($s | Out-String)
             }
         }
-        Write-Footer "End status for $prefix $PodName" -LogLevel error -OutputFile $OutputFile
+        Write-Footer "End status for $prefix $PodName"
     }
 }

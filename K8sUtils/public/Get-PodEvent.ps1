@@ -6,7 +6,7 @@ Get events for a pod
 Name of the pod to get events for
 
 .PARAMETER NoNormal
-If set, don't return normal events
+If set, don't return normal events, only warnings
 
 .PARAMETER Namespace
 K8s namespace to use, defaults to default
@@ -36,8 +36,11 @@ function Get-PodEvent {
 
     $events = kubectl get events --namespace $Namespace --field-selector "involvedObject.name=$PodName" -o json | ConvertFrom-Json
 
-    if ($LASTEXITCODE -ne 0 -or $null -eq $events) {
+    if ($LASTEXITCODE -ne 0) {
         return $null
+    }
+    if ($null -eq $events) { # valid if no events, such as it didn't need to create a new pod
+        return @()
     }
     if ($NoNormal) {
         $events.items | Where-Object { $_.type -ne "Normal" }

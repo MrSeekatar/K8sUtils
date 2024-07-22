@@ -2,13 +2,9 @@
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions','', Justification = 'Just setting variables')]
     [CmdletBinding()]
     param (
-        [string] $LogFile,
         [ValidateSet("None","ANSI","DevOps")]
         [string] $ColorType
     )
-    if ($LogFile) {
-        $script:OutputFile = $LogFile
-    }
     if ($ColorType) {
         $script:ColorType = $ColorType
         $script:HeaderPrefix = ">> "
@@ -17,5 +13,6 @@
         $script:ColorType = "DevOps"
         $script:HeaderPrefix = "##[group] 👈 CLICK ▸ TO EXPAND "
         $script:FooterPrefix = "##[endgroup]"
+        $script:AddDate = $false
     }
 }
