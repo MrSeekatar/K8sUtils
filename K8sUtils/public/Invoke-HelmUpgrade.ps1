@@ -145,13 +145,13 @@ function Invoke-HelmUpgrade {
         try {
             $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10 -AsHashtable
             if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version)) {
-                Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning -Char '-'
-                Write-Status "Current helm release: $($currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+                Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning
+                Write-Status "Current helm release: $($currentReleaseVersion | ConvertTo-Json -Depth 20 -EnumsAsStrings)"
                 return [RollbackStatus]::HelmStatusFailed
             }
             Write-Verbose "Current version of $ReleaseName is $($currentReleaseVersion.version)"
             if (!$currentReleaseVersion -or $currentReleaseVersion.version -eq $prevVersion) {
-                Write-Status "No change in release '$ReleaseName', not rolling back" -LogLevel warning -Char '-'
+                Write-Status "No change in release '$ReleaseName', not rolling back" -LogLevel warning
                 # throw "$msg, no change"
                 Write-Warning "$msg, no change"
                 return [RollbackStatus]::NoChange
@@ -163,7 +163,7 @@ function Invoke-HelmUpgrade {
                 $exit = $LASTEXITCODE
                 if ($exit -ne 0 -and ($content -like '*Error: release has no 0 version*' -or $content -like '*Error: release: not found*')) {
                     Write-Verbose "Last exit code on rollback was $exit."
-                    Write-Status "helm rollback failed, trying uninstall" -LogLevel Error -Char '-'
+                    Write-Status "helm rollback failed, trying uninstall" -LogLevel Error
                     helm uninstall $ReleaseName
                 }
                 Write-Footer "End rolling back release '$ReleaseName' due to errors"

@@ -235,7 +235,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
     } # end foreach pod
 
     if ($runningCount -ge $ReplicaCount) {
-        Write-Status "All ${prefix}s ($runningCount/$ReplicaCount) that matched selector $Selector are running`n" -Length 0 -Char '-' -LogLevel normal
+        Write-Status "All ${prefix}s ($runningCount/$ReplicaCount) that matched selector $Selector are running`n" -Length 0 -LogLevel normal
         break
     }
 
