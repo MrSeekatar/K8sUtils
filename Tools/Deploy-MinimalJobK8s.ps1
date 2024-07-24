@@ -107,6 +107,7 @@ $initContainer
         return
     }
     Write-Verbose $manifest
+    $null = kubectl delete job test-job --ignore-not-found # so don't find prev one deployed with helm, which will fail
     try {
         $output = $manifest | kubectl apply -f - -o yaml
         Write-Verbose ($output | Out-String)

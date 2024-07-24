@@ -201,5 +201,21 @@ Describe "Deploys Minimal API" {
             kubectl taint nodes $node key1:NoSchedule-
         }
     } -Tag 'Sad','t24'
+
+    It "tests no changes" {
+        $deploy1 = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -TimeoutSecs 10 -SkipSetStartTime
+
+        Test-Deploy $deploy1
+
+        Test-MainPod $deploy1.PodStatuses[0]
+
+        $deploy2 = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -TimeoutSecs 10 -SkipSetStartTime
+
+        Test-Deploy $deploy2
+
+        Test-MainPod $deploy2.PodStatuses[0]
+
+        $deploy1.PodStatuses[0].PodName | Should -Be $deploy2.PodStatuses[0].PodName
+    } -Tag 'Happy','t25'
 }
 

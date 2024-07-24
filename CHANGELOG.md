@@ -1,6 +1,10 @@
 # Change Log
 
-## [1.0.22] 2024-7-23
+## [1.0.22] 2024-7-25
+
+### Added
+
+- Test cases when nothing changes in a deployment
 
 ### Fixed
 
