@@ -159,8 +159,12 @@ function Invoke-HelmUpgrade {
 
             if (!$SkipRollbackOnError) {
                 Write-Header "Rolling back release '$ReleaseName' due to errors" -LogLevel Error
-                helm rollback $ReleaseName 2>&1 | Write-MyHost
+                $errFile = Get-TempLogFile
+                helm rollback $ReleaseName 2>&1 | Tee-Object $errFile | Write-MyHost
+                Get-Content $errFile -Raw | Out-File $tempFile -Append
                 $exit = $LASTEXITCODE
+                $content = Get-Content $errFile -Raw
+                $content | Out-File $OutputFile -Append
                 if ($exit -ne 0 -and ($content -like '*Error: release has no 0 version*' -or $content -like '*Error: release: not found*')) {
                     Write-Verbose "Last exit code on rollback was $exit."
                     Write-Status "helm rollback failed, trying uninstall" -LogLevel Error -Char '-'
