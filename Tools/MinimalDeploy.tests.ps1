@@ -201,5 +201,13 @@ Describe "Deploys Minimal API" {
             kubectl taint nodes $node key1:NoSchedule-
         }
     } -Tag 'Sad','t24'
+
+    It "tests rollback if uninstalled" {
+        helm uninstall test
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -Fail
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+
+        Test-MainPod $deploy.PodStatuses[0] -status 'Crash'
+   } -Tag 'Sad','t25'
 }
 

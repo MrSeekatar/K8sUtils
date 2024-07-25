@@ -4,6 +4,13 @@ $script:FooterPrefix = ""
 $script:AddDate = $true
 $script:Dashes = 30
 
+function Get-TempLogFile($prefix = "k8s-") {
+    $temp = [System.IO.Path]::GetTempFileName()
+    $ret = Join-Path( Split-Path -Path $temp -Parent) "$prefix$(Split-Path -Path $temp -Leaf)"
+    $script:OutputFile = $ret
+    return $ret
+}
+
 function Write-MyHost {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '', Justification = 'Write-Information need ANSI resets')]
     [CmdletBinding()]
