@@ -31,6 +31,7 @@ function Write-PodLog {
         $msg = "Error getting logs for pod $PodName (exit = $getLogsExitCode), checking status"
         Write-Header $msg -LogLevel error
         # TODO if you have multiple containers, this returns multiple chunks of json, but not in an array
+        Write-Verbose "kubectl get pod $PodName -o jsonpath='{.status.containerStatuses.*.state}'"
         $state = ,(kubectl get pod $PodName -o jsonpath="{.status.containerStatuses.*.state}" | ConvertFrom-Json -Depth 5)
         foreach ($s in $state) {
             # can have running, waiting, or terminated properties

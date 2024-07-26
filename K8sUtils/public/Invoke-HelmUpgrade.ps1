@@ -143,15 +143,16 @@ function Invoke-HelmUpgrade {
         param ($SkipRollbackOnError, $releaseName, $msg, $prevVersion)
 
         try {
-            $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10
-            if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version)) {
-                Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning -Char '-'
-                Write-Status "Current helm release: $($currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+            Write-Verbose "helm status --namespace $Namespace $ReleaseName -o json"
+            $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10 -AsHashtable # AsHashTable allows for duplicate keys in env, etc.
+            if (!$currentReleaseVersion -or !($currentReleaseVersion.ContainsKey('version'))) {
+                Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning
+                Write-Status "Current helm release: $($currentReleaseVersion | ConvertTo-Json -Depth 20 -EnumsAsStrings)"
                 return [RollbackStatus]::HelmStatusFailed
             }
             Write-Verbose "Current version of $ReleaseName is $($currentReleaseVersion.version)"
             if (!$currentReleaseVersion -or $currentReleaseVersion.version -eq $prevVersion) {
-                Write-Status "No change in release '$ReleaseName', not rolling back" -LogLevel warning -Char '-'
+                Write-Status "No change in release '$ReleaseName', not rolling back" -LogLevel warning
                 # throw "$msg, no change"
                 Write-Warning "$msg, no change"
                 return [RollbackStatus]::NoChange
@@ -168,6 +169,7 @@ function Invoke-HelmUpgrade {
                     Write-Status "helm rollback failed, trying uninstall" -LogLevel Error -Char '-'
                     helm uninstall $ReleaseName 2>&1 | Write-MyHost
                 }
+                Remove-Item $errFile -ErrorAction SilentlyContinue
                 Write-Footer "End rolling back release '$ReleaseName' due to errors"
                 # throw "$msg, rolled back"
                 Write-Warning "$msg, rolled back"
@@ -242,15 +244,15 @@ function Invoke-HelmUpgrade {
     }
 
     $status = [ReleaseStatus]::new($ReleaseName)
+    $prevVersion = 0
     try {
         $hookMsg = $PreHookJobName ? " waiting ${PreHookTimeoutSecs}s prehook job '$PreHookJobName'" : ""
 
-        $prevReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json
-        if ($prevReleaseVersion -and (Get-Member -InputObject $prevReleaseVersion -Name version -MemberType Property)) {
+        Write-Verbose "helm status --namespace $Namespace $ReleaseName -o json"
+        $prevReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10 -AsHashtable # AsHashTable allows for duplicate keys in env, etc.
+        if ($prevReleaseVersion -and ($prevReleaseVersion.ContainsKey('version'))) {
             $prevVersion = $prevReleaseVersion.version
             Write-Verbose "Previous version of $ReleaseName was $prevVersion"
-        } else {
-            $prevVersion = 0
         }
         "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Write-MyHost
 

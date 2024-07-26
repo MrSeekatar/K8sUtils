@@ -98,6 +98,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
     $timedOut = (Get-Date) -gt $timeoutEnd
 
     # $pods = kubectl get pod --namespace $Namespace --selector "$LabelName=$AppName" --field-selector "status.phase!=Running" -o json | ConvertFrom-Json
+    Write-Verbose "kubectl get pod --namespace $Namespace --selector $Selector --sort-by=.metadata.name -o json"
     $pods = kubectl get pod --namespace $Namespace --selector $Selector --sort-by=.metadata.name -o json | ConvertFrom-Json
 
     if (!$pods) {
@@ -204,6 +205,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
                 # get latest pod status since sometimes get containerCreating status here
                 $name = $pod.metadata.name
+                Write-Verbose "kubectl get pod --namespace $Namespace $name -o json"
                 $podJson = kubectl get pod --namespace $Namespace $name -o json
                 $pod = $podJson | ConvertFrom-Json
                 if (!$pod -or !(Get-Member -InputObject $pod -Name metadata)) {
@@ -235,7 +237,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
     } # end foreach pod
 
     if ($runningCount -ge $ReplicaCount) {
-        Write-Status "All ${prefix}s ($runningCount/$ReplicaCount) that matched selector $Selector are running`n" -Length 0 -Char '-' -LogLevel normal
+        Write-Status "All ${prefix}s ($runningCount/$ReplicaCount) that matched selector $Selector are running`n" -Length 0 -LogLevel normal
         break
     }
 

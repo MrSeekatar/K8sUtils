@@ -73,7 +73,8 @@ function Deploy-Minimal {
         [switch] $PassThru,
         [switch] $StartupProbe,
         [switch] $SkipDeploy,
-        [switch] $AlwaysCheckPreHook
+        [switch] $AlwaysCheckPreHook,
+        [switch] $SkipSetStartTime # keeps all manifests the same
 
     )
     Set-StrictMode -Version Latest
@@ -126,7 +127,7 @@ function Deploy-Minimal {
     }
 
     $helmSet += "deployment.enabled=$($SkipDeploy ? "false" : "true")",
-                "env.deployTime=$(Get-Date)",
+                "env.deployTime=$($SkipSetStartTime ? "2024-01-01" : (Get-Date))",
                 "env.failOnStart=$fail",
                 "env.runCount=$RunCount",
                 "image.tag=$ImageTag",

@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.0.22] 2024-7-25
+
+### Added
+
+- Test cases when nothing changes in a deployment
+- Verbose logging of most kubectl commands
+
+### Fixed
+
+- Handle case when duplicate env vars of different case and JSON conversion fails
+- Bug when rolling back on first install
+
 ## [1.0.21] 2024-7-15
 
 ### Fixed

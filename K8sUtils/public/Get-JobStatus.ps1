@@ -41,6 +41,7 @@ function Get-JobStatus {
     $ErrorActionPreference = 'Stop'
     Set-StrictMode -Version Latest
 
+    Write-Verbose "kubectl get job $JobName --namespace $Namespace -o json"
     $job = kubectl get job $JobName --namespace $Namespace -o json | ConvertFrom-Json
 
     if ($job) {

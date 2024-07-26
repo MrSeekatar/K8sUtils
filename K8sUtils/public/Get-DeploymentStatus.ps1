@@ -47,13 +47,15 @@ function Get-DeploymentStatus {
     $uid = $null
     for ( $i = 0; $i -lt 10 -and $null -eq $replicas; $i++) {
         # todo check to see if it exists, or don't use jsonpath since items[0] can fail
+        Write-Verbose "kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}'"
         $deployments = kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20
         if (!$deployments) {
             Write-Warning "No items from kubectl get deploy -l $Selector. Trying again in 1 second."
         } else {
-            $replicas = $deployments[0].spec.replicas
-            $uid = $deployments[0].metadata.uid
-            $revision = $deployments[0].metadata.annotations.'deployment.kubernetes.io/revision'
+            $deployment = $deployments | Select-Object -First 1 # handle as hash table
+            $replicas = $deployment.spec.replicas
+            $uid = $deployment.metadata.uid
+            $revision = $deployment.metadata.annotations.'deployment.kubernetes.io/revision'
         }
         Start-Sleep -Seconds 1
     }
@@ -80,7 +82,6 @@ function Get-DeploymentStatus {
     $podSelector = "pod-template-hash=$hash"
 
     $ret = Get-PodStatus -Selector $podSelector `
-                         `
                          -ReplicaCount $replicas `
                          -Namespace $Namespace `
                          -TimeoutSec $TimeoutSec `
