@@ -196,7 +196,7 @@ Describe "Deploys Minimal API" {
 
     It "tests taints" {
         $node = k get node -o jsonpath="{.items[0].metadata.name}"
-        Write-Host kubectl taint nodes $node key1=value1:NoSchedule
+        kubectl taint nodes $node key1=value1:NoSchedule
         try {
             $deploy = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -RunCount 1 -PreHookTimeoutSecs 5 -TimeoutSecs 5
             Test-Deploy $deploy -Running $false -PodCount 1 -RollbackStatus 'RolledBack'

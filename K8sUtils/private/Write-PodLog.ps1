@@ -33,9 +33,10 @@ function Write-PodLog {
     if ($LogFileFolder) {
         Stop-Transcript | Out-Null
         $logFilename = "$LogFileFolder/$PodName.log"
+        $end = $false
+        # filter out the transcript header and footer
         Get-Content $tempFile | Select-Object -Skip 4 | ForEach-Object {
-            if ($_ -eq '**********************') { break }
-            $_
+            if ($end -or $_ -eq '**********************') { $end = $true } else { $_ }
         } | Set-Content $logFilename
         Remove-Item $tempFile -ErrorAction SilentlyContinue
     }
