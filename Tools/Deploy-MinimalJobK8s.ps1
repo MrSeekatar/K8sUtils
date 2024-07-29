@@ -115,15 +115,15 @@ $initContainer
             throw "kubectl apply failed"
         }
 
-        $logFile = [System.IO.Path]::GetTempFileName()
+        $logFolder = [System.IO.Path]::GetTempPath()
         Get-JobStatus -JobName "test-job" `
                       -ReplicaCount 1 `
                       -Verbose:$VerbosePreference `
                       -TimeoutSec $TimeoutSecs `
                       -PollIntervalSec $PollIntervalSec `
                       -Namespace "default" `
-                      -LogFilename $logFile
-        Write-Host "Logs for job are in $logFile" -ForegroundColor Cyan
+                      -LogFileFolder $logFolder
+        Write-Host "Logs for job are in $logFolder" -ForegroundColor Cyan
     } catch {
         Write-Error "Error! $_`n$($_.ScriptStackTrace)"
     } finally {

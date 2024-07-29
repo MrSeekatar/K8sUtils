@@ -74,6 +74,7 @@ class PodStatus
     [ContainerStatus[]] $ContainerStatuses
     [ContainerStatus[]] $InitContainerStatuses
     [string[]] $LastBadEvents
+    [string] $PodLogFile
 
     [void] DetermineStatus() {
         if (($this.ContainerStatuses | Where-Object { $_ -and $_.Status -eq [Status]::Crash }) -or

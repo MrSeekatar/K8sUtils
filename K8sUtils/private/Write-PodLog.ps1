@@ -9,9 +9,10 @@ function Write-PodLog {
         [string] $Since,
         [ValidateSet("error", "warning", "ok","normal")]
         [string] $LogLevel = "ok",
-        [string] $LogFilename
+        [string] $LogFileFolder
     )
     $extraLogParams = @()
+    $logFilename = $null
 
     $msg = "Logs for $prefix $PodName"
     if ($Since) {
@@ -24,17 +25,19 @@ function Write-PodLog {
 
     Write-Header $msg -LogLevel $LogLevel
     $tempFile = Get-TempLogFile
-    if ($LogFilename) {
+    if ($LogFileFolder) {
         Start-Transcript -Path $tempFile -UseMinimalHeader | Out-Null
     }
     kubectl logs --namespace $Namespace $PodName $extraLogParams 2>&1 |
         Where-Object { $_ -NotMatch 'Error.*: (PodInitializing|ContainerCreating)' } | Write-Plain
-    if ($LogFilename) {
+    if ($LogFileFolder) {
         Stop-Transcript | Out-Null
+        $logFilename = "$LogFileFolder/$PodName.log"
         Get-Content $tempFile | Select-Object -Skip 4 | ForEach-Object {
             if ($_ -eq '**********************') { break }
             $_
-        } | Set-Content $LogFilename
+        } | Set-Content $logFilename
+        Remove-Item $tempFile -ErrorAction SilentlyContinue
     }
     $getLogsExitCode = $LASTEXITCODE
     Write-Footer "End logs for $prefix $PodName"
@@ -62,4 +65,5 @@ function Write-PodLog {
         }
         Write-Footer "End status for $prefix $PodName"
     }
+    return $logFilename
 }
