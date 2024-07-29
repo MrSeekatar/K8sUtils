@@ -17,6 +17,9 @@ Timeout in seconds for waiting on the pods. Defaults to 600
 .PARAMETER Namespace
 K8s namespace to use, defaults to default
 
+.PARAMETER LogFilename
+If specified, logs will be written to this file
+
 .EXAMPLE
 Get-JobStatus -JobName test-job
 
@@ -35,7 +38,8 @@ function Get-JobStatus {
         [ValidateRange(1, 600)]
         [int] $PollIntervalSec = 5,
         [int] $TimeoutSec = 600,
-        [string] $Namespace = "default"
+        [string] $Namespace = "default",
+        [string] $LogFilename
 
     )
     $ErrorActionPreference = 'Stop'
@@ -54,7 +58,9 @@ function Get-JobStatus {
             -PodType Job `
             -Verbose:$VerbosePreference `
             -TimeoutSec $TimeoutSec `
-            -PollIntervalSec $PollIntervalSec
+            -PollIntervalSec $PollIntervalSec `
+            -Namespace $Namespace `
+            -LogFilename $LogFilename `
 
     } else {
         Write-Warning "Job $JobName not found in namespace $Namespace"

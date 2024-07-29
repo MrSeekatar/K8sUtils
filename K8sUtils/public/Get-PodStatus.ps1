@@ -20,6 +20,9 @@ K8s namespace to use, defaults to default
 .PARAMETER PodType
 If Pod, all containers must be running, otherwise for jobs all must be terminated ok
 
+.PARAMETER LogFilename
+If specified, logs will be written to this file
+
 .EXAMPLE
 $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                             -Namespace $Namespace `
@@ -44,7 +47,8 @@ param(
     [int] $TimeoutSec = 600,
     [string] $Namespace = "default",
     [ValidateSet("Pod", "PreInstallJob", "Job")]
-    [string] $PodType = "Pod"
+    [string] $PodType = "Pod",
+    [string] $LogFilename
 
 )
 $ErrorActionPreference = 'Stop'
@@ -177,7 +181,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                                                                                 -LogLevel ok `
                                                                                 -FilterStartupWarnings
 
-                Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit
+                Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit -LogFilename $LogFileName
                 continue
             } else {
                 Write-Verbose "Pod $($pod.metadata.name) is ready (phase = $okPhase), but pod containerStatuses are: $($pod.status.containerStatuses | out-string)"
@@ -186,7 +190,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
         if ($timedOut) {
             Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -FilterStartupWarnings
-            Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -HasInit:$HasInit
+            Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -HasInit:$HasInit -LogFilename $LogFileName
             break
         }
 
@@ -201,7 +205,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 # write final events and logs for this pod
                 Write-Verbose "Calling Write-PodEvent for pod $($pod.metadata.name) with LogLevel Error"
                 $podStatuses[$pod.metadata.name].LastBadEvents = Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
-                Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit
+                Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit -LogFilename $LogFileName -LogFilename $LogFileName
 
                 # get latest pod status since sometimes get containerCreating status here
                 $name = $pod.metadata.name
@@ -209,7 +213,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 $podJson = kubectl get pod --namespace $Namespace $name -o json
                 $pod = $podJson | ConvertFrom-Json
                 if (!$pod -or !(Get-Member -InputObject $pod -Name metadata)) {
-                    Write-Warning "Unexpected response from kubectl get pod --namespace $Namespace $name is: '$podJson'"
+                    Write-Warning "Unexpected response from kubectl get pod --namespace $Namespace $name JSON is: '$podJson'"
                     throw "Unexpected response from kubectl get pod --namespace $Namespace $name"
                 }
 

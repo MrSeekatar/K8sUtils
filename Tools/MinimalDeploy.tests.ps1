@@ -1,7 +1,7 @@
 # Import the script that defines the Deploy-Minimal -PassThru function
 BeforeAll {
-    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true
     Import-Module  $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true
+    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true
 
     $env:invokeHelmAllowLowTimeouts = $true
 
@@ -184,6 +184,11 @@ Describe "Deploys Minimal API" {
     } -Tag 'Config','Sad','t22'
 
     It "tests error if checking preHook, but not making one" {
+        Write-Host (kubectl delete job test-prehook --wait --ignore-not-found) # prev step may have left one
+        do {
+            Write-Host "Still there >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+            Start-Sleep 1
+        } while (Get-PodByJobName test-prehook)
         $deploy = Deploy-Minimal -PassThru -AlwaysCheckPreHook -SkipPreHook -SkipInit -TimeoutSecs 10
         Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack'
 
@@ -191,7 +196,7 @@ Describe "Deploys Minimal API" {
 
     It "tests taints" {
         $node = k get node -o jsonpath="{.items[0].metadata.name}"
-        kubectl taint nodes $node key1=value1:NoSchedule
+        Write-Host kubectl taint nodes $node key1=value1:NoSchedule
         try {
             $deploy = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -RunCount 1 -PreHookTimeoutSecs 5 -TimeoutSecs 5
             Test-Deploy $deploy -Running $false -PodCount 1 -RollbackStatus 'RolledBack'
@@ -217,7 +222,7 @@ Describe "Deploys Minimal API" {
 
         $deploy1.PodStatuses[0].PodName | Should -Be $deploy2.PodStatuses[0].PodName
     } -Tag 'Happy','t25'
-    
+
     It "tests rollback if uninstalled" {
         helm uninstall test
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -Fail

@@ -161,7 +161,7 @@ function Invoke-HelmUpgrade {
             if (!$SkipRollbackOnError) {
                 Write-Header "Rolling back release '$ReleaseName' due to errors" -LogLevel Error
                 $errFile = Get-TempLogFile
-                helm rollback $ReleaseName 2>&1 | Tee-Object $errFile | Write-MyHost
+                helm rollback $ReleaseName --wait 2>&1 | Tee-Object $errFile | Write-MyHost
                 $exit = $LASTEXITCODE
                 $content = Get-Content $errFile -Raw
                 if ($exit -ne 0 -and ($content -like '*Error: release has no 0 version*' -or $content -like '*Error: release: not found*')) {
