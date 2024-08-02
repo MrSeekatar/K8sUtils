@@ -1,13 +1,14 @@
 # Change Log
 
-## [1.0.22] 2024-7-30
+## [1.0.22] 2024-8-1
 
 ### Added
 
 - Test cases when nothing changes in a deployment
 - Verbose logging of most kubectl commands
-- LogFileFolder parameter to Get-JobStatus, Get-PodStatus, and Write-PodLog
-- Added --wait to helm rollback
+- LogFileFolder parameter to Invoke-HelmUpgrade, Get-DeploymentStatus, Get-JobStatus, Get-PodStatus, and Write-PodLog
+- --wait to helm rollback
+- ToString to PodStatus for better viewing of the output object
 
 ### Fixed
 

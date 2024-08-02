@@ -142,6 +142,7 @@ function Deploy-Minimal {
     $releaseName = "test"
     $chartName = "minimal"
     try {
+        $logFolder = [System.IO.Path]::GetTempPath()
         $ret = Invoke-HelmUpgrade -ValueFile "minimal_values.yaml" `
                            -ChartName $chartName `
                            -ReleaseName $releaseName `
@@ -155,7 +156,9 @@ function Deploy-Minimal {
                            -DryRun:$DryRun `
                            -SkipRollbackOnError:$SkipRollbackOnError `
                            -ColorType $ColorType `
-                           -Verbose:$VerbosePreference
+                           -Verbose:$VerbosePreference `
+                           -LogFileFolder $logFolder
+        Write-Host "Logs for job are in $logFolder" -ForegroundColor Cyan
         if ($PassThru) {
             $ret
         } else {

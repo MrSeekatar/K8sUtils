@@ -14,6 +14,8 @@ Describe "Deploys Minimal API" {
         $deploy = Deploy-MinimalJobK8s
 
         Test-Pod $deploy -nameLike 'test-job-*' -containerName 'test-job' -status 'Completed' -containerStatus 'Completed'
+        $deploy.PodLogFile | Should -Not -BeNullOrEmpty
+        Test-Path $deploy.PodLogFile | Should -Be $true
     } -Tag 'Happy','k1'
 
     It "runs without init ok" {

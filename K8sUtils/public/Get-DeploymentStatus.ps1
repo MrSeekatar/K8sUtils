@@ -14,6 +14,9 @@ Seconds to wait for the deployment to be ready
 .PARAMETER PollIntervalSec
 How often to poll for pod status. Defaults to 5
 
+.PARAMETER LogFileFolder
+If specified, pod logs will be written to this folder
+
 .EXAMPLE
 Get-DeploymentStatus -TimeoutSec $timeoutSec `
                      -Selector "app.kubernetes.io/instance=$ReleaseName,app.kubernetes.io/name=$ChartName"
@@ -35,7 +38,8 @@ function Get-DeploymentStatus {
         [string] $Selector,
         [string] $Namespace = "default",
         [int] $TimeoutSec = 30,
-        [int] $PollIntervalSec = 5
+        [int] $PollIntervalSec = 5,
+        [string] $LogFileFolder
     )
 
     Set-StrictMode -Version Latest
@@ -85,7 +89,8 @@ function Get-DeploymentStatus {
                          -ReplicaCount $replicas `
                          -Namespace $Namespace `
                          -TimeoutSec $TimeoutSec `
-                         -PollIntervalSec $PollIntervalSec
+                         -PollIntervalSec $PollIntervalSec `
+                         -LogFileFolder $LogFileFolder
 
     Write-Footer
     Write-Verbose "ret is $($ret | out-string)"

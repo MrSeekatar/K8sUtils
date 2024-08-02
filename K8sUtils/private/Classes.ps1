@@ -76,6 +76,10 @@ class PodStatus
     [string[]] $LastBadEvents
     [string] $PodLogFile
 
+    [string] ToString() {
+        return "{$($this.PodName) $($this.Status)}"
+    }
+
     [void] DetermineStatus() {
         if (($this.ContainerStatuses | Where-Object { $_ -and $_.Status -eq [Status]::Crash }) -or
             ($this.InitContainerStatuses | Where-Object { $_ -and $_.Status -eq [Status]::Crash }) ) {

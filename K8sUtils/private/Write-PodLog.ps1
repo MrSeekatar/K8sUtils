@@ -32,7 +32,7 @@ function Write-PodLog {
         Where-Object { $_ -NotMatch 'Error.*: (PodInitializing|ContainerCreating)' } | Write-Plain
     if ($LogFileFolder) {
         Stop-Transcript | Out-Null
-        $logFilename = "$LogFileFolder/$PodName.log"
+        $logFilename = Join-Path $LogFileFolder "$PodName.log"
         $end = $false
         # filter out the transcript header and footer
         Get-Content $tempFile | Select-Object -Skip 4 | ForEach-Object {

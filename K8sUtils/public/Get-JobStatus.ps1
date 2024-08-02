@@ -40,7 +40,6 @@ function Get-JobStatus {
         [int] $TimeoutSec = 600,
         [string] $Namespace = "default",
         [string] $LogFileFolder
-
     )
     $ErrorActionPreference = 'Stop'
     Set-StrictMode -Version Latest
