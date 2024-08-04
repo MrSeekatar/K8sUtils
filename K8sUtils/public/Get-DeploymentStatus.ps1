@@ -68,17 +68,13 @@ function Get-DeploymentStatus {
     }
 
     # get the current replicaSet's for hash to get pods in this deployment
-    Write-Verbose "kubectl get rs -l $Selector --namespace $Namespace -o jsonpath='{.items}'"
-    $replicaSets = @(kubectl get rs -l "$Selector" --namespace $Namespace -o jsonpath='{.items}' |
-                            ConvertFrom-Json -Depth 20 |
-                            Sort-Object { [int]($_.metadata.annotations.'deployment.kubernetes.io/revision') })
+    Write-Verbose "kubectl get rs -l $Selector -o jsonpath={.items[?(@.metadata.annotations.deployment\.kubernetes\.io/revision==`"$revision`")]}"
+    $rs = kubectl get rs -l $Selector -o "jsonpath={.items[?(@.metadata.annotations.deployment\.kubernetes\.io/revision==`"$revision`")]}" |
+                            ConvertFrom-Json -Depth 20
 
-    if ($LASTEXITCODE -ne 0 -or !$replicaSets) {
+    if ($LASTEXITCODE -ne 0 -or !$rs) {
         throw "When looking for pod, nothing returned from kubectl get rs -l $Selector --namespace $Namespace. Check selector."
     }
-    Write-Verbose "Found $($replicaSets.Count) replicaSets for deployment $Selector in namespace $Namespace. Looking for revision $revision"
-    Write-Verbose ($replicaSets | Select-Object @{n='name';e={$_.metadata.name}},@{n='replicas';e={$_.spec.replicas}},@{n='revision';e={$_.metadata.annotations.'deployment.kubernetes.io/revision'}},@{n='created';e={$_.metadata.creationTimestamp}},@{n='uid';e={$_.metadata.uid}} | Format-Table | Out-String)
-    $rs = $replicaSets | Where-Object { $_.metadata.annotations.'deployment.kubernetes.io/revision' -eq $revision }
     $hash = $rs.metadata.labels."pod-template-hash"
     Write-Verbose "rs pod-template-hash is $hash"
 

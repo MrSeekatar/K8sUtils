@@ -1,19 +1,23 @@
 # Change Log
 
-## [1.0.22] 2024-8-1
+## [1.0.22] 2024-8-5
 
 ### Added
 
-- Test cases when nothing changes in a deployment
+- Test cases for when nothing changes in a deployment
 - Verbose logging of most kubectl commands
-- LogFileFolder parameter to Invoke-HelmUpgrade, Get-DeploymentStatus, Get-JobStatus, Get-PodStatus, and Write-PodLog
-- --wait to helm rollback
-- ToString to PodStatus for better viewing of the output object
+- `LogFileFolder` parameter to `Invoke-HelmUpgrade`, `Get-DeploymentStatus`, `Get-JobStatus`, `Get-PodStatus`, and `Write-PodLog`
+- `--wait` to helm rollback
+- `ToString` to `PodStatus` class for better viewing of the output object
 
 ### Fixed
 
 - Handle case when duplicate env vars of different case and JSON conversion fails
 - Bug when rolling back on first install
+
+### Updated
+
+- `Get-DeploymentStatus` now uses jsonpath filter to get the replicaset for the deploy, instead of filtering in PowerShell
 
 ## [1.0.21] 2024-7-15
 
@@ -23,19 +27,19 @@
 
 ### Updated
 
-- Get-PodStatus has better handling for scheduling errors, such as taints, memory, etc.
+- `Get-PodStatus` has better handling for scheduling errors, such as taints, memory, etc.
 - Logging improvements:
   - Footer always matches the header now
   - Use box drawing characters in header and footer to be cleaner
-  - Removed output file logging code since Start-Transcript works fine
-  - Removed timestamps for TF_BUILD environment since it's already in the log
+  - Removed output file logging code since `Start-Transcript` works fine
+  - Removed timestamps for `TF_BUILD` environment since it's already in the log
 
 ## [1.0.18] 2024-7-12
 
 ### Added
 
 - Get-JobStatus added to check the status of a K8s job
-- Better support in Get-PodStatus for checking the status of a job started via Helm or a kubectl apply
+- Better support in `Get-PodStatus` for checking the status of a job started via Helm or a kubectl apply
 
 ### Updated
 
