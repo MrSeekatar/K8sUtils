@@ -1,6 +1,6 @@
 # Change Log
 
-## [1.0.22] 2024-8-5
+## [1.0.23] 2024-8-5
 
 ### Added
 
@@ -18,6 +18,7 @@
 ### Updated
 
 - `Get-DeploymentStatus` now uses jsonpath filter to get the replicaset for the deploy, instead of filtering in PowerShell
+- `Write-PodLog` won't write an error if the pod is in ContainerCreating state
 
 ## [1.0.21] 2024-7-15
 
