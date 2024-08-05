@@ -84,7 +84,7 @@ try {
                     try {
                         if ($prerelease) {
                             Copy-Item K8sUtils.psd1 K8sUtils.psd1.bak -Force
-                            (Get-Content K8sUtils.psd1 -Raw) -replace '# Prerelease = ''''', 'Prerelease = ''prelease''' | Set-Content K8sUtils.psd1 -Encoding 'UTF8' -NoNewline
+                            (Get-Content K8sUtils.psd1 -Raw) -replace '# Prerelease = ''''', 'Prerelease = ''prerelease''' | Set-Content K8sUtils.psd1 -Encoding 'UTF8' -NoNewline
                         }
                         Publish-Module -Repository $Repository -Path . -NuGetApiKey $NuGetApiKey
                     } finally {
