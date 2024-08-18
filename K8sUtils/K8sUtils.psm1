@@ -8,7 +8,7 @@ Get-ChildItem $PSScriptRoot\private\*.ps1 | ForEach-Object { . $_ }
 $exports = @()
 Get-ChildItem $PSScriptRoot\public\*.ps1 | ForEach-Object { . $_; $exports += $_.BaseName }
 
-Export-ModuleMember -Function $exports -Alias '*'
+# Export-ModuleMember -Function $exports -Alias '*'
 
 Set-K8sUtilsConfig
 
