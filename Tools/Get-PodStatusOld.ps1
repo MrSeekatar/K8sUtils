@@ -11,7 +11,7 @@ $pods = @(k get pod --no-headers -o custom-columns=T:.metadata.name,S:.status.co
 Write-Verbose "Pods: $($pods.count)"
 foreach ($p in $pods) {
     Write-Verbose "  Pod: $($p)"
-    $events = @(k get event --field-selector "involvedObject.name=$($pods[0])" -o json | convertfrom-json)
+    $events = @(kubectl get event --field-selector "involvedObject.name=$($pods[0])" -o json | convertfrom-json)
     foreach ($e in $events) {
         Write-Verbose "Events for pod: $($e.items.count)"
         foreach ($ee in $e.items) {

@@ -33,7 +33,6 @@ function Get-PodEvent {
         [string] $Namespace = "default"
     )
     Write-Verbose "kubectl get events --namespace $Namespace --field-selector `"involvedObject.name=$PodName`" -o json"
-
     $events = kubectl get events --namespace $Namespace --field-selector "involvedObject.name=$PodName" -o json | ConvertFrom-Json
 
     if ($LASTEXITCODE -ne 0) {

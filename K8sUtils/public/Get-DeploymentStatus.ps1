@@ -14,6 +14,9 @@ Seconds to wait for the deployment to be ready
 .PARAMETER PollIntervalSec
 How often to poll for pod status. Defaults to 5
 
+.PARAMETER LogFileFolder
+If specified, pod logs will be written to this folder
+
 .EXAMPLE
 Get-DeploymentStatus -TimeoutSec $timeoutSec `
                      -Selector "app.kubernetes.io/instance=$ReleaseName,app.kubernetes.io/name=$ChartName"
@@ -35,7 +38,8 @@ function Get-DeploymentStatus {
         [string] $Selector,
         [string] $Namespace = "default",
         [int] $TimeoutSec = 30,
-        [int] $PollIntervalSec = 5
+        [int] $PollIntervalSec = 5,
+        [string] $LogFileFolder
     )
 
     Set-StrictMode -Version Latest
@@ -47,13 +51,15 @@ function Get-DeploymentStatus {
     $uid = $null
     for ( $i = 0; $i -lt 10 -and $null -eq $replicas; $i++) {
         # todo check to see if it exists, or don't use jsonpath since items[0] can fail
+        Write-Verbose "kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}'"
         $deployments = kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20
         if (!$deployments) {
             Write-Warning "No items from kubectl get deploy -l $Selector. Trying again in 1 second."
         } else {
-            $replicas = $deployments[0].spec.replicas
-            $uid = $deployments[0].metadata.uid
-            $revision = $deployments[0].metadata.annotations.'deployment.kubernetes.io/revision'
+            $deployment = $deployments | Select-Object -First 1 # handle as hash table
+            $replicas = $deployment.spec.replicas
+            $uid = $deployment.metadata.uid
+            $revision = $deployment.metadata.annotations.'deployment.kubernetes.io/revision'
         }
         Start-Sleep -Seconds 1
     }
@@ -62,17 +68,13 @@ function Get-DeploymentStatus {
     }
 
     # get the current replicaSet's for hash to get pods in this deployment
-    Write-Verbose "kubectl get rs -l $Selector --namespace $Namespace -o jsonpath='{.items}'"
-    $replicaSets = @(kubectl get rs -l "$Selector" --namespace $Namespace -o jsonpath='{.items}' |
-                            ConvertFrom-Json -Depth 20 |
-                            Sort-Object { [int]($_.metadata.annotations.'deployment.kubernetes.io/revision') })
+    Write-Verbose "kubectl get rs -l $Selector -o jsonpath={.items[?(@.metadata.annotations.deployment\.kubernetes\.io/revision==`"$revision`")]}"
+    $rs = kubectl get rs -l $Selector -o "jsonpath={.items[?(@.metadata.annotations.deployment\.kubernetes\.io/revision==`"$revision`")]}" |
+                            ConvertFrom-Json -Depth 20
 
-    if ($LASTEXITCODE -ne 0 -or !$replicaSets) {
+    if ($LASTEXITCODE -ne 0 -or !$rs) {
         throw "When looking for pod, nothing returned from kubectl get rs -l $Selector --namespace $Namespace. Check selector."
     }
-    Write-Verbose "Found $($replicaSets.Count) replicaSets for deployment $Selector in namespace $Namespace. Looking for revision $revision"
-    Write-Verbose ($replicaSets | Select-Object @{n='name';e={$_.metadata.name}},@{n='replicas';e={$_.spec.replicas}},@{n='revision';e={$_.metadata.annotations.'deployment.kubernetes.io/revision'}},@{n='created';e={$_.metadata.creationTimestamp}},@{n='uid';e={$_.metadata.uid}} | Format-Table | Out-String)
-    $rs = $replicaSets | Where-Object { $_.metadata.annotations.'deployment.kubernetes.io/revision' -eq $revision }
     $hash = $rs.metadata.labels."pod-template-hash"
     Write-Verbose "rs pod-template-hash is $hash"
 
@@ -80,11 +82,11 @@ function Get-DeploymentStatus {
     $podSelector = "pod-template-hash=$hash"
 
     $ret = Get-PodStatus -Selector $podSelector `
-                         `
                          -ReplicaCount $replicas `
                          -Namespace $Namespace `
                          -TimeoutSec $TimeoutSec `
-                         -PollIntervalSec $PollIntervalSec
+                         -PollIntervalSec $PollIntervalSec `
+                         -LogFileFolder $LogFileFolder
 
     Write-Footer
     Write-Verbose "ret is $($ret | out-string)"

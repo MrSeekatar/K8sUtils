@@ -84,7 +84,7 @@ try {
                     try {
                         if ($prerelease) {
                             Copy-Item K8sUtils.psd1 K8sUtils.psd1.bak -Force
-                            (Get-Content K8sUtils.psd1 -Raw) -replace '# Prerelease = ''''', 'Prerelease = ''prelease''' | Set-Content K8sUtils.psd1 -Encoding 'UTF8' -NoNewline
+                            (Get-Content K8sUtils.psd1 -Raw) -replace '# Prerelease = ''''', 'Prerelease = ''prerelease''' | Set-Content K8sUtils.psd1 -Encoding 'UTF8' -NoNewline
                         }
                         Publish-Module -Repository $Repository -Path . -NuGetApiKey $NuGetApiKey
                     } finally {
@@ -99,7 +99,7 @@ try {
                 executeSB  {
                     $result = Invoke-Pester -PassThru -Tag $tag -Path Tools/MinimalDeploy.tests.ps1
                     $i = 0
-                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }} | Out-String)  -InformationAction Continue
+                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i-1}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }} | Out-String)  -InformationAction Continue
                     Write-Information "Test results: are in `$test_results" -InformationAction Continue
                     $global:test_results = $result
                 }

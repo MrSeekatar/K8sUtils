@@ -73,7 +73,8 @@ function Deploy-Minimal {
         [switch] $PassThru,
         [switch] $StartupProbe,
         [switch] $SkipDeploy,
-        [switch] $AlwaysCheckPreHook
+        [switch] $AlwaysCheckPreHook,
+        [switch] $SkipSetStartTime # keeps all manifests the same
 
     )
     Set-StrictMode -Version Latest
@@ -126,7 +127,7 @@ function Deploy-Minimal {
     }
 
     $helmSet += "deployment.enabled=$($SkipDeploy ? "false" : "true")",
-                "env.deployTime=$(Get-Date)",
+                "env.deployTime=$($SkipSetStartTime ? "2024-01-01" : (Get-Date))",
                 "env.failOnStart=$fail",
                 "env.runCount=$RunCount",
                 "image.tag=$ImageTag",
@@ -141,6 +142,7 @@ function Deploy-Minimal {
     $releaseName = "test"
     $chartName = "minimal"
     try {
+        $logFolder = [System.IO.Path]::GetTempPath()
         $ret = Invoke-HelmUpgrade -ValueFile "minimal_values.yaml" `
                            -ChartName $chartName `
                            -ReleaseName $releaseName `
@@ -154,7 +156,9 @@ function Deploy-Minimal {
                            -DryRun:$DryRun `
                            -SkipRollbackOnError:$SkipRollbackOnError `
                            -ColorType $ColorType `
-                           -Verbose:$VerbosePreference
+                           -Verbose:$VerbosePreference `
+                           -LogFileFolder $logFolder
+        Write-Host "Logs for job are in $logFolder" -ForegroundColor Cyan
         if ($PassThru) {
             $ret
         } else {

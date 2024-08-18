@@ -1,7 +1,7 @@
 # Import the script that defines the Deploy-Minimal -PassThru function
 BeforeAll {
-    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true
     Import-Module  $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true
+    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true
 
     $env:invokeHelmAllowLowTimeouts = $true
 
@@ -184,6 +184,11 @@ Describe "Deploys Minimal API" {
     } -Tag 'Config','Sad','t22'
 
     It "tests error if checking preHook, but not making one" {
+        Write-Host (kubectl delete job test-prehook --wait --ignore-not-found) # prev step may have left one
+        do {
+            Write-Host "Still there >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+            Start-Sleep 1
+        } while (Get-PodByJobName test-prehook)
         $deploy = Deploy-Minimal -PassThru -AlwaysCheckPreHook -SkipPreHook -SkipInit -TimeoutSecs 10
         Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack'
 
@@ -201,5 +206,29 @@ Describe "Deploys Minimal API" {
             kubectl taint nodes $node key1:NoSchedule-
         }
     } -Tag 'Sad','t24'
+
+    It "tests no changes" {
+        $deploy1 = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -TimeoutSecs 10 -SkipSetStartTime
+
+        Test-Deploy $deploy1
+
+        Test-MainPod $deploy1.PodStatuses[0]
+
+        $deploy2 = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -TimeoutSecs 10 -SkipSetStartTime
+
+        Test-Deploy $deploy2
+
+        Test-MainPod $deploy2.PodStatuses[0]
+
+        $deploy1.PodStatuses[0].PodName | Should -Be $deploy2.PodStatuses[0].PodName
+    } -Tag 'Happy','t25'
+
+    It "tests rollback if uninstalled" {
+        helm uninstall test
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -Fail
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+
+        Test-MainPod $deploy.PodStatuses[0] -status 'Crash'
+   } -Tag 'Sad','t26'
 }
 

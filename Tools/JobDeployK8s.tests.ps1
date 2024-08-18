@@ -1,7 +1,7 @@
 # Import the script that defines the Deploy-MinimalJobK8s function
 BeforeAll {
-    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true
     Import-Module  $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true
+    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true
 
     $env:invokeHelmAllowLowTimeouts = $true
 
@@ -14,6 +14,8 @@ Describe "Deploys Minimal API" {
         $deploy = Deploy-MinimalJobK8s
 
         Test-Pod $deploy -nameLike 'test-job-*' -containerName 'test-job' -status 'Completed' -containerStatus 'Completed'
+        $deploy.PodLogFile | Should -Not -BeNullOrEmpty
+        Test-Path $deploy.PodLogFile | Should -Be $true
     } -Tag 'Happy','k1'
 
     It "runs without init ok" {

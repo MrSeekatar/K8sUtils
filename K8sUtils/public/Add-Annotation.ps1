@@ -51,6 +51,7 @@ param(
         throw "kubectl is not installed"
     }
 
+    Write-Verbose "kubectl get $ResourceName -n $Namespace -o json"
     $resources = (kubectl get $ResourceName -n $Namespace -o json | ConvertFrom-Json).items
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to retrieve $ResourceName in $Namespace"

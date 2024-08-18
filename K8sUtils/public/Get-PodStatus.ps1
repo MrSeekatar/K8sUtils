@@ -20,6 +20,9 @@ K8s namespace to use, defaults to default
 .PARAMETER PodType
 If Pod, all containers must be running, otherwise for jobs all must be terminated ok
 
+.PARAMETER LogFileFolder
+If specified, pod logs will be written to this folder
+
 .EXAMPLE
 $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                             -Namespace $Namespace `
@@ -30,7 +33,7 @@ $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
 Get the status of a pre-install job pod
 
 .OUTPUTS
-Array of PodStatus object
+Array of PodStatus objects
 #>
 function Get-PodStatus {
 [CmdletBinding()]
@@ -44,7 +47,8 @@ param(
     [int] $TimeoutSec = 600,
     [string] $Namespace = "default",
     [ValidateSet("Pod", "PreInstallJob", "Job")]
-    [string] $PodType = "Pod"
+    [string] $PodType = "Pod",
+    [string] $LogFileFolder
 
 )
 $ErrorActionPreference = 'Stop'
@@ -98,6 +102,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
     $timedOut = (Get-Date) -gt $timeoutEnd
 
     # $pods = kubectl get pod --namespace $Namespace --selector "$LabelName=$AppName" --field-selector "status.phase!=Running" -o json | ConvertFrom-Json
+    Write-Verbose "kubectl get pod --namespace $Namespace --selector $Selector --sort-by=.metadata.name -o json"
     $pods = kubectl get pod --namespace $Namespace --selector $Selector --sort-by=.metadata.name -o json | ConvertFrom-Json
 
     if (!$pods) {
@@ -176,7 +181,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                                                                                 -LogLevel ok `
                                                                                 -FilterStartupWarnings
 
-                Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit
+                $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit -LogFileFolder $LogFileFolder
                 continue
             } else {
                 Write-Verbose "Pod $($pod.metadata.name) is ready (phase = $okPhase), but pod containerStatuses are: $($pod.status.containerStatuses | out-string)"
@@ -185,7 +190,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
         if ($timedOut) {
             Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -FilterStartupWarnings
-            Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -HasInit:$HasInit
+            $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -HasInit:$HasInit -LogFileFolder $LogFileFolder
             break
         }
 
@@ -200,14 +205,15 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 # write final events and logs for this pod
                 Write-Verbose "Calling Write-PodEvent for pod $($pod.metadata.name) with LogLevel Error"
                 $podStatuses[$pod.metadata.name].LastBadEvents = Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
-                Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit
+                $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit -LogFileFolder $LogFileFolder
 
                 # get latest pod status since sometimes get containerCreating status here
                 $name = $pod.metadata.name
+                Write-Verbose "kubectl get pod --namespace $Namespace $name -o json"
                 $podJson = kubectl get pod --namespace $Namespace $name -o json
                 $pod = $podJson | ConvertFrom-Json
                 if (!$pod -or !(Get-Member -InputObject $pod -Name metadata)) {
-                    Write-Warning "Unexpected response from kubectl get pod --namespace $Namespace $name is: '$podJson'"
+                    Write-Warning "Unexpected response from kubectl get pod --namespace $Namespace $name JSON is: '$podJson'"
                     throw "Unexpected response from kubectl get pod --namespace $Namespace $name"
                 }
 
@@ -225,7 +231,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 Write-Verbose "No errors found in events for pod $($pod.metadata.name) yet"
 
                 Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
-                Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since $logSeconds -Namespace $Namespace -HasInit:$HasInit
+                $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since $logSeconds -Namespace $Namespace -HasInit:$HasInit
             }
        } # else no events
        # TODO we've seen case where pod.status.containerStatuses.state.waiting has
@@ -235,7 +241,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
     } # end foreach pod
 
     if ($runningCount -ge $ReplicaCount) {
-        Write-Status "All ${prefix}s ($runningCount/$ReplicaCount) that matched selector $Selector are running`n" -Length 0 -Char '-' -LogLevel normal
+        Write-Status "All ${prefix}s ($runningCount/$ReplicaCount) that matched selector $Selector are running`n" -Length 0 -LogLevel normal
         break
     }
 

@@ -107,6 +107,7 @@ $initContainer
         return
     }
     Write-Verbose $manifest
+    $null = kubectl delete job test-job --ignore-not-found # so don't find prev one deployed with helm, which will fail
     try {
         $output = $manifest | kubectl apply -f - -o yaml
         Write-Verbose ($output | Out-String)
@@ -114,11 +115,15 @@ $initContainer
             throw "kubectl apply failed"
         }
 
+        $logFolder = [System.IO.Path]::GetTempPath()
         Get-JobStatus -JobName "test-job" `
                       -ReplicaCount 1 `
                       -Verbose:$VerbosePreference `
                       -TimeoutSec $TimeoutSecs `
-                      -PollIntervalSec $PollIntervalSec
+                      -PollIntervalSec $PollIntervalSec `
+                      -Namespace "default" `
+                      -LogFileFolder $logFolder
+        Write-Host "Logs for job are in $logFolder" -ForegroundColor Cyan
     } catch {
         Write-Error "Error! $_`n$($_.ScriptStackTrace)"
     } finally {

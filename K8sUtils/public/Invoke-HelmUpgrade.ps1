@@ -50,6 +50,9 @@ If set, don't actually do the helm upgrade
 .PARAMETER ColorType
 How to colorize the output. Defaults to DevOps if TF_BUILD env var, otherwise ANSI colors
 
+.PARAMETER LogFileFolder
+If specified, pod logs will be written to this folder
+
 .EXAMPLE
     $parms = "preHook.fail=$HookFail," +
               "preHook.imageTag=$HookTag," +
@@ -130,58 +133,14 @@ function Invoke-HelmUpgrade {
         [switch] $SkipRollbackOnError,
         [switch] $DryRun,
         [ValidateSet("None","ANSI","DevOps")]
-        [string] $ColorType = $script:ColorType
+        [string] $ColorType = $script:ColorType,
+        [string] $LogFileFolder
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
 
     $minPreHookTimeoutSecs = 120
     $minPodTimeoutSecs = 180
-
-    function rollbackAndWarn {
-        [CmdletBinding()]
-        param ($SkipRollbackOnError, $releaseName, $msg, $prevVersion)
-
-        try {
-            $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10
-            if (!$currentReleaseVersion -or !(Get-Member -InputObject $currentReleaseVersion -Name version)) {
-                Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning -Char '-'
-                Write-Status "Current helm release: $($currentReleaseVersion | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
-                return [RollbackStatus]::HelmStatusFailed
-            }
-            Write-Verbose "Current version of $ReleaseName is $($currentReleaseVersion.version)"
-            if (!$currentReleaseVersion -or $currentReleaseVersion.version -eq $prevVersion) {
-                Write-Status "No change in release '$ReleaseName', not rolling back" -LogLevel warning -Char '-'
-                # throw "$msg, no change"
-                Write-Warning "$msg, no change"
-                return [RollbackStatus]::NoChange
-            }
-
-            if (!$SkipRollbackOnError) {
-                Write-Header "Rolling back release '$ReleaseName' due to errors" -LogLevel Error
-                helm rollback $ReleaseName 2>&1 | Write-MyHost
-                $exit = $LASTEXITCODE
-                if ($exit -ne 0 -and ($content -like '*Error: release has no 0 version*' -or $content -like '*Error: release: not found*')) {
-                    Write-Verbose "Last exit code on rollback was $exit."
-                    Write-Status "helm rollback failed, trying uninstall" -LogLevel Error -Char '-'
-                    helm uninstall $ReleaseName
-                }
-                Write-Footer "End rolling back release '$ReleaseName' due to errors"
-                # throw "$msg, rolled back"
-                Write-Warning "$msg, rolled back"
-                return [RollbackStatus]::RolledBack
-            } else {
-                # throw "$msg, but not rolling back since -SkipRollbackOnError was specified"
-                Write-Warning "$msg, but not rolling back since -SkipRollbackOnError was specified"
-                return [RollbackStatus]::Skipped
-            }
-            return [RollbackStatus]::DeployedOk
-        } catch {
-            Write-Warning "Caught error rolling back in catch"
-            Write-Error "$_`n$($_.ScriptStackTrace)"
-            return [RollbackStatus]::HelmStatusFailed
-        }
-    }
 
     if (!(Get-Command helm -ErrorAction SilentlyContinue) -or !(Get-Command kubectl -ErrorAction SilentlyContinue)) {
         throw "helm and kubectl must be installed and in the path"
@@ -240,15 +199,15 @@ function Invoke-HelmUpgrade {
     }
 
     $status = [ReleaseStatus]::new($ReleaseName)
+    $prevVersion = 0
     try {
         $hookMsg = $PreHookJobName ? " waiting ${PreHookTimeoutSecs}s prehook job '$PreHookJobName'" : ""
 
-        $prevReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json
-        if ($prevReleaseVersion -and (Get-Member -InputObject $prevReleaseVersion -Name version -MemberType Property)) {
+        Write-Verbose "helm status --namespace $Namespace $ReleaseName -o json"
+        $prevReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10 -AsHashtable # AsHashTable allows for duplicate keys in env, etc.
+        if ($prevReleaseVersion -and ($prevReleaseVersion.ContainsKey('version'))) {
             $prevVersion = $prevReleaseVersion.version
             Write-Verbose "Previous version of $ReleaseName was $prevVersion"
-        } else {
-            $prevVersion = 0
         }
         "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Write-MyHost
 
@@ -276,7 +235,8 @@ function Invoke-HelmUpgrade {
                                                         -Namespace $Namespace `
                                                         -TimeoutSec 1 `
                                                         -PollIntervalSec $PollIntervalSec `
-                                                        -PodType PreInstallJob
+                                                        -PodType PreInstallJob `
+                                                        -LogFileFolder $LogFileFolder
             Write-Verbose "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
             $status.PreHookStatus = $hookStatus
         }
@@ -301,7 +261,8 @@ function Invoke-HelmUpgrade {
             $podStatuses = Get-DeploymentStatus -TimeoutSec $PodTimeoutSecs `
                                     -Namespace $Namespace `
                                     -Selector $DeploymentSelector `
-                                    -PollIntervalSec $PollIntervalSec
+                                    -PollIntervalSec $PollIntervalSec `
+                                    -LogFileFolder $LogFileFolder
 
             $status.PodStatuses = @() # ?? can't assign the array to podStatuses
             Write-Verbose "Pod statuses are $($podStatuses | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
