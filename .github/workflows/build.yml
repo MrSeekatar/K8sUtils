@@ -43,14 +43,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup PowerShell
+    - name: Set prelease version
       if: github.event_name == 'pull_request'
       run: |
         Update-ModuleManifest K8sUtils/K8sUtils.psd1 -Prerelease 'prerelease'
-        gc K8sUtils/K8sUtils.psd1
 
     - name: Publish Module
-      if: false
       working-directory: K8sUtils
       env:
         PSGalleryKey: ${{ secrets.PSGALLERYKEY }}
