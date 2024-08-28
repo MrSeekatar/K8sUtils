@@ -46,7 +46,7 @@ jobs:
     - name: Set prelease version
       if: github.event_name == 'pull_request'
       run: |
-        Update-ModuleManifest K8sUtils/K8sUtils.psd1 -Prerelease 'prerelease'
+        Update-ModuleManifest K8sUtils/K8sUtils.psd1 -Prerelease 'prerelease+${{ github.run_number }}'
 
     - name: Publish Module
       working-directory: K8sUtils
