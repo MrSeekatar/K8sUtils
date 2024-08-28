@@ -97,13 +97,13 @@ PrivateData = @{
     PSData = @{
 
         # Tags applied to this module. These help with module discovery in online galleries.
-        Tags = 'Kubernetes','K8s','Helm'
+        Tags = 'Kubernetes','K8s','Helm','DevOps','PowerShell'
 
         # A URL to the license for this module.
-        # LicenseUri = ''
+        LicenseUri = 'https://github.com/MrSeekatar/K8sUtils/blob/main/LICENSE'
 
         # A URL to the main website for this project.
-        # ProjectUri = ''
+        ProjectUri = 'https://github.com/MrSeekatar/K8sUtils'
 
         # A URL to an icon representing this module.
         # IconUri = ''

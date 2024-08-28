@@ -53,5 +53,4 @@ jobs:
       env:
         PSGalleryKey: ${{ secrets.PSGALLERYKEY }}
       run: |
-        gci
         Publish-Module -Path . -NuGetApiKey "$env:PSGalleryKey"
