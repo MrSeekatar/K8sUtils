@@ -4,11 +4,8 @@ on:
   push:
     branches:
     - main
-    - add-task
-    - releases/**
   pull_request:
     branches:
-    - releases/**
     - main
   # workflow_dispatch: allows manually kicking off a build
   workflow_dispatch:
@@ -30,7 +27,6 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Run Script Analyzer
-      shell: pwsh
       working-directory: K8sUtils
       run: |
         $ErrorView='DetailedView'
@@ -40,27 +36,20 @@ jobs:
         if ($results | Where-Object Severity -eq Error ) { Write-Error "Analyzer detected errors." }
 
   publish:
-    if: startsWith(github.ref, 'refs/heads/releases/')
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     needs: [CI-Core]
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set manifest build version
-      uses: seekatar/set-posh-manifest-action@v1.2
-      with:
-          manifest-path: K8sUtils/K8sUtils.psd1
-          build: ${{ github.run_number }}
-          githubRef: ${{ github.ref }}
-
-    # - name: Generate Help
-    #   shell: pwsh
-    #   working-directory: build
-    #   run: |
-    #     .\New-ModuleHelp.ps1
+    - name: Setup PowerShell
+      if: github.event_name == 'pull_request'
+      run: |
+        Update-ModuleManifest K8sUtils/K8sUtils.psd1 -Prerelease 'prerelease'
 
     - name: Publish Module
+      if: false
       working-directory: K8sUtils
       env:
         PSGalleryKey: ${{ secrets.PSGALLERYKEY }}

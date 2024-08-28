@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.24] 2024-8-28
+
+### Fixed
+
+- Event output could be truncated in AzDO log output
+
 ## [1.0.23] 2024-8-5
 
 ### Added
