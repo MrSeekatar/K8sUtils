@@ -50,13 +50,18 @@ function Write-PodEvent {
     }
 
     $errors = $events | Where-Object { $_.type -ne "Normal" } | Select-Object -ExpandProperty Message
-
-    Write-Header $msg -LogLevel $LogLevel
     if ($errors -and $FilterStartupWarnings) {
         $errors = $errors | Where-Object { $_ -notLike "Startup probe failed:*" }
     }
-    $events | Select-Object type, reason, message, @{n='creationTimestamp';e={$_.metadata.creationTimestamp}} | Out-String | Write-Plain
-    Write-Footer "End events for $Prefix $PodName"
+    $filteredEvents = $events | Select-Object type, reason, message, @{n='creationTimestamp';e={$_.metadata.creationTimestamp}}
+    if ($filteredEvents) {
+        Write-Header $msg -LogLevel $LogLevel
+        $filteredEvents | Out-String -Width 500 | Write-Plain
+        Write-Footer "End events for $Prefix $PodName"
+    } else {
+        Write-Status "No $msg" -LogLevel ok
+    }
+
     if ($PassThru) {
         return $errors
     }

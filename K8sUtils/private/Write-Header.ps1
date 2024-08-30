@@ -98,11 +98,13 @@ function Write-Header() {
 function Write-Footer() {
     [CmdletBinding()]
     param(
-        [string]$msg,
+        [string] $msg,
         [string] $FooterPrefix = $script:FooterPrefix
     )
     $prefix = $script:headerLogLevel -eq "error" ? "" : $FooterPrefix
-    Write-Status -Msg $msg -LogLevel normal -Length $script:headerLength -ColorType $script:headerColorType -Char '─' -Prefix $prefix
+    if ($msg) {
+        Write-Status -Msg $msg -LogLevel normal -Length $script:headerLength -ColorType $script:headerColorType -Char '─' -Prefix $prefix
+    }
     Write-Status -LogLevel $script:headerLogLevel -ColorType $script:headerColorType -Char '╘═╛' -Length 80
 }
 

@@ -134,7 +134,8 @@ function Invoke-HelmUpgrade {
         [switch] $DryRun,
         [ValidateSet("None","ANSI","DevOps")]
         [string] $ColorType = $script:ColorType,
-        [string] $LogFileFolder
+        [string] $LogFileFolder,
+        [switch] $Quiet
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -167,22 +168,26 @@ function Invoke-HelmUpgrade {
         $parms += "--version"
         $parms += $ChartVersion
     }
-    Write-Verbose "Parameters:"
-    Write-Verbose "    ValueFile: $ValueFile"
-    Write-Verbose "    ChartName: $ChartName"
-    Write-Verbose "    ReleaseName: $ReleaseName"
-    Write-Verbose "    DeploymentSelector: $DeploymentSelector"
-    Write-Verbose "    Chart: $Chart"
-    Write-Verbose "    ChartVersion: $ChartVersion"
-    Write-Verbose "    Namespace: $Namespace"
-    Write-Verbose "    PreHookJobName: $PreHookJobName"
-    Write-Verbose "    PodTimeoutSecs: $PodTimeoutSecs"
-    Write-Verbose "    PreHookTimeoutSecs: $PreHookTimeoutSecs"
-    Write-Verbose "    PollIntervalSec: $PollIntervalSec"
-    Write-Verbose "    SkipRollbackOnError: $SkipRollbackOnError"
-    Write-Verbose "    DryRun: $DryRun"
-    Write-Verbose "    ColorType: $ColorType"
-    Write-Verbose "Helm extra params $($parms -join " ")"
+    if (!$Quiet) {
+        Write-Header -Msg "Invoke-HelmUpgrade parameters"
+        Write-Plain "Invoke-HelmUpgrade parameters:"
+        Write-Plain "    ValueFile: $ValueFile"
+        Write-Plain "    ChartName: $ChartName"
+        Write-Plain "    ReleaseName: $ReleaseName"
+        Write-Plain "    DeploymentSelector: $DeploymentSelector"
+        Write-Plain "    Chart: $Chart"
+        Write-Plain "    ChartVersion: $ChartVersion"
+        Write-Plain "    Namespace: $Namespace"
+        Write-Plain "    PreHookJobName: $PreHookJobName"
+        Write-Plain "    PodTimeoutSecs: $PodTimeoutSecs"
+        Write-Plain "    PreHookTimeoutSecs: $PreHookTimeoutSecs"
+        Write-Plain "    PollIntervalSec: $PollIntervalSec"
+        Write-Plain "    SkipRollbackOnError: $SkipRollbackOnError"
+        Write-Plain "    DryRun: $DryRun"
+        Write-Plain "    ColorType: $ColorType"
+        Write-Plain "Helm extra params $($parms -join " ")"
+        Write-Footer
+    }
 
 
     if (!$env:invokeHelmAllowLowTimeouts){

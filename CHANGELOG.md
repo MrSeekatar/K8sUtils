@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.0.24] 2024-8-28
+
+### Added
+
+- Support for the NO_COLOR environment variable. https://no-color.org/
+- Invoke-HelmUpgrade has -Quiet switch to suppress logging a list of parameters at start. Before it would log only on -Verbose
+
+### Fixed
+
+- Event output could be truncated in AzDO log output
+- A warning was logged if `Get-PodEvent` returned no events after filtering
+
 ## [1.0.23] 2024-8-5
 
 ### Added
