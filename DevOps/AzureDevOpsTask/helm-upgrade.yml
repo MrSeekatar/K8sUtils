@@ -1,6 +1,6 @@
 # deploy using Helm using a script to catch errors and log to the console
 parameters:
-  - name: valueFile
+  - name: valuesFile
     type: string
     displayName: 'Helm Value File'
 
@@ -22,7 +22,7 @@ parameters:
 
   - name: preHookJobName
     type: string
-    displayName: 'PreHook Job Name, usually same as releaseName'
+    displayName: 'Optional pre-init hook job name, usually same as releaseName'
     default: ''
 
   - name: registry
@@ -39,7 +39,7 @@ parameters:
 
   - name: chartVersion
     type: string
-    default: '3.0.0'
+    default: '3.1.0'
 
   - name: chart
     type: string
@@ -69,23 +69,29 @@ parameters:
     default: false
     displayName: 'Do not rollback on failure'
 
-  - name: verbose
+  - name: skipDeploy
     type: boolean
     default: false
+    displayName: 'Check for preHook only, not Deployment'
+
+  - name: verbose
+    type: string # since using variable override, this must be a string
+    displayName: 'Verbose logging if true'
+    default: $(verbose)
 
   - name: dryRun
     type: boolean
     default: false
 
-  - name: adoArtifactsPat
+  - name: inlineVariables
     type: string
-    default: $(ado-artifacts-pat)
-    displayName: 'The Personal Access Token for the Azure DevOps Artifacts (NuGet) feed'
+    default: ''
+    displayName: Any extra inlineVariables for the replacetokens task
 
-  - name: keyVaultConnection
+  - name: prerelease
     type: string
-    default: YourCompany-keyvault-prod-identity-$(System.TeamProject)
-    displayName: 'The Azure Subscription for the Key Vault for Helm registry login'
+    default: $(k8sUtilsPrerelease)
+    displayName: Use a prerelease version of K8sUtils
 
 steps:
   # need to run kubectl in the script below
@@ -108,62 +114,55 @@ steps:
       for ($i = 0; $i -lt 10; $i++) {
         helm registry login ${{ parameters.registry }} --username ${{ parameters.helmUser }} --password ${{ parameters.helmPassword }}
         if ($LASTEXITCODE -eq 0) { break }
-        Write-MyHost "helm registry login failed, retrying in 3 seconds"
+        Write-Host "helm registry login failed, retrying in 3 seconds"
         Start-Sleep -Seconds 3
       }
     displayName: 'Login to helm registry'
 
   - pwsh: |
-      "Pat starts with: $($env:pat.Substring(0, 3))"
-      $patToken = $env:pat | ConvertTo-SecureString -AsPlainText -Force
-      $cred = New-Object System.Management.Automation.PSCredential("ignoredUsingPat", $patToken)
+      # unrelated to install, but avoid one more task
+      # split out the filename from the path to be able to put in temp folder for replacetokens below
+      "vso[task.setvariable variable=valueFileName]$(Split-Path -Leaf '${{ parameters.valuesFile }}')"
+      "##vso[task.setvariable variable=valueFileName]$(Split-Path -Leaf '${{ parameters.valuesFile }}')"
 
-      if (Get-PSRepository | Where-Object name -eq YourCompany) {
-        Write-MyHost "Unregistering YourCompany PS Repository already registered"
-        UnRegister-PSRepository -Name YourCompany
+      # install K8sUtils
+      $prerelease = '${{ parameters.prerelease }}' -eq 'true'
+      if ($prerelease) {
+        Write-Host "Prerelease is set. Will allow prerelease version of K8sUtils"
       }
-      $fullUrl = "https://pkgs.dev.azure.com/YourCompanyhealth/_packaging/YourCompanyNuget/nuget/v2"
-      Register-PSRepository -Name YourCompany `
-                            -SourceLocation $fullUrl `
-                            -PublishLocation $fullUrl `
-                            -InstallationPolicy Trusted `
-                            -Credential $cred
-      Install-Module -Name K8sUtils -Repository YourCompany -Credential $cred -Force
-      Get-Command -Module K8sUtils
+
+      Write-Host "Installing K8sUtils from PS Gallery"
+      Install-Module -Name K8sUtils -AllowClobber -Force -AllowPrerelease:$prerelease -PassThru | Select-Object Name, Version, PreRelease
+
+      Get-Module K8sUtils | Select-Object Name, Version, PreRelease
     displayName: 'Install K8sUtils'
-    env:
-      pat: ${{ parameters.adoArtifactsPat }}
 
   - task: qetza.replacetokens.replacetokens-task.replacetokens@5
-    displayName: 'Replace tokens in **/*.yaml'
+    displayName: 'Replacing #{VAR}#. Will error on missing variables'
     inputs:
-      targetFiles: ${{ parameters.valueFile }}
+      targetFiles: ${{ parameters.valuesFile }} => $(Agent.TempDirectory)/$(valueFileName)
+      inlineVariables: ${{ parameters.inlineVariables }}
+      actionOnMissing: fail
+
+  - pwsh: |
+      Get-Content $(Agent.TempDirectory)/$(valueFileName)
+    displayName: 'Show Helm Values'
 
   - pwsh: |
       $skipRollbackOnError = '${{ parameters.skipRollbackOnError }}' -eq 'true'
       $verbose = '${{ parameters.verbose }}' -eq 'true'
+      $selector = ('${{ parameters.skipDeploy }}' -eq 'true') ? '' : 'app=${{ parameters.releaseName }}'
       $dryRun = '${{ parameters.dryRun }}' -eq 'true'
       $timeoutSecs = ${{ parameters.timeoutMin }}*60
       $preHookTimeoutSecs = ${{ parameters.preHookTimeoutMin }}*60
+      $preHookJobName = '${{ parameters.preHookJobName }}'
 
-      $deploy = Invoke-HelmUpgrade -ValueFile '${{ parameters.valueFile }}' `
-                    -Namespace ${{ parameters.namespace }} `
-                    -ChartName ${{ parameters.chartName }} `
-                    -Chart '${{ parameters.chart }}' `
-                    -ChartVersion '${{ parameters.chartVersion }}' `
-                    -ReleaseName '${{ parameters.releaseName }}' `
-                    -PreHookJobName '${{ parameters.preHookJobName }}' `
-                    -PreHookTimeoutSecs $preHookTimeoutSec `
-                    -DeploymentSelector app=${{ parameters.releaseName }} `
-                    -PodTimeoutSecs $timeoutSecs `
-                    -DryRun:$dryRun `
-                    -SkipRollbackOnError:$skipRollbackOnError `
-                    -Verbose:$verbose
+      $deploy = Invoke-HelmUpgrade @parms
 
-        $deploy | ConvertTo-Json -Depth 5 -EnumsAsStrings
-        if (!$deploy.Running)  {
-          Write-Error "Deployment failed"
-          exit 1
-        }
+      $deploy | ConvertTo-Json -Depth 5 -EnumsAsStrings
+      if (!$dryRun -and !$deploy.Running -and ($selector -or $preHookJobName)) {
+        Write-Error "Deployment failed since not deploy.Running is false"
+        exit 1
+      }
 
     displayName: 'Deploy ${{ parameters.releaseName }}'
