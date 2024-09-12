@@ -1,0 +1,164 @@
+# after second deploy annotation revision is updated to 2, matches the rs revision
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "2"
+    meta.helm.sh/release-name: test
+    meta.helm.sh/release-namespace: default
+  creationTimestamp: "2024-08-04T18:57:03Z"
+  generation: 3
+  labels:
+    app.kubernetes.io/instance: test
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: minimal
+    app.kubernetes.io/version: 1.16.0
+    helm.sh/chart: minimal-0.1.0
+  name: test-minimal
+  namespace: default
+  resourceVersion: "133546"
+  uid: 25d58526-606c-4745-96d0-0d8ef5af8f0c
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: test
+      app.kubernetes.io/name: minimal
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/instance: test
+        app.kubernetes.io/name: minimal
+    spec:
+      containers:
+      - env:
+        - name: DOTNET_USE_POLLING_FILE_WATCHER
+          value: "true"
+        - name: TEST3
+          value: TESTVALUE3
+        - name: TEST3
+          value: testValue3
+        - name: DEPLOYTIME
+          value: 08/04/2024 15:10:29
+        - name: FAILONSTART
+          value: "false"
+        - name: RUNCOUNT
+          value: "0"
+        - name: TEST1
+          value: testValue1
+        - name: TEST1NOQUOTES
+          value: $(TEST1)
+        - name: TEST2
+          value: testValue2
+        - name: EXAMPLE-SECRET
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: example-secret
+        - name: EXAMPLE-SECRET3
+          valueFrom:
+            secretKeyRef:
+              key: myconfig__secret3
+              name: example-secret3
+        - name: EXAMPLE-CONFIG
+          valueFrom:
+            configMapKeyRef:
+              key: example.property
+              name: example-config
+        image: minimal:latest
+        imagePullPolicy: Never
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /info
+            port: 5095
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 30
+        name: minimal
+        ports:
+        - containerPort: 5095
+          name: http
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /info
+            port: 5095
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          successThreshold: 1
+          timeoutSeconds: 30
+        resources: {}
+        securityContext: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /secrets-store-inline
+          name: secrets-store-inline
+          readOnly: true
+        - mountPath: /config-map
+          name: config-map
+          readOnly: true
+        - mountPath: /secrets/secrets-store
+          name: secrets-store
+          readOnly: true
+        - mountPath: /secrets/secrets-store2
+          name: secrets-store2
+          readOnly: true
+        - mountPath: /mt
+          name: mt
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir: {}
+        name: secrets-store-inline
+      - configMap:
+          defaultMode: 420
+          name: example-config
+        name: config-map
+      - name: secrets-store
+        secret:
+          defaultMode: 420
+          secretName: example-secret
+      - name: secrets-store2
+        secret:
+          defaultMode: 420
+          secretName: example-secret2
+      - emptyDir: {}
+        name: mt
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2024-08-04T18:57:11Z"
+    lastUpdateTime: "2024-08-04T18:57:11Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2024-08-04T18:57:03Z"
+    lastUpdateTime: "2024-08-04T19:10:36Z"
+    message: ReplicaSet "test-minimal-6c6bd6db59" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  observedGeneration: 3
+  readyReplicas: 1
+  replicas: 1
+  updatedReplicas: 1

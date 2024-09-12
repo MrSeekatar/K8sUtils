@@ -3,6 +3,7 @@ $script:HeaderPrefix = ""
 $script:FooterPrefix = ""
 $script:AddDate = $true
 $script:Dashes = 30
+$script:InHeader = 0
 
 function Get-TempLogFile($prefix = "k8s-") {
     $temp = [System.IO.Path]::GetTempFileName()
@@ -85,6 +86,10 @@ function Write-Header() {
         [string] $ColorType = $script:ColorType,
         [string] $HeaderPrefix = $script:HeaderPrefix
     )
+    if ($script:InHeader -gt 0) {
+        Write-Warning "Nesting Write-Header"
+    }
+    $script:InHeader += 1
     $headerMessage = $LogLevel -eq "error" ? "ERROR" : ""
     $prefix = $LogLevel -eq "error" ? "" : $HeaderPrefix
     Write-Status -Msg $headerMessage -LogLevel $LogLevel -ColorType $ColorType -Char '╒═╕' -Length 80
@@ -101,10 +106,12 @@ function Write-Footer() {
         [string] $msg,
         [string] $FooterPrefix = $script:FooterPrefix
     )
-    $prefix = $script:headerLogLevel -eq "error" ? "" : $FooterPrefix
-    if ($msg) {
-        Write-Status -Msg $msg -LogLevel normal -Length $script:headerLength -ColorType $script:headerColorType -Char '─' -Prefix $prefix
+    if ($script:InHeader -eq 0) {
+        Write-Warning "Write-Footer called without a Write-Header"
     }
+    $script:InHeader -= 1
+    $prefix = $script:headerLogLevel -eq "error" ? "" : $FooterPrefix
+    Write-Status -Msg $msg -LogLevel normal -Length $script:headerLength -ColorType $script:headerColorType -Char '─' -Prefix $prefix
     Write-Status -LogLevel $script:headerLogLevel -ColorType $script:headerColorType -Char '╘═╛' -Length 80
 }
 
@@ -126,29 +133,31 @@ function Write-Status() {
     process {
         Set-StrictMode -Version Latest
 
-        function mapLogLevel($LogLevel) {
+        function mapLogLevel($date, $LogLevel, $Prefix) {
+            if ($Prefix) {
+                return ""
+            }
             switch ($LogLevel) {
                 "error" {
-                    return "ERR"
+                    return "[${date}ERR]"
                 }
                 "warning" {
-                    return "WRN"
+                    return "[${date}WRN]"
                 }
                 default {
-                    return "INF"
+                    return "[${date}INF]"
                 }
             }
         }
 
-        $date = $script:AddDate ? "$((Get-Date).ToString("u")) " : ""
-
         # if ($VerbosePreference -ne 'Continue') {
-        $Prefix += (MapColor $LogLevel $ColorType)
+        $statusPrefix = $Prefix + (MapColor $LogLevel $ColorType)
         # }
 
+        $date = $script:AddDate ? "$((Get-Date).ToString("u")) " : ""
         if ($Length -gt 0) {
             $maxWidth = $Host.UI.RawUI.WindowSize.Width
-            $msgLen = ($Prefix + $date + $msg + $Suffix).Length
+            $msgLen = ($statusPrefix + $date + $msg + $Suffix).Length
             if ($msgLen -lt $maxWidth) {
                 $Length = [Math]::Min($Length, $maxWidth - $msgLen - 1)
                 if ($Char.Length -eq 3) {
@@ -159,7 +168,7 @@ function Write-Status() {
             }
         }
 
-        "${Prefix}[${date}$(mapLogLevel $LogLevel)] ${msg}${Suffix}" | Write-Plain
+        "${statusPrefix}$(mapLogLevel $date $LogLevel $Prefix) ${msg}${Suffix}" | Write-Plain
     }
 }
 

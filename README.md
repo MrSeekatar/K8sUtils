@@ -1,77 +1,89 @@
 # K8sUtils PowerShell Module <!-- omit in toc -->
 
-A time-saving PowerShell module for deploying Helm charts in CI/CD pipelines. It captures all the logs and events of a deployment in the pipeline's output. In the event of a failure, it will return early, instead of timing out.
+K8sUtils is a time-saving PowerShell module for deploying Helm charts and jobs in CI/CD pipelines. It captures all the logs and events of a deployment in the pipeline's output. In the event of a failure, it will return early, instead of timing out. For sample output, see the [wiki](https://github.com/MrSeekatar/K8sUtils/wiki).
 
-> This proved to be very useful at my company when updating pipelines to deploy to a new K8s cluster. As we worked through the many configuration and permission issues, the pipelines failed quickly with full details of the problem. We rarely had to check K8s. It was a huge time saver.
+> This proved very useful at my company when updating pipelines to deploy to a new K8s cluster. As we worked through the many configuration and permission issues, the pipelines failed quickly with full details of the problem. We rarely had to check K8s. It was a huge time saver.
 
 - [Commands](#commands)
-- [How `Invoke-HelmUpgrade` Works](#how-invoke-helmupgrade-works)
 - [Using `Invoke-HelmUpgrade`](#using-invoke-helmupgrade)
-- [Using `Invoke-HelmUpgrade` in an Azure DevOps Pipeline](#using-invoke-helmupgrade-in-an-azure-devops-pipeline)
+  - [Using `Invoke-HelmUpgrade` in an Azure DevOps Pipeline](#using-invoke-helmupgrade-in-an-azure-devops-pipeline)
+- [Using `Get-JobStatus`](#using-get-jobstatus)
+- [How `Invoke-HelmUpgrade` Works](#how-invoke-helmupgrade-works)
 - [Testing `Invoke-HelmUpgrade`](#testing-invoke-helmupgrade)
 - [Pod Phases](#pod-phases)
 - [Container States](#container-states)
 - [Links](#links)
 
-This module was created to solve a problem when using `helm -wait` in a CI/CD pipeline. `-wait` is wonderful feature in that your pipeline will wait for a successful deployment instead of returning after tossing the manifests to K8s. If anything goes wrong, however, it will wait until the timeout and then return just a timeout error. At that point, you may have lost all the logs and events that could help diagnose the problem and then have to re-run the deployment and baby sit it to try to catch the logs or events from K8s.
+This module was created to solve a problem when using `helm --wait` in a CI/CD pipeline. `--wait` is a wonderful feature that waits for a successful deployment instead of returning immediately after tossing the manifests to K8s. If anything goes wrong, however, with `--wait` Helm will wait until the timeout and then return a timeout error to the pipeline. At that point, you may have lost all the logs and events that could help diagnose the problem and then have to re-run the deployment and babysit it to try to catch the logs or events from K8s.
 
-With `Invoke-HelmUpgrade` you get similar functionality, but it will capture all the logs and events along the way, and if there is an error, it will return early as possible. No more waiting the 5 or 10 minutes you set on `helm -wait`.
+With `Invoke-HelmUpgrade` you get similar functionality, but it will capture all the logs and events along the way, and if there is an error, it will return as early as possible. No more waiting the 5 or 10 minutes you set on `helm --wait`.
 
-There are an infinite number of ways helm and its K8s manifests can be configured and error out. `Invoke-HelmUpgrade` tries to handle the most common cases, and is amended as more are discovered. It does handle Helm pre-install [hooks](https://helm.sh/docs/topics/charts_hooks/) (preHooks) and K8s [initContainers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/). See [below](#tested-scenarios) for a list of all the cases that are covered.
+It seems like there are an infinite number of ways Helm and its K8s manifests can be configured and error out. `Invoke-HelmUpgrade` tries to handle the most common cases, and is amended as more are discovered. It does handle Helm pre-install [hooks](https://helm.sh/docs/topics/charts_hooks/) (preHooks) and K8s [initContainers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/). See [below](#tested-scenarios) for a list of all the covered cases.
 
-One thing that is required to get prehook logs is to set the `helm.sh/hook-delete-policy` to `before-hook-creation` in the prehook job manifest. This will keep the job around after the upgrade, and the `ttlSecondsAfterFinished` will delete it after 30s, if desired. This is done in the [minimal chart](DevOps\Helm\templates\preHookJob.yaml#L19).
+One thing required to get prehook logs is to set the `helm.sh/hook-delete-policy` to `before-hook-creation` in the prehook job manifest. This will keep the job around after the upgrade, and the `ttlSecondsAfterFinished` will delete it after 30s, if desired. This is done in the [minimal chart](DevOps/Helm/templates/preHookJob.yaml#L19).
 
 ## Commands
 
-Here's a list of the commands in the module with a brief description. Use `help <command>` to get more details.
+Here's a list of the commands in the module with a brief description. Most are called by `Invoke-HelmUpgrade`, but are available for other uses. `help <command>` will show more details.
 
 | Command              | Description                                            |
 | -------------------- | ------------------------------------------------------ |
+| Add-Annotation       | Helper to add an annotation to a K8s object            |
+| Convert-Value        | Substitutes variables in a file with placeholders      |
 | Get-DeploymentStatus | Get the status of the pods for a deployment            |
+| Get-JobStatus        | Get the status and logs of a K8s job                   |
 | Get-PodByJobName     | Get a pod give a K8s job name                          |
 | Get-PodEvent         | Get all the K8s events for a pod                       |
 | Get-PodStatus        | Get the status of a pod, dumping events and logs       |
 | Invoke-HelmUpgrade   | Calls `helm upgrade` and polls K8s for events and logs |
-| Set-K8sConfig        | Sets type of output wanted for Invoke-HelmUpgrade      |
-
-## How `Invoke-HelmUpgrade` Works
-
-`Invoke-HelmUpgrade` calls `helm upgrade` without `-wait` and then will poll K8s during the various phases of the deployment, capturing events and logs along the way.
-
-```mermaid
-flowchart TD
-    start([Start]) --> upgrade
-
-    upgrade[helm upgrade] --> preHook{pre-install\nhook?}
-    preHook -- Yes --> checkJob[Log preHook\nJob events\n& logs]
-    checkJob -- Poll\nuntil end\nor timeout --> checkJob
-    checkJob --> jobOk{Succeeded?}
-
-    jobOk -- Failed\nor timeout --> failed
-    jobOk -- Yes --> hasDeploy{Deploy?}
-    preHook -- No --> hasDeploy{Deploy?}
-    hasDeploy -- Yes --> deploy
-    hasDeploy -- No --> exit2([End Ok])
-    deploy[Get deployment\n& replicaSet] --> pod
-
-    running -- No --> pod
-    pod[Get pod status] -- Running --> running{All pods\nrunning?}
-    pod -- Not Running --> checkPod[Log pod\nstatus]
-    checkPod --> pod
-
-    pod -- Failed ---> failed
-    running -- Yes --> ok([End OK])
-    pod -- Timeout ---> failed{-SkipRollback?}
-    failed -- No --> rollback([Rollback])
-    failed -- Yes --> exit([End\nwith error])
-    rollback --> exit
-```
+| Set-K8sUtilsConfig   | Sets type of output wanted for Invoke-HelmUpgrade      |
 
 ## Using `Invoke-HelmUpgrade`
 
-You can run `Invoke-HelmUpgrade` from the command line or in a CI/CD pipeline. It has a number of parameters to control its behavior, and `help Invoke-HelmUpgrade` will give you all the details.
+You can run `Invoke-HelmUpgrade` from the command line or a CI/CD pipeline. It has a number of parameters to control its behavior, and `help Invoke-HelmUpgrade` will give you all the details. Here's an example using a pre-install hook.
 
-## Using `Invoke-HelmUpgrade` in an Azure DevOps Pipeline
+It will log everything it does, as well as K8s events, and pod logs. The events and logs will be output as shown in the [wiki](https://github.com/MrSeekatar/K8sUtils/wiki).
+
+```powershell
+$status = Invoke-HelmUpgrade -ValueFile "minimal_values.yaml" `
+                             -ChartName "minimal" `
+                             -ReleaseName "test"
+                             -PreHookJobName "test-prehook"
+```
+
+`$status` will be an object that looks like this, serialized to JSON.
+
+```json
+{
+  "ReleaseName": "test",
+  "Running": true,
+  "PodStatuses": [
+    {
+      "PodName": "test-minimal-965698cdc-qzp6s",
+      "Status": "Running",
+      "ContainerStatuses": "ContainerStatus",
+      "InitContainerStatuses": null,
+      "LastBadEvents": null,
+      "PodLogFile": "/var/folders/wt/48syr7hn5qs3qw_vbs0gl3l00000gn/T/test-minimal-965698cdc-qzp6s.log"
+    }
+  ],
+  "PreHookStatus": {
+    "PodName": "test-prehook-f6pbp",
+    "Status": "Completed",
+    "ContainerStatuses": [
+      "ContainerStatus"
+    ],
+    "InitContainerStatuses": [
+      "ContainerStatus"
+    ],
+    "LastBadEvents": null,
+    "PodLogFile": "/var/folders/wt/48syr7hn5qs3qw_vbs0gl3l00000gn/T/test-prehook-f6pbp.log"
+  },
+  "RollbackStatus": "DeployedOk"
+}
+```
+
+### Using `Invoke-HelmUpgrade` in an Azure DevOps Pipeline
 
 Before the script can run, you need to do the following in your pipeline's Job:
 
@@ -82,10 +94,77 @@ Before the script can run, you need to do the following in your pipeline's Job:
 I've included a sanitized, version of a yaml [template](DevOps/AzureDevOpsTask/helm-upgrade.yml) used in an Azure DevOps pipeline. You can adapt it to your needs. It does the following.
 
 1. Logs into K8s using a AzDO Service Connection
-2. Logs into the Helm registry (with retries)
-3. Pulls K8sUtils from a private NuGet repo, and installs it
-4. Runs a task to update the `values.yaml` file with parameter values
-5. Runs `Invoke-HelmUpgrade` with the updated `values.yaml` file
+1. Installs K8sUtils
+1. Runs a task to update the `values.yaml` file with environment variables
+1. Runs `Invoke-HelmUpgrade` with the updated `values.yaml` file
+
+## Using `Get-JobStatus`
+
+If you have a job that you want to check the status of, you can use `Get-JobStatus`. It will log everything it does, as well as K8s events, and pod logs. Sample output is on the [wiki](https://github.com/MrSeekatar/K8sUtils/wiki#prehook-output).
+
+```powershell
+# minimal parameters
+$status = Get-JobStatus -JobName "test-job"
+```
+
+`$status` will be an object that looks like this, serialized to JSON.
+
+```json
+{
+  "PodName": "test-job-qcqfw",
+  "Status": "Completed",
+  "ContainerStatuses": [
+    {
+      "ContainerName": "test-job",
+      "Status": "Completed",
+      "Reason": null
+    }
+  ],
+  "InitContainerStatuses": [
+    {
+      "ContainerName": "minimal-as-init",
+      "Status": "Completed",
+      "Reason": null
+    }
+  ],
+  "LastBadEvents": null,
+  "PodLogFile": "/var/folders/wt/48syr7hn5qs3qw_vbs0gl3l00000gn/T/test-job-qcqfw.log"
+}
+```
+
+## How `Invoke-HelmUpgrade` Works
+
+`Invoke-HelmUpgrade` calls `helm upgrade` without `-wait` and then will poll K8s during the various phases of the deployment, capturing events and logs along the way.
+
+```mermaid
+flowchart TD
+    start([Start]) --> upgrade
+
+    upgrade[helm upgrade] --> preHook{pre-install<br/>hook?}
+    preHook -- Yes --> hookComplete{Exited or<br/>timed out?}
+    hookComplete -- No --> checkJob[Log events<br/>& logs]
+    hookComplete -- Yes --> jobOk{Succeeded?}
+    checkJob -- wait a bit --> hookComplete
+
+    jobOk -- Failed<br/>or timeout --> failed
+    jobOk -- Yes --> hasDeploy{Deploy?}
+    preHook -- No --> hasDeploy{Deploy?}
+    hasDeploy -- Yes --> deploy
+    hasDeploy -- No --> exit2([End Ok])
+    deploy[Get deployment<br/>& replicaSet] --> pod
+
+    running -- No --> pod
+    pod[Get pod status] -- Running --> running{All pods<br/>running?}
+    pod -- Not Running --> checkPod[Log pod<br/>status]
+    checkPod --> pod
+
+    pod -- Failed ---> failed
+    running -- Yes --> ok([End OK])
+    pod -- Timeout ---> failed{-SkipRollback?}
+    failed -- No --> rollback[Rollback]
+    failed -- Yes --> exit([End<br/>with error])
+    rollback --> exit
+```
 
 ## Testing `Invoke-HelmUpgrade`
 
@@ -112,14 +191,14 @@ In the `DevOps/Kubernetes` folder are the following manifests:
 | Name                   | Description                                                             |
 | ---------------------- | ----------------------------------------------------------------------- |
 | config-and-secret.yaml | ConfigMap and Secret for the minimal1 deployment                        |
-| manifests1.yml         | Creates a deployment, service and ingress with host my-k8s-example1.com |
-| manifests2.yml         | Creates a deployment, service and ingress with host my-k8s-example2.com |
+| manifests1.yml         | Creates a deployment, service, and ingress with host my-k8s-example1.com |
+| manifests2.yml         | Creates a deployment, service, and ingress with host my-k8s-example2.com |
 
-> Set `$env:invokeHelmAllowLowTimeouts=1` to allow short timeouts for testing, otherwise will set minimum to 120s for prehook and 180s for main. Setting `$env:TF_BUILD=$true` will simulate running in an Azure DevOps pipeline and change header and footer output.
+> Set `$env:invokeHelmAllowLowTimeouts=1` to allow short timeouts for testing, otherwise will set the minimum to 120s for prehook and 180s for main. Setting `$env:TF_BUILD=$true` will simulate running in an Azure DevOps pipeline and change header and footer output.
 
 ### Tested Scenarios <!-- omit in toc -->
 
-The following table shows the scenarios of deploying the app with helm and the various ways it can fail. `Crash` means the pod/job actually crashes. `Config` means the pod/job doesn't even start due to some configuration error such as bad image tag, missing environment variable or mount, etc.
+The following table shows the scenarios of deploying the app with Helm and the various ways it can fail. `Crash` means the pod/job actually crashes. `Config` means the pod/job doesn't even start due to a configuration error such as a bad image tag, missing environment variable or mount, etc.
 
  | Pre-Hook |  Init   |   Main   | Test                                      |
  | :------: | :-----: | :------: | ----------------------------------------- |
@@ -151,25 +230,25 @@ The following table shows the scenarios of deploying the app with helm and the v
 
 These test cases are difficult to test or yet to be covered with tests.
 
-| Description                                  | Manual<br>Test | `Deploy-Minimal` Switches                                                |
-| -------------------------------------------- | :------------: | ------------------------------------------------------------------------ |
-| Replica increase                             |       ✅        | -Replicas 3                                                              |
-| Replica decrease                             |       ✅        | -Replicas 1                                                              |
-| Main container liveness timeout              |       ✅        |                                                                          |
-| Another operation in progress                |       ✅        | -SkipInit -HookRunCount 100 in one terminal, -SkipInit in another        |
-| Main container startup timeout               |       ✅        | -SkipInit -TimeoutSec 10 -RunCount 10 -SkipPreHook -StartupProbe         |
-| Main container startup times out a few times |       ✅        | -SkipInit -TimeoutSec 60 -RunCount 10 -SkipPreHook -StartupProbe         |
-| PreHook Job `restart: onFailure`             |                |                                                                          |
-| PreHook Job `activeDeadlineSeconds`          |                |                                                                          |
-| Object not owned by Helm                     |       ✅        | `helm uninstall test` then `k apply -f .\DevOps\Kubernetes\deploy-without-helm.yaml` then deploy|
+| Description                                  | Manual<br>Test | `Deploy-Minimal` Switches                                                                        |
+| -------------------------------------------- | :------------: | ------------------------------------------------------------------------------------------------ |
+| Replica increase                             |       ✅        | -Replicas 3                                                                                      |
+| Replica decrease                             |       ✅        | -Replicas 1                                                                                      |
+| Main container liveness timeout              |       ✅        |                                                                                                  |
+| Another operation in progress                |       ✅        | -SkipInit -HookRunCount 100 in one terminal, -SkipInit in another                                |
+| Main container startup timeout               |       ✅        | -SkipInit -TimeoutSec 10 -RunCount 10 -SkipPreHook -StartupProbe                                 |
+| Main container startup times out a few times |       ✅        | -SkipInit -TimeoutSec 60 -RunCount 10 -SkipPreHook -StartupProbe                                 |
+| PreHook Job `restart: onFailure`             |                |                                                                                                  |
+| PreHook Job `activeDeadlineSeconds`          |                |                                                                                                  |
+| Object not owned by Helm                     |       ✅        | `helm uninstall test` then `k apply -f .\DevOps\Kubernetes\deploy-without-helm.yaml` then deploy |
 
-### Test helm chart <!-- omit in toc -->
+### Test Helm chart <!-- omit in toc -->
 
-The `DevOps/Helm` folder has a chart and `minimal_values.yaml` file that can be used to test the helm chart.
+The `DevOps/Helm` folder has a chart and `minimal_values.yaml` file that can be used to test the Helm chart.
 
 See the `preHookJob.yml` for details on its configuration. Currently the `helm.sh/hook-delete-policy` is `before-hook-creation` so it will remain out there after the upgrade, but the `ttlSecondsAfterFinished` will delete it after 30s (or so).
 
-These values in the values file can be set with switched to `Deploy-Minimal` to test various scenarios.
+These values in the values file can be set with switches to `Deploy-Minimal` to test various scenarios.
 
 | Name                   | Values        | Description                                                                                          |
 | ---------------------- | ------------- | ---------------------------------------------------------------------------------------------------- |
@@ -188,7 +267,7 @@ These values in the values file can be set with switched to `Deploy-Minimal` to 
 
 ## Pod Phases
 
-To be "ok" we look for `Succeeded` for pre-install jobs and `Running` for the main pod. For both we look for `Failed`, and if it doesn't reach an "ok" state within the timeout, we return a timeout error. Stored in `pod.status.phase`.
+To be "ok" we look for `Succeeded` for pre-install jobs and `Running` for the main pod. For both, we look for `Failed` and if it doesn't reach an "ok" state within the timeout, we return a timeout error. Stored in `pod.status.phase`.
 
 ```mermaid
 stateDiagram

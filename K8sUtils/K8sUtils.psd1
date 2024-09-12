@@ -12,7 +12,7 @@
 RootModule = 'K8sUtils.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.24'
+ModuleVersion = '1.0.25'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -26,11 +26,11 @@ Author = 'Jim Wallace'
 # Company or vendor of this module
 CompanyName = 'Wallace Bros. JOAT Services'
 
-# Copyright statement for this module
+# Copyright statement for this module (shows up in Gallery)
 Copyright = '(c) Jim Wallace. All rights reserved.'
 
-# Description of the functionality provided by this module
-Description = 'Functions for working with Kubernetes and Helm.'
+# Description of the functionality provided by this module (shows up in Gallery)
+Description = 'time-saving PowerShell module for deploying Helm charts and jobs in CI/CD pipelines. It captures all the logs and events of a deployment in the pipeline''s output. In the event of a failure, it will return early, instead of timing out.'
 
 # Minimum version of the PowerShell engine required by this module
 # PowerShellVersion = ''

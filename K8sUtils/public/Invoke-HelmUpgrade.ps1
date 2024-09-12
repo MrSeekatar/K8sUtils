@@ -185,7 +185,7 @@ function Invoke-HelmUpgrade {
         Write-Plain "    SkipRollbackOnError: $SkipRollbackOnError"
         Write-Plain "    DryRun: $DryRun"
         Write-Plain "    ColorType: $ColorType"
-        Write-Plain "Helm extra params $($parms -join " ")"
+        Write-Plain "    Helm extra params $($parms -join " ")"
         Write-Footer
     }
 
@@ -230,7 +230,7 @@ function Invoke-HelmUpgrade {
         } elseif ($upgradeExit -eq 0) {
             Write-Footer "End Helm upgrade OK. (exit code $upgradeExit)" -FooterPrefix ""
         } else {
-            Write-Footer "helm upgrade exited with: $upgradeExit" -FooterPrefix ""
+            Write-Footer "Helm upgrade exited with: $upgradeExit" -FooterPrefix ""
             Write-Status "👆 Check Helm output for error message 👆" -LogLevel Error
         }
 

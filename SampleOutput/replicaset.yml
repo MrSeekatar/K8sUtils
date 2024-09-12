@@ -1,0 +1,153 @@
+# deployment #2
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  annotations:
+    deployment.kubernetes.io/desired-replicas: "1"
+    deployment.kubernetes.io/max-replicas: "2"
+    deployment.kubernetes.io/revision: "2"
+    meta.helm.sh/release-name: test
+    meta.helm.sh/release-namespace: default
+  creationTimestamp: "2024-08-04T19:10:29Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/instance: test
+    app.kubernetes.io/name: minimal
+    pod-template-hash: 6c6bd6db59
+  name: test-minimal-6c6bd6db59
+  namespace: default
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Deployment
+    name: test-minimal
+    uid: 25d58526-606c-4745-96d0-0d8ef5af8f0c
+  resourceVersion: "133535"
+  uid: 92713ba4-aa12-43dc-914d-b9765331f122
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: test
+      app.kubernetes.io/name: minimal
+      pod-template-hash: 6c6bd6db59
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/instance: test
+        app.kubernetes.io/name: minimal
+        pod-template-hash: 6c6bd6db59
+    spec:
+      containers:
+      - env:
+        - name: DOTNET_USE_POLLING_FILE_WATCHER
+          value: "true"
+        - name: TEST3
+          value: TESTVALUE3
+        - name: TEST3
+          value: testValue3
+        - name: DEPLOYTIME
+          value: 08/04/2024 15:10:29
+        - name: FAILONSTART
+          value: "false"
+        - name: RUNCOUNT
+          value: "0"
+        - name: TEST1
+          value: testValue1
+        - name: TEST1NOQUOTES
+          value: $(TEST1)
+        - name: TEST2
+          value: testValue2
+        - name: EXAMPLE-SECRET
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: example-secret
+        - name: EXAMPLE-SECRET3
+          valueFrom:
+            secretKeyRef:
+              key: myconfig__secret3
+              name: example-secret3
+        - name: EXAMPLE-CONFIG
+          valueFrom:
+            configMapKeyRef:
+              key: example.property
+              name: example-config
+        image: minimal:latest
+        imagePullPolicy: Never
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /info
+            port: 5095
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 30
+        name: minimal
+        ports:
+        - containerPort: 5095
+          name: http
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /info
+            port: 5095
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          successThreshold: 1
+          timeoutSeconds: 30
+        resources: {}
+        securityContext: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /secrets-store-inline
+          name: secrets-store-inline
+          readOnly: true
+        - mountPath: /config-map
+          name: config-map
+          readOnly: true
+        - mountPath: /secrets/secrets-store
+          name: secrets-store
+          readOnly: true
+        - mountPath: /secrets/secrets-store2
+          name: secrets-store2
+          readOnly: true
+        - mountPath: /mt
+          name: mt
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir: {}
+        name: secrets-store-inline
+      - configMap:
+          defaultMode: 420
+          name: example-config
+        name: config-map
+      - name: secrets-store
+        secret:
+          defaultMode: 420
+          secretName: example-secret
+      - name: secrets-store2
+        secret:
+          defaultMode: 420
+          secretName: example-secret2
+      - emptyDir: {}
+        name: mt
+status:
+  availableReplicas: 1
+  fullyLabeledReplicas: 1
+  observedGeneration: 1
+  readyReplicas: 1
+  replicas: 1

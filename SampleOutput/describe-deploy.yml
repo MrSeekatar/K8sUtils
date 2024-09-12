@@ -1,0 +1,81 @@
+Name:                   test-minimal
+Namespace:              default
+CreationTimestamp:      Sun, 04 Aug 2024 14:57:03 -0400
+Labels:                 app.kubernetes.io/instance=test
+                        app.kubernetes.io/managed-by=Helm
+                        app.kubernetes.io/name=minimal
+                        app.kubernetes.io/version=1.16.0
+                        helm.sh/chart=minimal-0.1.0
+Annotations:            deployment.kubernetes.io/revision: 2
+                        meta.helm.sh/release-name: test
+                        meta.helm.sh/release-namespace: default
+Selector:               app.kubernetes.io/instance=test,app.kubernetes.io/name=minimal
+Replicas:               1 desired | 1 updated | 1 total | 1 available | 0 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        0
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+Pod Template:
+  Labels:           app.kubernetes.io/instance=test
+                    app.kubernetes.io/name=minimal
+  Service Account:  default
+  Containers:
+   minimal:
+    Image:      minimal:latest
+    Port:       5095/TCP
+    Host Port:  0/TCP
+    Liveness:   http-get http://:5095/info delay=10s timeout=30s period=5s #success=1 #failure=3
+    Readiness:  http-get http://:5095/info delay=5s timeout=30s period=2s #success=1 #failure=3
+    Environment:
+      DOTNET_USE_POLLING_FILE_WATCHER:  true
+      TEST3:                            TESTVALUE3
+      TEST3:                            testValue3
+      DEPLOYTIME:                       08/04/2024 15:10:29
+      FAILONSTART:                      false
+      RUNCOUNT:                         0
+      TEST1:                            testValue1
+      TEST1NOQUOTES:                    $(TEST1)
+      TEST2:                            testValue2
+      EXAMPLE-SECRET:                   <set to the key 'password' in secret 'example-secret'>              Optional: false
+      EXAMPLE-SECRET3:                  <set to the key 'myconfig__secret3' in secret 'example-secret3'>    Optional: false
+      EXAMPLE-CONFIG:                   <set to the key 'example.property' of config map 'example-config'>  Optional: false
+    Mounts:
+      /config-map from config-map (ro)
+      /mt from mt (rw)
+      /secrets-store-inline from secrets-store-inline (ro)
+      /secrets/secrets-store from secrets-store (ro)
+      /secrets/secrets-store2 from secrets-store2 (ro)
+  Volumes:
+   secrets-store-inline:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:
+    SizeLimit:  <unset>
+   config-map:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      example-config
+    Optional:  false
+   secrets-store:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  example-secret
+    Optional:    false
+   secrets-store2:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  example-secret2
+    Optional:    false
+   mt:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:
+    SizeLimit:  <unset>
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Available      True    MinimumReplicasAvailable
+  Progressing    True    NewReplicaSetAvailable
+OldReplicaSets:  <none>
+NewReplicaSet:   test-minimal-6c6bd6db59 (1/1 replicas created)
+Events:
+  Type    Reason             Age    From                   Message
+  ----    ------             ----   ----                   -------
+  Normal  ScalingReplicaSet  14m    deployment-controller  Scaled up replica set test-minimal-5cb99c66db to 8
+  Normal  ScalingReplicaSet  4m48s  deployment-controller  Scaled down replica set test-minimal-5cb99c66db to 1 from 8
+  Normal  ScalingReplicaSet  72s    deployment-controller  Scaled up replica set test-minimal-6c6bd6db59 to 1
+  Normal  ScalingReplicaSet  65s    deployment-controller  Scaled down replica set test-minimal-5cb99c66db to 0 from 1
