@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.0.26] 2024-9-24
+
+### Added
+
+- Show release numbers on rollback messages
+- Most data on Get-PodStatus output if not pods were found
+- More tests for unscheduled pods for memory requests
+
+### Fixed
+
+- Avoid extra loop in Get-PodStatus when a timeout occurs
+
 ## [1.0.25] 2024-9-10
 
 ### Fixed

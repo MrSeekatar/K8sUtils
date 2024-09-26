@@ -223,12 +223,26 @@ Describe "Deploys Minimal API" {
         $deploy1.PodStatuses[0].PodName | Should -Be $deploy2.PodStatuses[0].PodName
     } -Tag 'Happy','t25'
 
+    It "times out on huge cpu request" {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -CpuRequest 1000 -TimeoutSecs 10
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+
+        Test-MainPod $deploy.PodStatuses[0] -status 'Timeout'
+    } -Tag 'Sad','t26'
+
+    It "times out on huge cpu request on prehook" {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -HookCpuRequest 1000 -TimeoutSecs 10 -PreHookTimeoutSecs 3
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -PodCount 0
+
+        Test-PreHook $deploy.PreHookStatus -status 'Timeout'
+    } -Tag 'Sad','t27'
+
     It "tests rollback if uninstalled" {
         helm uninstall test
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -Fail
         Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Crash'
-   } -Tag 'Sad','t26'
+   } -Tag 'Sad','t1000'
 }
 
