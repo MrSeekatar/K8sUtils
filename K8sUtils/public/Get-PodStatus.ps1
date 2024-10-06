@@ -97,9 +97,11 @@ $lastEventTime = (Get-Date).AddMinutes(-5)
 $timedOut = $false
 
 Write-Status "Checking status of pods that match selector $Selector for ${TimeoutSec}s"
+$podCount = 0
 while ($runningCount -lt $ReplicaCount -and !$timedOut)
 {
     $timedOut = (Get-Date) -gt $timeoutEnd
+    Write-Verbose "TimedOut: $timedOut"
 
     # $pods = kubectl get pod --namespace $Namespace --selector "$LabelName=$AppName" --field-selector "status.phase!=Running" -o json | ConvertFrom-Json
     Write-Verbose "kubectl get pod --namespace $Namespace --selector $Selector --sort-by=.metadata.name -o json"
@@ -110,6 +112,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
     }
     $pods = $pods.items
     Write-Verbose "Got $($pods.Count) pods from kubectl get pod --namespace $Namespace --selector $Selector"
+    $podCount = $pods.Count
 
     $i = 0
     foreach ($pod in $pods) {
@@ -245,6 +248,9 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         break
     }
 
+    if ($timedOut) {
+        break
+    }
     Write-Verbose "Sleeping $PollIntervalSec second$($PollIntervalSec -eq 1 ? '': 's'). Running Count = $runningCount ReplicaCount = $ReplicaCount"
     Start-Sleep -Seconds $PollIntervalSec
     $logSeconds = "$($PollIntervalSec + $extraSeconds)s"
@@ -256,7 +262,7 @@ if (!$ok) {
     Write-Status "Error getting status for pods that matched selector $Selector after $([int](((Get-Date) - $start).TotalSeconds))s" `
                 -Length 0 `
                 -LogLevel Error
-    Write-Status "    RunningCount: $runningCount ReplicaCount: $ReplicaCount Ok: $ok TimedOut $timedOut" `
+    Write-Status "    RunningCount: $runningCount ReplicaCount: $ReplicaCount PodCount: $podCount Ok: $ok TimedOut: $timedOut" `
                 -Length 0 `
                 -LogLevel Error
     if ($podStatuses.Count -eq 0) {

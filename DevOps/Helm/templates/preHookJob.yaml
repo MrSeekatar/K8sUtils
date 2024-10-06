@@ -34,30 +34,36 @@ spec:
         helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     spec:
       restartPolicy: Never
+      # try to fail on node selector, no different than high CPU request, still creates pod in pending state
+      # nodeSelector:
+      #   disktype: ssd
       containers:
       - name: pre-install-upgrade-job
         image: "init-app:{{ .Values.preHook.imageTag }}"
         imagePullPolicy: Never
         env:
-        - name: RUN_COUNT
-          value: "{{ .Values.preHook.runCount }}"
-        - name: FAIL
-          value: "{{ .Values.preHook.fail }}"
+          - name: RUN_COUNT
+            value: "{{ .Values.preHook.runCount }}"
+          - name: FAIL
+            value: "{{ .Values.preHook.fail }}"
         volumeMounts:
-        - mountPath: /mt
-          name: mt
+          - mountPath: /mt
+            name: mt
+        resources:
+          requests:
+            cpu: {{ .Values.preHook.cpuRequest | default "10m" }}
+            memory: 100Mi
       initContainers:
-      - env:
-        - name: COPY_AND_EXIT
-          value: "1"
+      - name: minimal-as-init
+        env:
+          - name: COPY_AND_EXIT
+            value: "1"
         image:  minimal:latest
         imagePullPolicy: Never
-        name: minimal-as-init
-        resources: {}
         volumeMounts:
-        - mountPath: /mt
-          name: mt
+          - mountPath: /mt
+            name: mt
       volumes:
-      - name: mt
-        emptyDir: {}
+        - name: mt
+          emptyDir: {}
 {{- end }}

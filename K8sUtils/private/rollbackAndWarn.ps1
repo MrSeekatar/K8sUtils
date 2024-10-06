@@ -13,14 +13,14 @@ function rollbackAndWarn {
         }
         Write-Verbose "Current version of $ReleaseName is $($currentReleaseVersion.version)"
         if (!$currentReleaseVersion -or $currentReleaseVersion.version -eq $prevVersion) {
-            Write-Status "No change in release '$ReleaseName', not rolling back" -LogLevel warning
+            Write-Status "No change in release '$ReleaseName', not rolling back $($currentReleaseVersion.version) = $prevVersion" -LogLevel warning
             # throw "$msg, no change"
             Write-Warning "$msg, no change"
             return [RollbackStatus]::NoChange
         }
 
         if (!$SkipRollbackOnError) {
-            Write-Header "Rolling back release '$ReleaseName' due to errors" -LogLevel Error
+            Write-Header "Rolling back release '$ReleaseName' from $($currentReleaseVersion.version) back to $prevVersion due to errors" -LogLevel Error
             $errFile = Get-TempLogFile
             helm rollback $ReleaseName --wait 2>&1 | Tee-Object $errFile | Write-MyHost
             $exit = $LASTEXITCODE

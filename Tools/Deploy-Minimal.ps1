@@ -74,7 +74,9 @@ function Deploy-Minimal {
         [switch] $StartupProbe,
         [switch] $SkipDeploy,
         [switch] $AlwaysCheckPreHook,
-        [switch] $SkipSetStartTime # keeps all manifests the same
+        [switch] $SkipSetStartTime, # keeps all manifests the same
+        [string] $CpuRequest = "10m",
+        [string] $HookCpuRequest = "10m"
 
     )
     Set-StrictMode -Version Latest
@@ -135,8 +137,10 @@ function Deploy-Minimal {
                 "preHook.fail=$HookFail",
                 "preHook.imageTag=$HookTag",
                 "preHook.runCount=$HookRunCount",
+                "preHook.cpuRequest=$HookCpuRequest",
                 "readinessPath=$Readiness",
-                "replicaCount=$Replicas"
+                "replicaCount=$Replicas",
+                "resources.requests.cpu=$CpuRequest"
 
     Write-Verbose ("HelmSet:`n   "+($helmSet -join "`n   "))
     $releaseName = "test"
