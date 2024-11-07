@@ -7,8 +7,8 @@ if (!(Get-Command "kubectl" -ErrorAction Ignore) -or !(Get-Command "helm" -Error
 Get-ChildItem $PSScriptRoot\private\*.ps1 | ForEach-Object { . $_ }
 $exports = @()
 Get-ChildItem $PSScriptRoot\public\*.ps1 | ForEach-Object { . $_; $exports += $_.BaseName }
-
-# Export-ModuleMember -Function $exports -Alias '*'
+$exports += Get-Alias | Where-Object source -eq 'k8sutils' | Select-Object -ExpandProperty Name
+# see psd1 Export-ModuleMember -Function $exports -Alias '*'
 
 Set-K8sUtilsConfig
 

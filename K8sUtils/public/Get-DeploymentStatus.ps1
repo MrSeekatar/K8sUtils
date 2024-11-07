@@ -88,7 +88,6 @@ function Get-DeploymentStatus {
                          -PollIntervalSec $PollIntervalSec `
                          -LogFileFolder $LogFileFolder
 
-    Write-Footer
     Write-Verbose "ret is $($ret | out-string)"
 
     return $ret
