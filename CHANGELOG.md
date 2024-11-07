@@ -14,8 +14,8 @@
 
 ### Updated
 
-- Get-PodStatus was renamed to Get-K8sStatus, and Get-PodStatus is an alias for it.
-- Get-ReplicaSetStatus is also an alias for Get-K8sStatus
+- Get-PodEvent was renamed to Get-K8sEvent, and Get-PodEvent is an alias for it.
+- Get-ReplicaSetEvent and Get-RsEvent are also an aliases for Get-K8sEvent
 
 ## [1.0.26] 2024-9-24
 
