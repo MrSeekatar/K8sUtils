@@ -1,5 +1,22 @@
 # Change Log
 
+## [1.0.27] 2024-11-7
+
+### Added
+
+- Better handling error case when the chart name is invalid
+- Better error handling with replica set gets errors during deployment
+
+### Fixed
+
+- Color of messages in a group match the group
+- If a pod is 'waiting' and we try to get the logs it is no longer an error message
+
+### Updated
+
+- Get-PodStatus was renamed to Get-K8sStatus, and Get-PodStatus is an alias for it.
+- Get-ReplicaSetStatus is also an alias for Get-K8sStatus
+
 ## [1.0.26] 2024-9-24
 
 ### Added

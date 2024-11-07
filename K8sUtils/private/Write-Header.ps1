@@ -93,7 +93,7 @@ function Write-Header() {
     $headerMessage = $LogLevel -eq "error" ? "ERROR" : ""
     $prefix = $LogLevel -eq "error" ? "" : $HeaderPrefix
     Write-Status -Msg $headerMessage -LogLevel $LogLevel -ColorType $ColorType -Char '╒═╕' -Length 80
-    Write-Status -Msg $msg -LogLevel normal -Length $Length -ColorType ANSI -Char '─' -Prefix $prefix
+    Write-Status -Msg $msg -LogLevel $LogLevel -Length $Length -ColorType ANSI -Char '─' -Prefix $prefix
 
     $script:headerLogLevel = $LogLevel
     $script:headerLength = $Length
@@ -106,13 +106,22 @@ function Write-Footer() {
         [string] $msg,
         [string] $FooterPrefix = $script:FooterPrefix
     )
+    $prefix = $script:headerLogLevel -eq "error" ? "" : $FooterPrefix
+    Write-Status -Msg $msg -LogLevel $headerLogLevel -Length $script:headerLength -ColorType $script:headerColorType -Char '─' -Prefix $prefix
+    Write-Status -LogLevel $script:headerLogLevel -ColorType $script:headerColorType -Char '╘═╛' -Length 80
+
     if ($script:InHeader -eq 0) {
         Write-Warning "Write-Footer called without a Write-Header"
+        $callStack = Get-PSCallStack
+        if ($callStack) {
+            $stack = ""
+            foreach ($frame in $callStack | Where-Object { $_.ScriptName -like '*K8sUtils*' }) {
+                $stack += "$($frame.FunctionName) at $($frame.ScriptName):$($frame.ScriptLineNumber)`n"
+            }
+            Write-Status -Msg "Call Stack:`n$stack" -LogLevel warning
+        }
     }
     $script:InHeader -= 1
-    $prefix = $script:headerLogLevel -eq "error" ? "" : $FooterPrefix
-    Write-Status -Msg $msg -LogLevel normal -Length $script:headerLength -ColorType $script:headerColorType -Char '─' -Prefix $prefix
-    Write-Status -LogLevel $script:headerLogLevel -ColorType $script:headerColorType -Char '╘═╛' -Length 80
 }
 
 function Write-Status() {

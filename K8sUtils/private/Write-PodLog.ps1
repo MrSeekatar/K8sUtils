@@ -51,7 +51,7 @@ function Write-PodLog {
         foreach ($s in $state) {
             # can have running, waiting, or terminated properties
             if ($s -and (Get-Member -InputObject $s -Name waiting) -and (Get-Member -InputObject $s.waiting -Name reason)) {
-                Write-Header $msg -LogLevel warning
+                if ($msg) { Write-Header $msg -LogLevel warning; $msg = $null }
                 # waiting can have reason, message
                 if ($s.waiting.reason -eq 'ContainerCreating') {
                     Write-Status "Pod is in ContainerCreating"
@@ -61,15 +61,16 @@ function Write-PodLog {
                 }
             } elseif ($s -and (Get-Member -InputObject $s -Name terminated) -and (Get-Member -InputObject $s.terminated -Name reason)) {
                 # terminated can have containerID, exitCode, finishedAt, reason, message, signal, startedAt
-                Write-Header $msg -LogLevel error
+                if ($msg) { Write-Header $msg -LogLevel error; $msg = $null }
                 Write-Status "Pod was terminated" -LogLevel error
                 Write-Status ($s.terminated | Out-String -Width 500) -LogLevel error
             } else {
-                Write-Header $msg -LogLevel error
+                if ($msg) { Write-Header $msg -LogLevel error; $msg = $null }
                 Write-Warning "Didn't get known state:"
                 Write-Warning ($s | Out-String)
             }
         }
+        Write-Footer
     }
     return $logFilename
 }
