@@ -76,8 +76,8 @@ function Deploy-Minimal {
         [switch] $AlwaysCheckPreHook,
         [switch] $SkipSetStartTime, # keeps all manifests the same
         [string] $CpuRequest = "10m",
-        [string] $HookCpuRequest = "10m"
-
+        [string] $HookCpuRequest = "10m",
+        [string] $chartName = "minimal"
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -144,7 +144,6 @@ function Deploy-Minimal {
 
     Write-Verbose ("HelmSet:`n   "+($helmSet -join "`n   "))
     $releaseName = "test"
-    $chartName = "minimal"
     try {
         $logFolder = [System.IO.Path]::GetTempPath()
         $ret = Invoke-HelmUpgrade -ValueFile "minimal_values.yaml" `

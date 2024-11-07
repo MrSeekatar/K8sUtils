@@ -243,6 +243,26 @@ Describe "Deploys Minimal API" {
         Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Crash'
-   } -Tag 'Sad','t1000'
+    } -Tag 'Sad','t1000'
+
+    It "tests bad chart name" {
+        helm uninstall test
+        try {
+            Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ChartName zzz
+        } catch {
+            $_ | Should -BeLike '*Check chart name. No data from kubectl get deploy -l app.kubernetes.io/instance=test,app.kubernetes.io/name=zzz*'
+        }
+    } -Tag 'Sad','t28'
+
+
+    It "tests no secret access" {
+        helm uninstall test
+        try {
+            Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ChartName zzz
+        } catch {
+            $_ | Should -BeLike '*Check chart name. No data from kubectl get deploy -l app.kubernetes.io/instance=test,app.kubernetes.io/name=zzz*'
+        }
+    } -Tag 'Sad','t28'
+
 }
 

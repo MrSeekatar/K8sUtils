@@ -61,8 +61,8 @@ function Get-DeploymentStatus {
         }
         Start-Sleep -Seconds 1
     }
-    if ($LASTEXITCODE -ne 0 || $null -eq $replicas) {
-        throw "No data from kubectl get deploy -l $Selector"
+    if ($LASTEXITCODE -ne 0 -or $null -eq $replicas) {
+        throw "Check chart name. No data from kubectl get deploy -l $Selector"
     }
 
     # get the current replicaSet's for hash to get pods in this deployment
