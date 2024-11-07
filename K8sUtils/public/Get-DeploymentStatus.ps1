@@ -48,17 +48,15 @@ function Get-DeploymentStatus {
 
     # get the deployment to get the replica count, loop since it may not be ready yet
     $replicas = $null
-    $uid = $null
     for ( $i = 0; $i -lt 10 -and $null -eq $replicas; $i++) {
         # todo check to see if it exists, or don't use jsonpath since items[0] can fail
-        Write-Verbose "kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}'"
-        $deployments = kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20
+        Write-Verbose "kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20 -AsHashtable"
+        $deployments = kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20 -AsHashtable
         if (!$deployments) {
             Write-Warning "No items from kubectl get deploy -l $Selector. Trying again in 1 second."
         } else {
             $deployment = $deployments | Select-Object -First 1 # handle as hash table
             $replicas = $deployment.spec.replicas
-            $uid = $deployment.metadata.uid
             $revision = $deployment.metadata.annotations.'deployment.kubernetes.io/revision'
         }
         Start-Sleep -Seconds 1
@@ -68,6 +66,8 @@ function Get-DeploymentStatus {
     }
 
     # get the current replicaSet's for hash to get pods in this deployment
+    # && doesn't seems to work to get owner and revision in the JSON Path in one call
+    # "jsonpath-as-json={.items[?(@.metadata.ownerReferences[0].name==`"$deploymentName`")]}"
     Write-Verbose "kubectl get rs -l $Selector -o jsonpath={.items[?(@.metadata.annotations.deployment\.kubernetes\.io/revision==`"$revision`")]}"
     $rs = kubectl get rs -l $Selector -o "jsonpath={.items[?(@.metadata.annotations.deployment\.kubernetes\.io/revision==`"$revision`")]}" |
                             ConvertFrom-Json -Depth 20
@@ -88,6 +88,7 @@ function Get-DeploymentStatus {
                          -PollIntervalSec $PollIntervalSec `
                          -LogFileFolder $LogFileFolder
 
+    Write-Footer
     Write-Verbose "ret is $($ret | out-string)"
 
     return $ret

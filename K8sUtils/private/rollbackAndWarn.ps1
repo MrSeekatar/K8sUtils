@@ -27,7 +27,7 @@ function rollbackAndWarn {
             $content = Get-Content $errFile -Raw
             if ($exit -ne 0 -and ($content -like '*Error: release has no 0 version*' -or $content -like '*Error: release: not found*')) {
                 Write-Verbose "Last exit code on rollback was $exit."
-                Write-Status "helm rollback failed, trying uninstall" -LogLevel Error -Char '-'
+                Write-Status "Helm rollback failed, trying uninstall" -LogLevel Error
                 helm uninstall $ReleaseName 2>&1 | Write-MyHost
             }
             Remove-Item $errFile -ErrorAction SilentlyContinue
