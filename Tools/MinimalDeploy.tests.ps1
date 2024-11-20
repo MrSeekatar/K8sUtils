@@ -265,5 +265,24 @@ Describe "Deploys Minimal API" {
 
     } -Tag 'Sad','t29'
 
+    It "tests service account without secret access" {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ServiceAccount secret-no-reader-service-account
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+
+        $deploy.PodStatuses[0].Status | Should -Be 'ConfigError'
+        $deploy.PodStatuses[0].PodName | Should -Be '<replica set error>'
+        $deploy.PodStatuses[0].LastBadEvents.Count | Should -Be 1
+        $deploy.PodStatuses[0].LastBadEvents[0] | Should -BeLike 'Error creating:*volume with secret.secretName="example-secret" is not allowed because service account secret-no-reader-service-account does not reference that secret*'
+
+    } -Tag 'Sad','t30'
+
+    It "tests service account with secret access" {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook
+        Test-Deploy $deploy
+
+        Test-MainPod $deploy.PodStatuses[0]
+
+    } -Tag 'Happy','t31'
+
 }
 
