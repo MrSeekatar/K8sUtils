@@ -254,7 +254,7 @@ Describe "Deploys Minimal API" {
     } -Tag 'Sad','t28'
 
 
-    It "tests no bad service account" {
+    It "tests bad service account" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ServiceAccount zzz
         Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
 
