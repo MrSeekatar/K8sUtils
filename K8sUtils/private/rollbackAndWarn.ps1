@@ -43,7 +43,7 @@ function rollbackAndWarn {
         return [RollbackStatus]::DeployedOk
     } catch {
         Write-Warning "Caught error rolling back in catch"
-        Write-Error "$_`n$($_.ScriptStackTrace)"
+        Write-Warning "$_`n$($_.ScriptStackTrace)"
         return [RollbackStatus]::HelmStatusFailed
     }
 }

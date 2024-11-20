@@ -1,11 +1,11 @@
 # Change Log
 
-## [1.0.27] 2024-11-7
+## [1.0.27] 2024-11-20
 
 ### Added
 
 - Better handling error case when the chart name is invalid
-- Better error handling with replica set gets errors during deployment
+- Better error handling with replica set gets errors during deployment, such as bad service account, secret access, etc.
 
 ### Fixed
 

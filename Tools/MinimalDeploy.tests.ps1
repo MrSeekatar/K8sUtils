@@ -246,7 +246,6 @@ Describe "Deploys Minimal API" {
     } -Tag 'Sad','t1000'
 
     It "tests bad chart name" {
-        helm uninstall test
         try {
             Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ChartName zzz
         } catch {
@@ -255,14 +254,16 @@ Describe "Deploys Minimal API" {
     } -Tag 'Sad','t28'
 
 
-    It "tests no secret access" {
-        helm uninstall test
-        try {
-            Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ChartName zzz
-        } catch {
-            $_ | Should -BeLike '*Check chart name. No data from kubectl get deploy -l app.kubernetes.io/instance=test,app.kubernetes.io/name=zzz*'
-        }
-    } -Tag 'Sad','t28'
+    It "tests no bad service account" {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ServiceAccount zzz
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+
+        $deploy.PodStatuses[0].Status | Should -Be 'ConfigError'
+        $deploy.PodStatuses[0].PodName | Should -Be '<replica set error>'
+        $deploy.PodStatuses[0].LastBadEvents.Count | Should -Be 1
+        $deploy.PodStatuses[0].LastBadEvents[0] | Should -BeLike 'Error creating:*serviceaccount "zzz" not found*'
+
+    } -Tag 'Sad','t29'
 
 }
 

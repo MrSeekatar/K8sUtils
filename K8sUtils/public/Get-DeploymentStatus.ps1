@@ -77,6 +77,19 @@ function Get-DeploymentStatus {
     }
     $hash = $rs.metadata.labels."pod-template-hash"
     Write-Verbose "rs pod-template-hash is $hash"
+    $rsEvents = Write-K8sEvent -Prefix "ReplicaSet" -ObjectName $rs.metadata.name `
+                                        -Namespace $Namespace `
+                                        -PassThru `
+                                        -LogLevel error `
+                                        -FilterStartupWarnings
+    # $rsEvents = Get-K8sEvent -ObjectName $rs.metadata.name -NoNormal -Namespace $Namespace
+    if ($rsEvents) {
+        Write-Verbose "Rs Events are $($rsEvents | ConvertTo-Json -depth 10)"
+        $ret = [PodStatus]::new("<replica set error>")
+        $ret.Status = [Status]::ConfigError
+        $ret.LastBadEvents = $rsEvents
+        return $ret
+    }
 
     Write-Status "Looking for $replicas pod$($replicas -eq 1 ? '' : 's') with pod-template-hash=$hash" -Length 0 -LogLevel Normal
     $podSelector = "pod-template-hash=$hash"
@@ -88,7 +101,7 @@ function Get-DeploymentStatus {
                          -PollIntervalSec $PollIntervalSec `
                          -LogFileFolder $LogFileFolder
 
-    Write-Verbose "ret is $($ret | out-string)"
+    Write-Verbose "ret for pod is $($ret | out-string)"
 
     return $ret
 }

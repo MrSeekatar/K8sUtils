@@ -3,7 +3,7 @@
 Get events for an object
 
 .PARAMETER ObjectName
-Name of the pod to get events for
+Name of the object to get events for
 
 .PARAMETER NoNormal
 If set, don't return normal events, only warnings

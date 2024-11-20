@@ -138,8 +138,8 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             $podStatuses[$pod.metadata.name].Status = [Status]::Timeout
 
             # write final events and logs for this pod
-            Write-Verbose "Calling Write-PodEvent for pod $($pod.metadata.name) with LogLevel ok and FilterStartupWarnings"
-            $podStatuses[$pod.metadata.name].LastBadEvents = Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name `
+            Write-Verbose "Calling Write-K8sEvent for pod $($pod.metadata.name) with LogLevel ok and FilterStartupWarnings"
+            $podStatuses[$pod.metadata.name].LastBadEvents = Write-K8sEvent -Prefix $prefix -PodName $pod.metadata.name `
                                                                             -Namespace $Namespace `
                                                                             -PassThru `
                                                                             -LogLevel error `
@@ -177,8 +177,8 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 }
 
                 # write final events and logs for this pod
-                Write-Verbose "Calling Write-PodEvent for pod $($pod.metadata.name) with LogLevel ok and FilterStartupWarnings"
-                $podStatuses[$pod.metadata.name].LastBadEvents = Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name `
+                Write-Verbose "Calling Write-K8sEvent for pod $($pod.metadata.name) with LogLevel ok and FilterStartupWarnings"
+                $podStatuses[$pod.metadata.name].LastBadEvents = Write-K8sEvent -Prefix $prefix -PodName $pod.metadata.name `
                                                                                 -Namespace $Namespace `
                                                                                 -PassThru `
                                                                                 -LogLevel ok `
@@ -192,7 +192,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         }
 
         if ($timedOut) {
-            Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -FilterStartupWarnings
+            Write-K8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -FilterStartupWarnings
             $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -HasInit:$HasInit -LogFileFolder $LogFileFolder
             break
         }
@@ -206,8 +206,8 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             if ($errors -or $pod.status.phase -eq "Failed" ) {
                 Write-Status "Pod $($pod.metadata.name) has $($errors.count) errors" -LogLevel Error
                 # write final events and logs for this pod
-                Write-Verbose "Calling Write-PodEvent for pod $($pod.metadata.name) with LogLevel Error"
-                $podStatuses[$pod.metadata.name].LastBadEvents = Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
+                Write-Verbose "Calling Write-K8sEvent for pod $($pod.metadata.name) with LogLevel Error"
+                $podStatuses[$pod.metadata.name].LastBadEvents = Write-K8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
                 $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit -LogFileFolder $LogFileFolder
 
                 # get latest pod status since sometimes get containerCreating status here
@@ -233,7 +233,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             } elseif ($VerbosePreference -eq 'Continue') {
                 Write-Verbose "No errors found in events for pod $($pod.metadata.name) yet"
 
-                Write-PodEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
+                Write-K8sEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
                 $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since $logSeconds -Namespace $Namespace -HasInit:$HasInit
             }
        } # else no events
