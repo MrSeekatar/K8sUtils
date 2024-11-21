@@ -1,5 +1,22 @@
 # Change Log
 
+## [1.0.27] 2024-11-20
+
+### Added
+
+- Better handling error case when the chart name is invalid
+- Better error handling with replica set gets errors during deployment, such as bad service account, secret access, etc.
+
+### Fixed
+
+- Color of messages in a group match the group
+- If a pod is 'waiting' and we try to get the logs it is no longer an error message
+
+### Updated
+
+- Get-PodEvent was renamed to Get-K8sEvent, and Get-PodEvent is an alias for it.
+- Get-ReplicaSetEvent and Get-RsEvent are also an aliases for Get-K8sEvent
+
 ## [1.0.26] 2024-9-24
 
 ### Added

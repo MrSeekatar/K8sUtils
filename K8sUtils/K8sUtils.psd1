@@ -12,7 +12,7 @@
 RootModule = 'K8sUtils.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.26'
+ModuleVersion = '1.0.27'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -70,7 +70,7 @@ Description = 'time-saving PowerShell module for deploying Helm charts and jobs 
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = 'Add-Annotation', 'Convert-Value', 'Get-DeploymentStatus',
-               'Get-PodByJobName', 'Get-PodEvent', 'Get-PodStatus', 'Get-JobStatus',
+               'Get-PodByJobName', 'Get-K8sEvent', 'Get-PodStatus', 'Get-JobStatus',
                'Invoke-HelmUpgrade'
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
@@ -80,7 +80,7 @@ CmdletsToExport = @()
 VariablesToExport = '*'
 
 # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
-AliasesToExport = @()
+AliasesToExport = 'Get-PodEvent', 'Get-RsEvent', 'Get-ReplicaSetEvent'
 
 # DSC resources to export from this module
 # DscResourcesToExport = @()

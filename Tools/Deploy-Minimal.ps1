@@ -63,7 +63,7 @@ function Deploy-Minimal {
         [string] $HookTag = "latest",
         [string] $Readiness = "/info",
         [switch] $SkipRollbackOnError,
-        [int] $TimeoutSecs = 600,
+        [int] $TimeoutSecs = 60,
         [int] $PreHookTimeoutSecs = 15,
         [int] $PollIntervalSec = 3,
         [int] $Replicas = 1,
@@ -76,8 +76,9 @@ function Deploy-Minimal {
         [switch] $AlwaysCheckPreHook,
         [switch] $SkipSetStartTime, # keeps all manifests the same
         [string] $CpuRequest = "10m",
-        [string] $HookCpuRequest = "10m"
-
+        [string] $HookCpuRequest = "10m",
+        [string] $chartName = "minimal",
+        [string] $ServiceAccount = ""
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -140,11 +141,11 @@ function Deploy-Minimal {
                 "preHook.cpuRequest=$HookCpuRequest",
                 "readinessPath=$Readiness",
                 "replicaCount=$Replicas",
-                "resources.requests.cpu=$CpuRequest"
+                "resources.requests.cpu=$CpuRequest",
+                "serviceAccount.name=$ServiceAccount"
 
     Write-Verbose ("HelmSet:`n   "+($helmSet -join "`n   "))
     $releaseName = "test"
-    $chartName = "minimal"
     try {
         $logFolder = [System.IO.Path]::GetTempPath()
         $ret = Invoke-HelmUpgrade -ValueFile "minimal_values.yaml" `

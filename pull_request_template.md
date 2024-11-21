@@ -1,4 +1,4 @@
 Description here
 
-​- [ ] CHANGELOG.md updated
+- [ ] CHANGELOG.md updated
 - [ ] K8sUtils.psd1 version number updated

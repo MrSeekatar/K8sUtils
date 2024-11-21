@@ -288,6 +288,7 @@ function Invoke-HelmUpgrade {
         $err = $_
         if ($DeploymentSelector) {
             Write-Warning "Rolling back due to error in catch block"
+            Write-Warning "$_`n$($_.ScriptStackTrace)"
             $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release '$ReleaseName' had errors" -PrevVersion $prevVersion
         }
         Write-Warning "Caught error. Following status may be incomplete"

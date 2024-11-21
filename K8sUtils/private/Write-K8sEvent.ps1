@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-Private function to write the events for a pod to the output
+Private function to write the events the output
 
-.PARAMETER PodName
-Name of the pod to get events for
+.PARAMETER ObjectName
+Name of the object to get events for
 
 .PARAMETER Prefix
-Prefix for logging
+Prefix for logging, usually the type of the object
 
 .PARAMETER Since
 Only get events since this time
@@ -22,12 +22,16 @@ Return any errors messages found in events
 
 .PARAMETER FilterStartupWarnings
 Filter out startup warnings if pod is running ok
+
+.OUTPUTS
+If PassThru is set, return array of strings error messages
 #>
-function Write-PodEvent {
+function Write-K8sEvent {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [string]$PodName,
+        [Alias("PodName", "RsName")]
+        [string]$ObjectName,
         [Parameter(Mandatory)]
         [string]$Prefix,
         [DateTime]$Since,
@@ -38,12 +42,12 @@ function Write-PodEvent {
         [switch] $FilterStartupWarnings
     )
 
-    $events = Get-PodEvent -Namespace $Namespace -PodName $PodName
+    $events = Get-K8sEvent -Namespace $Namespace -ObjectName $ObjectName
     if ($null -eq $events) {
-        Write-Status "Get-PodEvent returned null for pod $PodName" -LogLevel warning
+        Write-Status "Get-K8sEvent returned null for $ObjectName" -LogLevel warning
         return
     }
-    $msg = "Events for $Prefix $PodName"
+    $msg = "Events for $Prefix $ObjectName"
     if ($Since) {
         $msg += " since $($Since.ToString("HH:mm:ss"))"
         $events = $events | Where-Object { $_.lastTimestamp -gt $Since }
@@ -57,7 +61,7 @@ function Write-PodEvent {
     if ($filteredEvents) {
         Write-Header $msg -LogLevel $LogLevel
         $filteredEvents | Out-String -Width 500 | Write-Plain
-        Write-Footer "End events for $Prefix $PodName"
+        Write-Footer "End events for $Prefix $ObjectName"
     } else {
         Write-Status "No $msg" -LogLevel ok
     }

@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-Get events for a pod
+Get events for an object
 
-.PARAMETER PodName
-Name of the pod to get events for
+.PARAMETER ObjectName
+Name of the object to get events for
 
 .PARAMETER NoNormal
 If set, don't return normal events, only warnings
@@ -12,32 +12,38 @@ If set, don't return normal events, only warnings
 K8s namespace to use, defaults to default
 
 .EXAMPLE
-Get-PodEvent -PodName mypod
+Get-K8sEvent -ObjectName  test-minimal-7894b5dbf9-xkvgc
 
-Get all events for pod mypod
+Get all events for a pod
 
 .EXAMPLE
-Get-PodEvent -PodName mypod -NoNormal -Namespace test
+Get-K8sEvent -ObjectName test-minimal-7894b5dbf9-xkvgc -NoNormal -Namespace test
 
-Get all non-normal events for pod mypod in namespace test
+Get all non-normal events for a pod in namespace test
+
+.EXAMPLE
+Get-K8sEvent -ObjectName test-minimal-bf9c4b7f9 -NoNormal -Namespace test
+
+Get all non-normal events for a replicaset in namespace test
 
 .OUTPUTS
 One or more event objects for the pod, $null if error
 #>
-function Get-PodEvent {
+function Get-K8sEvent {
     param (
         [CmdletBinding()]
         [Parameter(Mandatory = $true)]
-        [string] $PodName,
+        [Alias("PodName", "RsName")]
+        [string] $ObjectName,
         [switch] $NoNormal,
         [string] $Namespace = "default"
     )
-    Write-Verbose "kubectl get events --namespace $Namespace --field-selector `"involvedObject.name=$PodName`" -o json"
-    $json = kubectl get events --namespace $Namespace --field-selector "involvedObject.name=$PodName" -o json
+    Write-Verbose "kubectl get events --namespace $Namespace --field-selector `"involvedObject.name=$ObjectName`" -o json"
+    $json = kubectl get events --namespace $Namespace --field-selector "involvedObject.name=$ObjectName" -o json
 
     Write-Verbose "kubectl exit code: $LASTEXITCODE"
     if ($LASTEXITCODE -ne 0) {
-        Write-Status "kubectl get events --namespace $Namespace --field-selector `"involvedObject.name=$PodName`" -o json" -LogLevel warning
+        Write-Status "kubectl get events --namespace $Namespace --field-selector `"involvedObject.name=$ObjectName`" -o json" -LogLevel warning
         Write-Status "  had exit code of $LASTEXITCODE" -LogLevel warning
         Write-Status "  JSON is $json" -LogLevel warning
         return $null
@@ -62,3 +68,7 @@ function Get-PodEvent {
     }
     Write-Output $ret -NoEnumerate
 }
+
+Set-Alias -Name Get-PodEvent -Value Get-K8sEvent -Description "Get events for a pod"
+Set-Alias -Name Get-RsEvent -Value Get-K8sEvent -Description "Get events for a replica set"
+Set-Alias -Name Get-ReplicaSetEvent -Value Get-K8sEvent -Description "Get events for a replica set"

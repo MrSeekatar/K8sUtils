@@ -243,6 +243,46 @@ Describe "Deploys Minimal API" {
         Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Crash'
-   } -Tag 'Sad','t1000'
+    } -Tag 'Sad','t1000'
+
+    It "tests bad chart name" {
+        try {
+            Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ChartName zzz
+        } catch {
+            $_ | Should -BeLike '*Check chart name. No data from kubectl get deploy -l app.kubernetes.io/instance=test,app.kubernetes.io/name=zzz*'
+        }
+    } -Tag 'Sad','t28'
+
+
+    It "tests bad service account" {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ServiceAccount zzz
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+
+        $deploy.PodStatuses[0].Status | Should -Be 'ConfigError'
+        $deploy.PodStatuses[0].PodName | Should -Be '<replica set error>'
+        $deploy.PodStatuses[0].LastBadEvents.Count | Should -Be 1
+        $deploy.PodStatuses[0].LastBadEvents[0] | Should -BeLike 'Error creating:*serviceaccount "zzz" not found*'
+
+    } -Tag 'Sad','t29'
+
+    It "tests service account without secret access" {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ServiceAccount secret-no-reader-service-account
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+
+        $deploy.PodStatuses[0].Status | Should -Be 'ConfigError'
+        $deploy.PodStatuses[0].PodName | Should -Be '<replica set error>'
+        $deploy.PodStatuses[0].LastBadEvents.Count | Should -Be 1
+        $deploy.PodStatuses[0].LastBadEvents[0] | Should -BeLike 'Error creating:*volume with secret.secretName="example-secret" is not allowed because service account secret-no-reader-service-account does not reference that secret*'
+
+    } -Tag 'Sad','t30'
+
+    It "tests service account with secret access" {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook
+        Test-Deploy $deploy
+
+        Test-MainPod $deploy.PodStatuses[0]
+
+    } -Tag 'Happy','t31'
+
 }
 

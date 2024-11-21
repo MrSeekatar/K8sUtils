@@ -99,7 +99,7 @@ try {
                 executeSB  {
                     $result = Invoke-Pester -PassThru -Tag $tag -Path Tools/MinimalDeploy.tests.ps1
                     $i = 0
-                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i-1}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }} | Out-String)  -InformationAction Continue
+                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i-1}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String  -Width 1000)  -InformationAction Continue
                     Write-Information "Test results: are in `$test_results" -InformationAction Continue
                     $global:test_results = $result
                 }
@@ -108,7 +108,7 @@ try {
                 executeSB  {
                     $result = Invoke-Pester -PassThru -Tag $tag -Path Tools/JobDeploy.tests.ps1
                     $i = 0
-                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }} | Out-String)  -InformationAction Continue
+                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String  -Width 1000)  -InformationAction Continue
                     Write-Information "Test results: are in `$test_results" -InformationAction Continue
                     $global:test_results = $result
                 }
@@ -117,7 +117,7 @@ try {
                 executeSB  {
                     $result = Invoke-Pester -PassThru -Tag $tag -Path Tools/JobDeployK8s.tests.ps1
                     $i = 0
-                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"" }} | Out-String)  -InformationAction Continue
+                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String -Width 1000)  -InformationAction Continue
                     Write-Information "Test results: are in `$test_results" -InformationAction Continue
                     $global:test_results = $result
                 }

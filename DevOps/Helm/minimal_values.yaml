@@ -98,8 +98,8 @@ env:
   deployTime: "00:00:00"
   test1: "testValue1"
   test2: "testValue2"
-  test3: "testValue3"
-  TEST3: "TESTVALUE3"
+  test3: "testValue3 lowercase"
+  # Test3: "TestValue3 titlecase"
   test1NoQuotes: $(TEST1) # but we quote in chart
   # cannot use $() for anything but constant values, no CM or Secret refs
   DOTNET_USE_POLLING_FILE_WATCHER: "true"
