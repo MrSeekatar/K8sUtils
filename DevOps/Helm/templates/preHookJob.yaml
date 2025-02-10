@@ -53,16 +53,10 @@ spec:
           requests:
             cpu: {{ .Values.preHook.cpuRequest | default "10m" }}
             memory: 100Mi
+      {{- if .Values.initContainers }}
       initContainers:
-      - name: minimal-as-init
-        env:
-          - name: COPY_AND_EXIT
-            value: "1"
-        image:  minimal:latest
-        imagePullPolicy: Never
-        volumeMounts:
-          - mountPath: /mt
-            name: mt
+      {{- toYaml .Values.initContainers | nindent 8 }}
+      {{- end }}
       volumes:
         - name: mt
           emptyDir: {}
