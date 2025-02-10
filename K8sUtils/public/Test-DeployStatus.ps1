@@ -48,6 +48,8 @@ process {
             }
         }
     }
+    Write-Verbose "Deploy status is $($deploy | out-string)"
+    Write-Verbose "Deploy status JSON: $($deploy | ConvertTo-Json -Depth 5)"
 
     if ((Get-Member -InputObject $deploy -Name 'PreHookStatus' -MemberType NoteProperty) `
             -and $deploy.PreHookStatus `
