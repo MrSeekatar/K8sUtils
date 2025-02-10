@@ -9,6 +9,7 @@ The deployment object to test from Invoke-HelmUpgrade.
 $true if the deployment is successful, $false otherwise.
 #>
 function Test-DeployStatus {
+[CmdletBinding()]
 param(
     [Parameter(Mandatory,ValueFromPipeline)]
     [PSCustomObject] $deploy
@@ -20,8 +21,8 @@ process {
     function WriteMessage($message) {
         switch ($script:ColorType) {
             'DevOps' {
-                "##vso[task.logissue type=error]$message "
-                "##vso[task.complete result=Failed;]"
+                Write-Host "##vso[task.logissue type=error]$message "
+                Write-Host "##vso[task.complete result=Failed;]"
                 break
             }
             'ANSI' {
@@ -63,6 +64,7 @@ process {
             return $false
         }
     }
+    Write-Host "Deployment successful"
     return $true
 }
 
