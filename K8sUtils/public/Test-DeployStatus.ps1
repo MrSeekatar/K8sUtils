@@ -63,8 +63,8 @@ process {
             GetLastBadEvent $badPod
             return $false
         }
-    } elseif ($deploy.Status -ne 'Running') {
-        WriteMessage "Deployment status is $($deploy.Status)"
+    } elseif (!$deploy.Running) {
+        WriteMessage "Deployment is not running. Check output."
         return $false
     }
     Write-Host "Deployment successful"
