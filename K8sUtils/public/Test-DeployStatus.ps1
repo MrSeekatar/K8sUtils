@@ -6,7 +6,7 @@ Test the status of a deployment.
 The deployment object to test from Invoke-HelmUpgrade.
 
 .OUTPUTS
-$true if the deployment is successful, $false otherwise.
+0 if the deployment is successful, 1 prehook error, 2 if pod, 3 if other
 #>
 function Test-DeployStatus {
 [CmdletBinding()]
@@ -18,19 +18,19 @@ param(
 process {
     Set-StrictMode -Version Latest
 
-    function WriteMessage($message) {
+    function Write-FailureMessage($message) {
         switch ($script:ColorType) {
             'DevOps' {
-                Write-Host "##vso[task.logissue type=error]$message "
-                Write-Host "##vso[task.complete result=Failed;]"
+                Write-Plain "##vso[task.logissue type=error]$message "
+                Write-Plain "##vso[task.complete result=Failed;]"
                 break
             }
             'ANSI' {
-                Write-Host $PSStyle.Formatting.Error $message
+                Write-Plain "$($PSStyle.Formatting.Error) $message"
                 break
             }
             default {
-                Write-Host $message
+                Write-Plain $message
             }
         }
     }
@@ -44,7 +44,7 @@ process {
                 -and $status.LastBadEvents) {
             $lastBadEvent = $status.LastBadEvents | Select-Object -First 1
             if ($lastBadEvent) {
-                WriteMessage "Last bad event: $($lastBadEvent)"
+                Write-FailureMessage "Last bad event: $($lastBadEvent)"
             }
         }
     }
@@ -53,24 +53,24 @@ process {
 
     if ((Get-Member -InputObject $deploy -Name 'PreHookStatus') `
             -and $deploy.PreHookStatus `
-            -and $deploy.PreHookStatus.Status -ne 'Running') {
-        WriteMessage "PreHook pod '$($deploy.PreHookStatus.podName)' has status $($deploy.PreHookStatus.Status)"
+            -and $deploy.PreHookStatus.Status -ne 'Completed') {
+        Write-FailureMessage "PreHook pod '$($deploy.PreHookStatus.podName)' has status $($deploy.PreHookStatus.Status)"
         GetLastBadEvent $deploy.PreHookStatus
-        return $false
+        return 1
     } elseif ((Get-Member -InputObject $deploy -Name 'PodStatuses') `
             -and $deploy.PodStatuses) {
         $badPod = $deploy.PodStatuses | Where-Object { $_.Status -ne 'Running' } | Select-Object -First 1
         if ($badPod) {
-            WriteMessage "Pod '$($badPod.PodName)' has status of $($badPod.status)"
+            Write-FailureMessage "Pod '$($badPod.PodName)' has status of $($badPod.status)"
             GetLastBadEvent $badPod
-            return $false
+            return 2
         }
     } elseif (!$deploy.Running) {
-        WriteMessage "Deployment is not running. Check output."
-        return $false
+        Write-FailureMessage "Deployment is not running. Check output."
+        return 3
     }
-    Write-Host "Deployment successful"
-    return $true
+    Write-Status "Deployment successful"
+    return 0
 }
 
 }

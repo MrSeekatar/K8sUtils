@@ -80,7 +80,7 @@ function Get-DeploymentStatus {
     $rsEvents = Write-K8sEvent -Prefix "ReplicaSet" -ObjectName $rs.metadata.name `
                                         -Namespace $Namespace `
                                         -PassThru `
-                                        -LogLevel error `
+                                        -LogLevel ok `
                                         -FilterStartupWarnings
     # $rsEvents = Get-K8sEvent -ObjectName $rs.metadata.name -NoNormal -Namespace $Namespace
     if ($rsEvents) {
