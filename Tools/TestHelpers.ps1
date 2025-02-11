@@ -1,6 +1,11 @@
 # mainly used in test, but split out in case you want to use them
+$okStatus = 0
+$prehookError = 1
+$podError = 2
+$otherError = 3
+$ignoreError = 4
 
-function Test-Deploy( $deploy, $running = $true, $podCount = 1, $rollbackStatus = "DeployedOk" ){
+function Test-Deploy( $deploy, $running = $true, $podCount = 1, $rollbackStatus = "DeployedOk", $expectedStatus = $okStatus) {
     if (!(Get-Member -InputObject $deploy -Name 'Running' -MemberType Property)) {
         Write-Warning "Test-Deploy found that deploy object is missing Running property, full object:"
         Write-Warning ($deploy | ConvertTo-Json -Depth 5)
@@ -12,6 +17,9 @@ function Test-Deploy( $deploy, $running = $true, $podCount = 1, $rollbackStatus 
         $deploy.PodStatuses.Count | Should -Be $podCount
     } else {
         [bool]$deploy.PodStatuses | Should -Be $false
+    }
+    if ($expectedStatus -le $otherError) {
+        Test-DeployStatus $deploy | Should -Be $expectedStatus
     }
 }
 
@@ -39,6 +47,6 @@ function Test-MainPod( $podStatus, $status = 'Running', $reason = $null) {
 
 function Test-Job($jobStatus, $running = $false, $rollbackStatus = "DeployedOk", $status = 'Completed', $reason = $null) {
     $jobStatus.Count | Should -Be 2
-    Test-Deploy $jobStatus[0] -running $running -PodCount 0 -rollbackStatus $rollbackStatus
+    Test-Deploy $jobStatus[0] -running $running -PodCount 0 -rollbackStatus $rollbackStatus -expectedStatus $ignoreError
     Test-Pod $jobStatus[1] -status $status -containerStatus $status -reason $reason -nameLike 'test-job-*' -containerName 'pre-install-upgrade-job'
 }

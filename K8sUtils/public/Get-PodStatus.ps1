@@ -217,7 +217,8 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 $pod = $podJson | ConvertFrom-Json
                 if (!$pod -or !(Get-Member -InputObject $pod -Name metadata)) {
                     Write-Warning "Unexpected response from kubectl get pod --namespace $Namespace $name JSON is: '$podJson'"
-                    throw "Unexpected response from kubectl get pod --namespace $Namespace $name"
+                    # throw "Unexpected response from kubectl get pod --namespace $Namespace $name"
+                    return $podStatuses.Values
                 }
 
                 $podStatuses[$pod.metadata.name].ContainerStatuses = @($pod.status.containerStatuses | ForEach-Object {

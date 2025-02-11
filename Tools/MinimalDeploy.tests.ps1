@@ -63,35 +63,35 @@ Describe "Deploys Minimal API" {
 
     It "has main container crash" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -Fail
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Crash'
     } -Tag 'Crash','Sad','t7'
 
     It "has main container has bad image tag" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ImageTag zzz
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'ConfigError' -reason "ErrImageNeverPull"
     } -Tag 'Config','Sad','t8'
 
     It "has the main container with a bad secret name" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -BadSecret
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'ConfigError' -reason "CreateContainerConfigError"
     } -Tag 'Config','Sad','t9'
 
     It "has the main container too short time out" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 3 -RunCount 100
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Timeout' -reason "Possible timeout"
     } -Tag 'Timeout','Sad','t10'
 
     It "has the main container time out" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 100
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Unknown' -reason "Possible timeout"
     } -Tag 'Timeout','Sad','t11'
@@ -105,14 +105,14 @@ Describe "Deploys Minimal API" {
 
     It "has a startup timeout" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 10 -StartupProbe
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Timeout' -reason "Possible timeout"
     } -Tag 'Sad', 'Timeout', 'Probe', 't13'
 
     It "has a bad probe" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 120 -Readiness '/fail'
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Unknown' -reason "Possible timeout"
         $deploy.PodStatuses[0].LastBadEvents.Count | Should -Be 1
@@ -121,21 +121,21 @@ Describe "Deploys Minimal API" {
 
     It "has a prehook job top timeout" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -HookRunCount 50 -TimeoutSec 10
-        Test-Deploy $deploy -Running $false -podCount 0 -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -podCount 0 -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError
 
         # no pod statuses
     } -Tag 'Sad', 'Timeout', 't15'
 
     It "has an init failure" {
         $deploy = Deploy-Minimal -PassThru -SkipPreHook -InitFail
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Crash' -reason "Possible timeout"
     } -Tag 'Sad', 'Crash', 't16'
 
     It "has init bad config" {
         $deploy = Deploy-Minimal -PassThru -SkipPreHook -InitTag zzz
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'ConfigError' -reason "Possible timeout"
         $deploy.PodStatuses[0].LastBadEvents.Count | Should -BeGreaterThan 1
@@ -145,7 +145,7 @@ Describe "Deploys Minimal API" {
 
     It "has an init timeout" {
         $deploy = Deploy-Minimal -PassThru -SkipPreHook -TimeoutSec 5 -InitRunCount 50
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Timeout' -reason "Possible timeout"
     } -Tag 'Sad', 'Timeout', 't18'
@@ -157,19 +157,19 @@ Describe "Deploys Minimal API" {
         $deploy.RollbackStatus | Should -Be 'RolledBack'
         $deploy.ReleaseName | Should -Be 'test'
 
-        Test-PreHook $deploy.PreHookStatus -status 'Timeout' -containerStatus 'Running'
+        Test-PreHook $deploy.PreHookStatus -status 'Timeout' -containerStatus 'Running' -ExpectedStatus $prehookError
     } -Tag 'Timeout','Negative','t19'
 
     It "has prehook job crash" {
         $deploy = Deploy-Minimal -PassThru -HookFail -TimeoutSecs 20 -PreHookTimeoutSecs 20
-        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError
 
         $deploy.PreHookStatus.Status | Should -Be 'Crash'
     } -Tag 'Crash','Sad','t20'
 
     It "has prehook config error" {
         $deploy = Deploy-Minimal -PassThru -HookTag zzz
-        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError
 
         $deploy.PreHookStatus.Status | Should -Be 'ConfigError'
         $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
@@ -178,7 +178,7 @@ Describe "Deploys Minimal API" {
 
     It "has prehook timeout" {
         $deploy = Deploy-Minimal -PassThru -PreHookTimeoutSecs 5 -HookRunCount 100
-        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError
 
         $deploy.PreHookStatus.Status | Should -Be 'Timeout'
     } -Tag 'Config','Sad','t22'
@@ -190,7 +190,7 @@ Describe "Deploys Minimal API" {
             Start-Sleep 1
         } while (Get-PodByJobName test-prehook)
         $deploy = Deploy-Minimal -PassThru -AlwaysCheckPreHook -SkipPreHook -SkipInit -TimeoutSecs 10
-        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError
 
     } -Tag 'Config','Sad','t23'
 
@@ -199,7 +199,7 @@ Describe "Deploys Minimal API" {
         kubectl taint nodes $node key1=value1:NoSchedule
         try {
             $deploy = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -RunCount 1 -PreHookTimeoutSecs 5 -TimeoutSecs 5
-            Test-Deploy $deploy -Running $false -PodCount 1 -RollbackStatus 'RolledBack'
+            Test-Deploy $deploy -Running $false -PodCount 1 -RollbackStatus 'RolledBack' -ExpectedStatus $podError
             $deploy.PodStatuses[0].LastBadEvents[0] | Should -BeLike '*schedul*'
         }
         finally {
@@ -225,14 +225,14 @@ Describe "Deploys Minimal API" {
 
     It "times out on huge cpu request" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -CpuRequest 1000 -TimeoutSecs 10
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Timeout'
     } -Tag 'Sad','t26'
 
     It "times out on huge cpu request on prehook" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -HookCpuRequest 1000 -TimeoutSecs 10 -PreHookTimeoutSecs 3
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -PodCount 0
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -PodCount 0 -ExpectedStatus $prehookError
 
         Test-PreHook $deploy.PreHookStatus -status 'Timeout'
     } -Tag 'Sad','t27'
@@ -240,7 +240,7 @@ Describe "Deploys Minimal API" {
     It "tests rollback if uninstalled" {
         helm uninstall test
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -Fail
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Crash'
     } -Tag 'Sad','t1000'
@@ -256,7 +256,7 @@ Describe "Deploys Minimal API" {
 
     It "tests bad service account" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ServiceAccount zzz
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         $deploy.PodStatuses[0].Status | Should -Be 'ConfigError'
         $deploy.PodStatuses[0].PodName | Should -Be '<replica set error>'
@@ -267,7 +267,7 @@ Describe "Deploys Minimal API" {
 
     It "tests service account without secret access" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ServiceAccount secret-no-reader-service-account
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack'
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         $deploy.PodStatuses[0].Status | Should -Be 'ConfigError'
         $deploy.PodStatuses[0].PodName | Should -Be '<replica set error>'

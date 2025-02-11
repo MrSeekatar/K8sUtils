@@ -58,6 +58,28 @@ function executeSB {
 $prevContext = kubectl config current-context
 $prevPref = $ErrorActionPreference
 
+function Invoke-Test {
+    param (
+        [Parameter(Mandatory)]
+        [string] $testFile
+    )
+    if (!(Get-Command -Name Docker -ErrorAction SilentlyContinue) -or !(Get-Command -Name Helm -ErrorAction SilentlyContinue)) {
+        throw "Docker and Helm must be installed for these tests"
+    }
+    $images = docker images --format json | ConvertFrom-json -depth 4
+    if (!($images | Where-Object { $_.Repository -eq 'minimal' })) {
+        throw "Must have a minimal image for these tests. See README.md to build it."
+    }
+    if (!($images | Where-Object { $_.Repository -eq 'init-app' })){
+        throw "Must have a init-app image for these tests. See README.md to build it."
+    }
+    $result = Invoke-Pester -PassThru -Tag $tag -Path $testFile
+    $i = 0
+    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i-1}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String  -Width 1000)  -InformationAction Continue
+    Write-Information "Test results: are in `$test_results" -InformationAction Continue
+    $global:test_results = $result
+}
+
 try {
     $ErrorActionPreference = "Stop"
     kubectl config use-context $KubeContext
@@ -97,29 +119,17 @@ try {
             }
             'test' {
                 executeSB  {
-                    $result = Invoke-Pester -PassThru -Tag $tag -Path Tools/MinimalDeploy.tests.ps1
-                    $i = 0
-                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i-1}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String  -Width 1000)  -InformationAction Continue
-                    Write-Information "Test results: are in `$test_results" -InformationAction Continue
-                    $global:test_results = $result
+                    Invoke-Test Tools/MinimalDeploy.tests.ps1
                 }
             }
             'testJob' {
                 executeSB  {
-                    $result = Invoke-Pester -PassThru -Tag $tag -Path Tools/JobDeploy.tests.ps1
-                    $i = 0
-                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String  -Width 1000)  -InformationAction Continue
-                    Write-Information "Test results: are in `$test_results" -InformationAction Continue
-                    $global:test_results = $result
+                    Invoke-Test Tools/JobDeploy.tests.ps1
                 }
             }
             'testJobK8s' {
                 executeSB  {
-                    $result = Invoke-Pester -PassThru -Tag $tag -Path Tools/JobDeployK8s.tests.ps1
-                    $i = 0
-                    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String -Width 1000)  -InformationAction Continue
-                    Write-Information "Test results: are in `$test_results" -InformationAction Continue
-                    $global:test_results = $result
+                    Invoke-Test Tools/JobDeployK8s.tests.ps1
                 }
             }
             'upgradeHelm' {
