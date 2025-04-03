@@ -96,7 +96,7 @@ $extraSeconds = 1 # extra seconds to add to logSeconds to avoid missing somethin
 $lastEventTime = (Get-Date).AddMinutes(-5)
 $timedOut = $false
 
-Write-Status "Checking status of pods that match selector $Selector for ${TimeoutSec}s"
+Write-Status "Checking status of pods of type $podType that match selector $Selector for ${TimeoutSec}s"
 $podCount = 0
 while ($runningCount -lt $ReplicaCount -and !$timedOut)
 {

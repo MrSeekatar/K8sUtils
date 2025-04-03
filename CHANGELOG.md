@@ -1,10 +1,16 @@
 # Change Log
 
+## [1.0.29] 2025-04-02
+
+### Added
+
+- Get-JobPodSelector function to get the pod selector for a job.
+
 ## [1.0.28] 2025-02-10
 
 ### Added
 
-- Tets-DeployStatus method to look at a status object and write out error messages.
+- Test-DeployStatus function to look at a status object and write out error messages.
 
 ## [1.0.27] 2024-11-20
 

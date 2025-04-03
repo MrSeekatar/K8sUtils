@@ -68,5 +68,14 @@ Describe "Deploys Minimal API" {
         $deploy = Deploy-MinimalJobK8s -TimeoutSec 5 -InitRunCount 50
         Test-Pod $deploy -nameLike 'test-job-*' -containerName 'test-job' -status 'Timeout' -containerStatus 'Timeout' -Reason "Possible timeout"
     } -Tag 'Sad', 'Timeout', 'k18'
-}
 
+    It "gets the pod selector for a job" {
+        Deploy-MinimalJobK8s -SkipInit -StartOnly
+        $selector = Get-JobPodSelector -JobName test-job
+        $selector | Should -Not -BeNullOrEmpty
+        $podStatus = Get-PodStatus -PodType Job -Selector $selector
+        $podStatus | Should -Not -BeNullOrEmpty
+        $podStatus.Status | Should -Be 'Completed'
+        kubectl delete job 'test-job' --ignore-not-found
+    } -Tag 'Happy','k19'
+}

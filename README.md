@@ -31,6 +31,7 @@ Here's a list of the commands in the module with a brief description. Most are c
 | Add-Annotation       | Helper to add an annotation to a K8s object            |
 | Convert-Value        | Substitutes variables in a file with placeholders      |
 | Get-DeploymentStatus | Get the status of the pods for a deployment            |
+| Get-JobPodSelector   | Get the selector for pods for a job                    |
 | Get-JobStatus        | Get the status and logs of a K8s job                   |
 | Get-PodByJobName     | Get a pod give a K8s job name                          |
 | Get-PodEvent         | Get all the K8s events for a pod                       |
@@ -188,9 +189,9 @@ The `run.ps1` script has the following tasks that you can execute with `.\run.ps
 
 In the `DevOps/Kubernetes` folder are the following manifests:
 
-| Name                   | Description                                                             |
-| ---------------------- | ----------------------------------------------------------------------- |
-| config-and-secret.yaml | ConfigMap and Secret for the minimal1 deployment                        |
+| Name                   | Description                                                              |
+| ---------------------- | ------------------------------------------------------------------------ |
+| config-and-secret.yaml | ConfigMap and Secret for the minimal1 deployment                         |
 | manifests1.yml         | Creates a deployment, service, and ingress with host my-k8s-example1.com |
 | manifests2.yml         | Creates a deployment, service, and ingress with host my-k8s-example2.com |
 
