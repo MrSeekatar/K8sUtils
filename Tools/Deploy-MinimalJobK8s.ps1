@@ -23,8 +23,23 @@ Tag to use for the job, defaults to latest
 .PARAMETER InitTag
 Tag to use for the init container, defaults to latest
 
-.EXAMPLE
+.PARAMETER SkipRollbackOnError
+If set, don't do a helm rollback on error
 
+.PARAMETER TimeoutSecs
+Timeout in seconds for waiting on the pods. Defaults to 600
+
+.PARAMETER PollIntervalSec
+Seconds to wait between polls defaults to 5
+
+.PARAMETER ColorType
+Color type to use for output, defaults to ANSI
+
+.PARAMETER BadSecret
+If set, use a bad secret name for the job
+
+.PARAMETER StartOnly
+If set, don't wait for the job to complete, just start it
 #>
 function Deploy-MinimalJobK8s {
     [CmdletBinding()]
@@ -41,7 +56,8 @@ function Deploy-MinimalJobK8s {
         [int] $PollIntervalSec = 3,
         [ValidateSet("None", "ANSI", "DevOps")]
         [string] $ColorType = "ANSI",
-        [switch] $BadSecret
+        [switch] $BadSecret,
+        [switch] $StartOnly
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -115,6 +131,9 @@ $initContainer
             throw "kubectl apply failed"
         }
 
+        if ($StartOnly) {
+            return
+        }
         $logFolder = [System.IO.Path]::GetTempPath()
         Get-JobStatus -JobName "test-job" `
                       -ReplicaCount 1 `
@@ -127,7 +146,9 @@ $initContainer
     } catch {
         Write-Error "Error! $_`n$($_.ScriptStackTrace)"
     } finally {
-        kubectl delete job test-job --ignore-not-found | Write-Host
+        if (!$StartOnly) {
+          kubectl delete job test-job --ignore-not-found | Write-Host
+        }
     }
 
 }
