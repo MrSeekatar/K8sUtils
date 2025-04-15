@@ -283,6 +283,7 @@ function Invoke-HelmUpgrade {
         } else {
             $status.RollbackStatus = [RollbackStatus]::DeployedOk
         }
+        $LASTEXITCODE = $upgradeExit
         Write-Output $status
     } catch {
         $err = $_
@@ -294,6 +295,7 @@ function Invoke-HelmUpgrade {
         Write-Warning "Caught error. Following status may be incomplete"
         Write-Output $status
         Write-Error "$err`n$($err.ScriptStackTrace)"
+        $LASTEXITCODE = 9
     } finally {
         Pop-Location
         $script:ColorType = $prev

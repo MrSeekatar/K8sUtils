@@ -93,7 +93,7 @@ function Write-Header() {
     $headerMessage = $LogLevel -eq "error" ? "ERROR" : ""
     $prefix = $LogLevel -eq "error" ? "" : $HeaderPrefix
     Write-Status -Msg $headerMessage -LogLevel $LogLevel -ColorType $ColorType -Char '╒═╕' -Length 80
-    Write-Status -Msg $msg -LogLevel $LogLevel -Length $Length -ColorType ANSI -Char '─' -Prefix $prefix
+    Write-Status -Msg $msg -LogLevel $LogLevel -Length $Length -ColorType $ColorType -Char '─' -Prefix $prefix
 
     $script:headerLogLevel = $LogLevel
     $script:headerLength = $Length
