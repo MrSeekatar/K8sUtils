@@ -205,6 +205,7 @@ function Invoke-HelmUpgrade {
 
     $status = [ReleaseStatus]::new($ReleaseName)
     $prevVersion = 0
+    $upgradeExit = 9
     try {
         $hookMsg = $PreHookJobName ? " waiting ${PreHookTimeoutSecs}s prehook job '$PreHookJobName'" : ""
 
@@ -258,6 +259,7 @@ function Invoke-HelmUpgrade {
                                                         -msg "Helm upgrade got last exit code $upgradeExit" `
                                                         -prevVersion $prevVersion
             Write-Output $status
+            $upgradeExit = 9
             return
         }
 
@@ -280,6 +282,7 @@ function Invoke-HelmUpgrade {
 
         if ($DeploymentSelector -and !$status.Running) {
             $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release '$ReleaseName' had errors" -PrevVersion $prevVersion
+            $upgradeExit = 9
         } else {
             $status.RollbackStatus = [RollbackStatus]::DeployedOk
         }
@@ -294,7 +297,9 @@ function Invoke-HelmUpgrade {
         Write-Warning "Caught error. Following status may be incomplete"
         Write-Output $status
         Write-Error "$err`n$($err.ScriptStackTrace)"
+        $upgradeExit = 9
     } finally {
+        $Global:LASTEXITCODE = $upgradeExit
         Pop-Location
         $script:ColorType = $prev
     }

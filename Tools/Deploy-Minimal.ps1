@@ -78,7 +78,8 @@ function Deploy-Minimal {
         [string] $CpuRequest = "10m",
         [string] $HookCpuRequest = "10m",
         [string] $chartName = "minimal",
-        [string] $ServiceAccount = ""
+        [string] $ServiceAccount = "",
+        [switch] $HappyTest
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -163,6 +164,12 @@ function Deploy-Minimal {
                            -ColorType $ColorType `
                            -Verbose:$VerbosePreference `
                            -LogFileFolder $logFolder
+
+        if ($HappyTest) {
+            $LASTEXITCODE | Should -Be 0
+        } else {
+            $LASTEXITCODE | Should -Not -Be 0
+        }
         Write-Host "Logs for job are in $logFolder" -ForegroundColor Cyan
         if ($PassThru) {
             $ret

@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.30] 2025-04-15
+
+### Fixed
+
+- `$LASTEXITCODE` wasn't set to the `helm upgrade` exit code causing false positives in pipelines
+
 ## [1.0.29] 2025-04-02
 
 ### Added
