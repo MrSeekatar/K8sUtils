@@ -143,4 +143,4 @@ extraVolumes:
   - name: mt
     emptyDir: {}
 
-jobTtlSecondsAfterFinished: 600
+jobTtlSecondsAfterFinished: 0

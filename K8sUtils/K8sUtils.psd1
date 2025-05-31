@@ -12,7 +12,7 @@
 RootModule = 'K8sUtils.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.30'
+ModuleVersion = '1.0.31'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -80,7 +80,7 @@ CmdletsToExport = @()
 VariablesToExport = '*'
 
 # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
-AliasesToExport = 'Get-PodEvent', 'Get-RsEvent', 'Get-ReplicaSetEvent'
+AliasesToExport = 'Get-PodEvent', 'Get-RsEvent', 'Get-ReplicaSetEvent','Get-JobEvent','Get-EventByUid'
 
 # DSC resources to export from this module
 # DscResourcesToExport = @()

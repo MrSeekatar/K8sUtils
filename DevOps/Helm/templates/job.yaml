@@ -14,7 +14,7 @@ spec:
   {{- if .Values.jobTtlSecondsAfterFinished }}
   ttlSecondsAfterFinished: {{ .Values.jobTtlSecondsAfterFinished }}
   {{- else }}
-  ttlSecondsAfterFinished: 30
+  ttlSecondsAfterFinished: 0
   {{- end }}
   template:
     metadata:

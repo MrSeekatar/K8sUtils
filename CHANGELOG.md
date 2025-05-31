@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.31] 2025-05-31
+
+### Fixed
+
+- Issue #19 Creating a job with a bad tag doesn't report the error
+
 ## [1.0.30] 2025-04-15
 
 ### Fixed
