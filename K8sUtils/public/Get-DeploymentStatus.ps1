@@ -76,8 +76,8 @@ function Get-DeploymentStatus {
         throw "When looking for pod, nothing returned from kubectl get rs -l $Selector --namespace $Namespace. Check selector."
     }
     $hash = $rs.metadata.labels."pod-template-hash"
-    Write-Verbose "rs pod-template-hash is $hash"
-    $rsEvents = Write-K8sEvent -Prefix "ReplicaSet" -ObjectName $rs.metadata.name `
+    Write-Verbose "rs pod-template-hash is $hash. Uid is $($rs.metadata.uid)"
+    $rsEvents = Write-K8sEvent -Prefix "ReplicaSet" -Uid $rs.metadata.uid `
                                         -Namespace $Namespace `
                                         -PassThru `
                                         -LogLevel ok `

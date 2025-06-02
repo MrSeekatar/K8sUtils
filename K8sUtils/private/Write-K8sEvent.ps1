@@ -5,6 +5,9 @@ Private function to write the events the output
 .PARAMETER ObjectName
 Name of the object to get events for
 
+.PARAMETER Uid
+Uid of the object to get events for
+
 .PARAMETER Prefix
 Prefix for logging, usually the type of the object
 
@@ -29,9 +32,11 @@ If PassThru is set, return array of strings error messages
 function Write-K8sEvent {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory, ParameterSetName = "ObjectName")]
         [Alias("PodName", "RsName")]
         [string]$ObjectName,
+        [Parameter(Mandatory, ParameterSetName = "Uid")]
+        [string]$Uid,
         [Parameter(Mandatory)]
         [string]$Prefix,
         [DateTime]$Since,
@@ -42,7 +47,15 @@ function Write-K8sEvent {
         [switch] $FilterStartupWarnings
     )
 
-    $events = Get-K8sEvent -Namespace $Namespace -ObjectName $ObjectName
+    $params = @{
+        Namespace = $Namespace
+    }
+    if ($Uid) {
+        $params["Uid"] = $Uid
+    } else {
+        $params["ObjectName"] = $ObjectName
+    }
+    $events = Get-K8sEvent @params
     if ($null -eq $events) {
         Write-Status "Get-K8sEvent returned null for $ObjectName" -LogLevel warning
         return

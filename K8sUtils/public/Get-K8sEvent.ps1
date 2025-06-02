@@ -5,6 +5,9 @@ Get events for an object
 .PARAMETER ObjectName
 Name of the object to get events for
 
+.PARAMETER Uid
+Uid of the object to get events for
+
 .PARAMETER NoNormal
 If set, don't return normal events, only warnings
 

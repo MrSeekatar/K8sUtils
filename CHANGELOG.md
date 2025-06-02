@@ -5,6 +5,7 @@
 ### Fixed
 
 - Issue #19 Creating a job with a bad tag doesn't report the error
+- Get prev pods logs if the pod has crashed
 
 ## [1.0.30] 2025-04-15
 
