@@ -33,6 +33,7 @@ Get all non-normal events for a replicaset in namespace test
 One or more event objects for the pod, $null if error
 #>
 function Get-K8sEvent {
+    [CmdletBinding()]
     param (
         [CmdletBinding()]
         [Parameter(Mandatory, ParameterSetName = "ObjectName")]

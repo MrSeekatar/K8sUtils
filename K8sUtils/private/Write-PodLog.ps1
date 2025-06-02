@@ -30,6 +30,7 @@ An example
 General notes
 #>
 function Write-PodLog {
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
         [string] $PodName,
@@ -53,12 +54,17 @@ function Write-PodLog {
     if ($HasInit) {
         $extraLogParams = "--prefix", "--all-containers"
     }
-    kubectl get pod $PodName --namespace $Namespace 2>&1 | Out-Null
+    # get the pod status to see if we should look at
+    $podJson = kubectl get pod $PodName --namespace $Namespace -o json
+    $podStatus =  $podJson | ConvertFrom-Json -Depth 100
     if ($LASTEXITCODE -ne 0) {
         $extraLogParams += "--previous"
         $LASTEXITCODE = 0
+    } elseif ($podStatus.status.containerStatuses.restartCount -gt 0) {
+        $extraLogParams += "--previous"
     }
 
+    Write-Verbose ($podJson | Out-String)
     Write-Verbose "kubectl logs --namespace $Namespace $PodName $($extraLogParams -join ' ')"
     Write-Header $msg -LogLevel $LogLevel
     $tempFile = Get-TempLogFile
