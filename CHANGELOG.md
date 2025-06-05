@@ -1,6 +1,10 @@
 # Change Log
 
-## [1.0.31] 2025-05-31
+## [1.0.31] 2025-06-03
+
+### Added
+
+- Uid parameter to Get-K8sEvent, and Write-K8sEvent for better determining which pod an event is for
 
 ### Fixed
 
