@@ -1,5 +1,16 @@
 # Change Log
 
+## [1.0.31] 2025-06-03
+
+### Added
+
+- Uid parameter to Get-K8sEvent, and Write-K8sEvent for better determining which pod an event is for
+
+### Fixed
+
+- Issue #19 Creating a job with a bad tag doesn't report the error
+- Get prev pods logs if the pod has crashed
+
 ## [1.0.30] 2025-04-15
 
 ### Fixed

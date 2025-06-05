@@ -5,6 +5,9 @@ Get events for an object
 .PARAMETER ObjectName
 Name of the object to get events for
 
+.PARAMETER Uid
+Uid of the object to get events for
+
 .PARAMETER NoNormal
 If set, don't return normal events, only warnings
 
@@ -30,20 +33,24 @@ Get all non-normal events for a replicaset in namespace test
 One or more event objects for the pod, $null if error
 #>
 function Get-K8sEvent {
+    [CmdletBinding()]
     param (
         [CmdletBinding()]
-        [Parameter(Mandatory = $true)]
-        [Alias("PodName", "RsName")]
+        [Parameter(Mandatory, ParameterSetName = "ObjectName")]
+        [Alias("PodName", "RsName","JobName")]
         [string] $ObjectName,
+        [Parameter(Mandatory, ParameterSetName = "Uid")]
+        [string] $Uid,
         [switch] $NoNormal,
         [string] $Namespace = "default"
     )
-    Write-Verbose "kubectl get events --namespace $Namespace --field-selector `"involvedObject.name=$ObjectName`" -o json"
-    $json = kubectl get events --namespace $Namespace --field-selector "involvedObject.name=$ObjectName" -o json
+    $involved = [bool]$ObjectName ? "involvedObject.name=$ObjectName" : "involvedObject.uid=$Uid"
+    Write-Verbose "kubectl get events --namespace $Namespace --field-selector `"$involved`" -o json"
+    $json = kubectl get events --namespace $Namespace --field-selector $involved -o json
 
     Write-Verbose "kubectl exit code: $LASTEXITCODE"
     if ($LASTEXITCODE -ne 0) {
-        Write-Status "kubectl get events --namespace $Namespace --field-selector `"involvedObject.name=$ObjectName`" -o json" -LogLevel warning
+        Write-Status "kubectl get events --namespace $Namespace --field-selector `"$involved`" -o json" -LogLevel warning
         Write-Status "  had exit code of $LASTEXITCODE" -LogLevel warning
         Write-Status "  JSON is $json" -LogLevel warning
         return $null
@@ -71,4 +78,6 @@ function Get-K8sEvent {
 
 Set-Alias -Name Get-PodEvent -Value Get-K8sEvent -Description "Get events for a pod"
 Set-Alias -Name Get-RsEvent -Value Get-K8sEvent -Description "Get events for a replica set"
+Set-Alias -Name Get-JobEvent -Value Get-K8sEvent -Description "Get events for a job"
+Set-Alias -Name Get-EventByUid -Value Get-K8sEvent -Description "Get events by UID"
 Set-Alias -Name Get-ReplicaSetEvent -Value Get-K8sEvent -Description "Get events for a replica set"

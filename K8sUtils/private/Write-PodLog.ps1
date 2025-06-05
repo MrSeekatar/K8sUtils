@@ -1,4 +1,36 @@
+<#
+.SYNOPSIS
+Helper to get and write pod logs with header and footer
+
+.PARAMETER PodName
+Name of the pod to get logs for
+
+.PARAMETER Prefix
+Prefix for the log header
+
+.PARAMETER HasInit
+Set to true if the pod has an init container
+
+.PARAMETER Namespace
+K8s namespace to use, defaults to default
+
+.PARAMETER Since
+If specified, only get logs since this time (e.g. 1h, 2m, 30s)
+
+.PARAMETER LogLevel
+Log level to use for the header, defaults to ok
+
+.PARAMETER LogFileFolder
+Optional folder to write the logs to
+
+.EXAMPLE
+An example
+
+.NOTES
+General notes
+#>
 function Write-PodLog {
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
         [string] $PodName,
@@ -22,7 +54,18 @@ function Write-PodLog {
     if ($HasInit) {
         $extraLogParams = "--prefix", "--all-containers"
     }
+    # get the pod status to see if we should look at
+    $podJson = kubectl get pod $PodName --namespace $Namespace -o json
+    $podStatus =  $podJson | ConvertFrom-Json -Depth 100
+    if ($LASTEXITCODE -ne 0) {
+        $extraLogParams += "--previous"
+        $LASTEXITCODE = 0
+    } elseif ($podStatus.status.containerStatuses.restartCount -gt 0) {
+        $extraLogParams += "--previous"
+    }
 
+    Write-Verbose ($podJson | Out-String)
+    Write-Verbose "kubectl logs --namespace $Namespace $PodName $($extraLogParams -join ' ')"
     Write-Header $msg -LogLevel $LogLevel
     $tempFile = Get-TempLogFile
     if ($LogFileFolder) {

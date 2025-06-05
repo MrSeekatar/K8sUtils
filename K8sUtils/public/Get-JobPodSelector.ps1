@@ -15,6 +15,7 @@ Get the pod status for the pod in the job file-watcher-job
 
 #>
 function Get-JobPodSelector {
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
         [string] $JobName,

@@ -52,7 +52,7 @@ function Get-JobStatus {
         $selector = "batch.kubernetes.io/controller-uid=$uid"
         Write-Verbose "Checking pods for job selector $selector in namespace $Namespace"
 
-        Get-PodStatus -Selector $selector `
+        $status = Get-PodStatus -Selector $selector `
             -ReplicaCount $ReplicaCount `
             -PodType Job `
             -Verbose:$VerbosePreference `
@@ -60,6 +60,16 @@ function Get-JobStatus {
             -PollIntervalSec $PollIntervalSec `
             -Namespace $Namespace `
             -LogFileFolder $LogFileFolder `
+
+        if ($status.PodName -eq "<no pods found>") {
+            $jobEvents = Get-EventByUid -Uid $uid -Namespace $Namespace -NoNormal
+            if ($jobEvents) {
+                Write-Verbose "Job '$JobName' has $($jobEvents.Count) events"
+                $status.Status = "ConfigError"
+                $status.LastBadEvents = $jobEvents.Message | ForEach-Object { $_ -replace 'Pod "[\w-]*"', 'Pod "..."' } | Select-Object -Unique
+            }
+        }
+        return $status
 
     } else {
         Write-Warning "Job $JobName not found in namespace $Namespace"

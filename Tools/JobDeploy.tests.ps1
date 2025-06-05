@@ -66,5 +66,12 @@ Describe "Deploys Minimal API" {
         $deploy = Deploy-MinimalJob -PassThru -TimeoutSec 5 -InitRunCount 50
         Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout"
     } -Tag 'Sad', 'Timeout', 'j18'
+
+    It "has a bad tag on the container" {
+        $deploy = Deploy-MinimalJob -PassThru -SkipInit -ImageTag "latest " -TimeoutSecs 5
+        $deploy[1].Status | Should -Be 'ConfigError'
+        $deploy[1].LastBadEvents.Count | Should -BeGreaterThan 0
+        'Error creating: Pod "..." is invalid: spec.containers[0].image: Invalid value: "init-app:latest ": must not have leading or trailing whitespace' | Should -BeIn $deploy[1].LastBadEvents
+    } -Tag 'Sad', 'Config', 'j20'
 }
 
