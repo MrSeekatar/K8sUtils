@@ -78,8 +78,7 @@ function Deploy-Minimal {
         [string] $CpuRequest = "10m",
         [string] $HookCpuRequest = "10m",
         [string] $chartName = "minimal",
-        [string] $ServiceAccount = "",
-        [switch] $HappyTest
+        [string] $ServiceAccount = ""
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -95,7 +94,7 @@ function Deploy-Minimal {
 
     if (!$SkipInit) {
         $initContainer = @{
-            image           = "init-app:$InitTag"
+            image           = "loyal.azurecr.io/init-app:$InitTag"
             imagePullPolicy = "Never"
             name            = "init-container-app"
             env             = @(
@@ -165,11 +164,6 @@ function Deploy-Minimal {
                            -Verbose:$VerbosePreference `
                            -LogFileFolder $logFolder
 
-        if ($HappyTest) {
-            $LASTEXITCODE | Should -Be 0
-        } else {
-            $LASTEXITCODE | Should -Not -Be 0
-        }
         Write-Host "Logs for job are in $logFolder" -ForegroundColor Cyan
         if ($PassThru) {
             $ret

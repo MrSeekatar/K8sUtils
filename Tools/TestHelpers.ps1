@@ -5,10 +5,15 @@ $podError = 2
 $otherError = 3
 $ignoreError = 4
 
-function Test-Deploy( $deploy, $running = $true, $podCount = 1, $rollbackStatus = "DeployedOk", $expectedStatus = $okStatus) {
+function Test-Deploy( $deploy, $running = $true, $podCount = 1, $rollbackStatus = "DeployedOk", $expectedStatus = $okStatus, [switch] $zeroExitCode) {
     if (!(Get-Member -InputObject $deploy -Name 'Running' -MemberType Property)) {
         Write-Warning "Test-Deploy found that deploy object is missing Running property, full object:"
         Write-Warning ($deploy | ConvertTo-Json -Depth 5)
+    }
+    if ($zeroExitCode) {
+        $deploy.ExitCode | Should -Be 0
+    } else {
+        $deploy.ExitCode | Should -Not -Be 0
     }
     $deploy.Running | Should -Be $running
     $deploy.ReleaseName | Should -Be 'test'

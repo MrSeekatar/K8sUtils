@@ -11,9 +11,9 @@ BeforeAll {
 Describe "Deploys Minimal API" {
 
     It "runs hook, init ok" {
-        $deploy = Deploy-Minimal -PassThru -HappyTest
+        $deploy = Deploy-Minimal -PassThru
 
-        Test-Deploy $deploy
+        Test-Deploy $deploy -ZeroExitCode
 
         Test-PreHook $deploy.PreHookStatus
 
@@ -21,9 +21,9 @@ Describe "Deploys Minimal API" {
     } -Tag 'Happy','t1'
 
     It "runs without init ok" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -HappyTest
+        $deploy = Deploy-Minimal -PassThru -SkipInit
 
-        Test-Deploy $deploy
+        Test-Deploy $deploy -ZeroExitCode
 
         Test-PreHook $deploy.PreHookStatus
 
@@ -31,23 +31,24 @@ Describe "Deploys Minimal API" {
     } -Tag 'Happy','t2'
 
     It "runs without prehook ok" {
-        $deploy = Deploy-Minimal -PassThru -SkipPreHook -HappyTest
+        $deploy = Deploy-Minimal -PassThru -SkipPreHook
 
-        Test-Deploy $deploy
+        Test-Deploy $deploy -ZeroExitCode
 
         Test-MainPod $deploy.PodStatuses[0]
     } -Tag 'Happy','t3'
 
     It "runs without init or prehook ok" {
-        $deploy = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -HappyTest
+        $deploy = Deploy-Minimal -PassThru -SkipPreHook -SkipInit
 
-        Test-Deploy $deploy
+        Test-Deploy $deploy -ZeroExitCode
 
         Test-MainPod $deploy.PodStatuses[0]
     } -Tag 'Happy',"Shortest",'t4'
 
     It "runs with prehook only ok" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipDeploy -HappyTest
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipDeploy
+        $LASTEXITCODE | Should -Be 0
 
         $deploy.Running | Should -Be $false
         $deploy.ReleaseName | Should -Be 'test'
@@ -57,7 +58,8 @@ Describe "Deploys Minimal API" {
     } -Tag 'Happy','t5'
 
     It "runs a dry run" {
-        $deploy = Deploy-Minimal -PassThru -DryRun -HappyTest 2>&1 | Out-Null
+        $deploy = Deploy-Minimal -PassThru -DryRun 2>&1 | Out-Null
+        $LASTEXITCODE | Should -Be 0
         $deploy | Should -Be $null
     } -Tag 'Happy','t6'
 
@@ -97,8 +99,8 @@ Describe "Deploys Minimal API" {
     } -Tag 'Timeout','Sad','t11'
 
     It "has a temporary startup timeout" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 60 -RunCount 10 -StartupProbe -HappyTest
-        Test-Deploy $deploy -Running $true
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 60 -RunCount 10 -StartupProbe
+        Test-Deploy $deploy -Running $true -ZeroExitCode
 
         Test-MainPod $deploy.PodStatuses[0]
     } -Tag 'Probe', 'Happy', 't12'
@@ -208,15 +210,15 @@ Describe "Deploys Minimal API" {
     } -Tag 'Sad','t24'
 
     It "tests no changes" {
-        $deploy1 = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -TimeoutSecs 10 -SkipSetStartTime -HappyTest
+        $deploy1 = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -TimeoutSecs 10 -SkipSetStartTime
 
-        Test-Deploy $deploy1
+        Test-Deploy $deploy1 -ZeroExitCode
 
         Test-MainPod $deploy1.PodStatuses[0]
 
-        $deploy2 = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -TimeoutSecs 10 -SkipSetStartTime -HappyTest
+        $deploy2 = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -TimeoutSecs 10 -SkipSetStartTime
 
-        Test-Deploy $deploy2
+        Test-Deploy $deploy2 -ZeroExitCode
 
         Test-MainPod $deploy2.PodStatuses[0]
 
@@ -277,8 +279,8 @@ Describe "Deploys Minimal API" {
     } -Tag 'Sad','t30'
 
     It "tests service account with secret access" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -HappyTest
-        Test-Deploy $deploy
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook
+        Test-Deploy $deploy -ZeroExitCode
 
         Test-MainPod $deploy.PodStatuses[0]
 
