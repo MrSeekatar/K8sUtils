@@ -78,7 +78,8 @@ function Deploy-Minimal {
         [string] $CpuRequest = "10m",
         [string] $HookCpuRequest = "10m",
         [string] $chartName = "minimal",
-        [string] $ServiceAccount = ""
+        [string] $ServiceAccount = "",
+        [string] $ValuesFile = "minimal_values.yaml"
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -148,7 +149,7 @@ function Deploy-Minimal {
     $releaseName = "test"
     try {
         $logFolder = [System.IO.Path]::GetTempPath()
-        $ret = Invoke-HelmUpgrade -ValueFile "minimal_values.yaml" `
+        $ret = Invoke-HelmUpgrade -ValueFile $ValuesFile `
                            -ChartName $chartName `
                            -ReleaseName $releaseName `
                            -HelmSet ($helmSet -join ',')`

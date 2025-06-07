@@ -1,5 +1,15 @@
 # Change Log
 
+## [1.0.32] 2025-06-09
+
+### Added
+
+- Support for running tests in Azure Kubernetes Service
+
+### Changed
+
+- Removed -HappyTest from Deploy-Minimal and moved Should check into the test script to avoid error when running as a one-off
+
 ## [1.0.31] 2025-06-03
 
 ### Added

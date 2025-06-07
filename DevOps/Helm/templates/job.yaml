@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/version: {{ .Chart.AppVersion }}
     helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
 spec:
-  backoffLimit: 0
+  backoffLimit: 1 #default is 6, if 0 may not get error output
   activeDeadlineSeconds: 3000
   {{- if .Values.jobTtlSecondsAfterFinished }}
   ttlSecondsAfterFinished: {{ .Values.jobTtlSecondsAfterFinished }}
@@ -27,8 +27,8 @@ spec:
       restartPolicy: Never
       containers:
       - name: pre-install-upgrade-job
-        image: "init-app:{{ .Values.job.imageTag }}"
-        imagePullPolicy: Never
+        image: "{{ .Values.registry }}/init-app:{{ .Values.job.imageTag }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
         env:
         - name: RUN_COUNT
           value: "{{ .Values.job.runCount }}"

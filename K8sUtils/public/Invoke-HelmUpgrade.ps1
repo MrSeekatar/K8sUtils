@@ -244,7 +244,10 @@ function Invoke-HelmUpgrade {
                                                         -PodType PreInstallJob `
                                                         -LogFileFolder $LogFileFolder
             Write-Verbose "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
-            $status.PreHookStatus = $hookStatus
+            if ($hookStatus -is "array" ) {
+                Write-Warning "Multiple hook statuses returned:`n$($hookStatus  | ConvertTo-Json -Depth 5 -EnumsAsStrings)" # so we can see the status
+            }
+            $status.PreHookStatus = $hookStatus | Select-Object -Last 1 # get the last status, in case it was a job
         }
 
         if ($upgradeExit -ne 0 -or ($status.PreHookStatus -and $status.PreHookStatus.Status -ne [Status]::Completed)) {

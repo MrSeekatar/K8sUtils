@@ -119,6 +119,7 @@ function Deploy-MinimalJob {
                            -SkipRollbackOnError:$SkipRollbackOnError `
                            -ColorType $ColorType `
                            -Verbose:$VerbosePreference
+
         if ($PassThru) {
             $ret
         } else {

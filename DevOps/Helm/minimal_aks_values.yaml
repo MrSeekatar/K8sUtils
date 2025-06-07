@@ -1,8 +1,8 @@
 # Values file for deploying the minimal test app
 appVersion: "1.17.0"
 
-registry: "docker.io"
-imagePullPolicy: Never
+registry: "loyal.azurecr.io"
+imagePullPolicy: "IfNotPresent"
 
 replicaCount: 1
 
@@ -23,7 +23,7 @@ jobTtlSecondsAfterFinished: 30
 
 image:
   repository: "minimal"
-  pullPolicy: Never
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
 
