@@ -79,7 +79,7 @@ function Deploy-Minimal {
         [string] $HookCpuRequest = "10m",
         [string] $chartName = "minimal",
         [string] $ServiceAccount = "",
-        [string] $ValuesFile = "minimal_values.yaml"
+        [string] $registry = "docker.io"
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -95,7 +95,7 @@ function Deploy-Minimal {
 
     if (!$SkipInit) {
         $initContainer = @{
-            image           = "loyal.azurecr.io/init-app:$InitTag"
+            image           = "$registry/init-app:$InitTag"
             imagePullPolicy = "Never"
             name            = "init-container-app"
             env             = @(
@@ -131,10 +131,13 @@ function Deploy-Minimal {
     }
 
     $helmSet += "deployment.enabled=$($SkipDeploy ? "false" : "true")",
+                "registry=$registry",
+                "imagePullPolicy=$($registry -eq "docker.io" ? "Never" : "IfNotPresent")",
                 "env.deployTime=$($SkipSetStartTime ? "2024-01-01" : (Get-Date))",
                 "env.failOnStart=$fail",
                 "env.runCount=$RunCount",
                 "image.tag=$ImageTag",
+                "image.pullPolicy=$($registry -eq "docker.io" ? "Never" : "IfNotPresent")",
                 "preHook.create=$(!$SkipPreHook)",
                 "preHook.fail=$HookFail",
                 "preHook.imageTag=$HookTag",
@@ -149,7 +152,7 @@ function Deploy-Minimal {
     $releaseName = "test"
     try {
         $logFolder = [System.IO.Path]::GetTempPath()
-        $ret = Invoke-HelmUpgrade -ValueFile $ValuesFile `
+        $ret = Invoke-HelmUpgrade -ValueFile minimal_values.yaml `
                            -ChartName $chartName `
                            -ReleaseName $releaseName `
                            -HelmSet ($helmSet -join ',')`
