@@ -83,6 +83,6 @@ Describe "Deploys Minimal API" {
         $deploy = Deploy-MinimalJobK8s -SkipInit -ImageTag "latest " -TimeoutSecs 5
         $deploy.Status | Should -Be 'ConfigError'
         $deploy.LastBadEvents.Count | Should -BeGreaterThan 0
-        'Error creating: Pod "..." is invalid: spec.containers[0].image: Invalid value: "init-app:latest ": must not have leading or trailing whitespace' | Should -BeIn $deploy.LastBadEvents
+        'Error creating: Pod "..." is invalid: spec.containers[0].image: Invalid value: "docker.io/init-app:latest ": must not have leading or trailing whitespace' | Should -BeIn $deploy.LastBadEvents
     } -Tag 'Sad', 'Config', 'k20'
 }
