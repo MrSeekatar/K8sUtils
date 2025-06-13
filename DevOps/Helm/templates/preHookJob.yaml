@@ -19,7 +19,7 @@ metadata:
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   backoffLimit: 1 #default is 6, if 0 may not get error output
-  activeDeadlineSeconds: 3000
+  activeDeadlineSeconds: 10
   {{- if .Values.jobTtlSecondsAfterFinished }}
   ttlSecondsAfterFinished: {{ .Values.jobTtlSecondsAfterFinished }}
   {{- else }}

@@ -248,6 +248,15 @@ function Invoke-HelmUpgrade {
                 Write-Warning "Multiple hook statuses returned:`n$($hookStatus  | ConvertTo-Json -Depth 5 -EnumsAsStrings)" # so we can see the status
             }
             $status.PreHookStatus = $hookStatus | Select-Object -Last 1 # get the last status, in case it was a job
+            if ($status.PreHookStatus.PodName -eq '<no pods found>') {
+                $events = Get-JobPodEvent -JobName $PreHookJobName -FromWhen (Get-Date).AddSeconds(-$PreHookTimeoutSecs)
+                if ($events) {
+                    Write-Verbose "Prehook job '$PreHookJobName' events: $($events | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+                    $status.PreHookStatus.LastBadEvents = $events
+                } else {
+                    Write-Verbose "No events found for prehook job '$PreHookJobName'"
+                }
+            }
         }
 
         if ($upgradeExit -ne 0 -or ($status.PreHookStatus -and $status.PreHookStatus.Status -ne [Status]::Completed)) {
