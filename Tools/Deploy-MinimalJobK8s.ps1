@@ -44,8 +44,11 @@ If set, don't wait for the job to complete, just start it
 .PARAMETER ImagePullPolicy
 Image pull policy to use for the job, defaults to Never. Set to Always or IfNotPresent as needed.
 
-.PARAMETER registry
+.PARAMETER Registry
 Docker registry to use for the job image, defaults to docker.io
+
+.PARAMETER ActiveDeadlineSeconds
+How long to wait for the job to complete, defaults to 30 seconds
 #>
 function Deploy-MinimalJobK8s {
     [CmdletBinding()]
@@ -66,7 +69,8 @@ function Deploy-MinimalJobK8s {
         [switch] $StartOnly,
         [ValidateSet("Always", "IfNotPresent", "Never")]
         [string] $ImagePullPolicy = "Never",
-        [string] $registry = "docker.io"
+        [string] $Registry = "docker.io",
+        [int] $ActiveDeadlineSeconds = 30
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -81,7 +85,7 @@ function Deploy-MinimalJobK8s {
         volumeMounts:
         - mountPath: /mt
           name: mt
-        image: $registry/init-app:$InitTag
+        image: $Registry/init-app:$InitTag
         imagePullPolicy: $imagePullPolicy
         name: minimal-as-init
         resources: {}
@@ -95,8 +99,8 @@ kind: Job
 metadata:
   name: "test-job"
 spec:
-  backoffLimit: 1 #default is 6, if 0 may not get error output
-  activeDeadlineSeconds: 3000
+  backoffLimit: 0 #default is 6
+  ActiveDeadlineSeconds: $ActiveDeadlineSeconds
   ttlSecondsAfterFinished: 600
   template:
     metadata:
@@ -105,7 +109,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: test-job
-        image: "$registry/init-app:$ImageTag"
+        image: "$Registry/init-app:$ImageTag"
         imagePullPolicy: $imagePullPolicy
         env:
         - name: RUN_COUNT

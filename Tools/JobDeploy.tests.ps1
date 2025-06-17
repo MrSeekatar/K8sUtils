@@ -67,11 +67,18 @@ Describe "Deploys Minimal API" {
         Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout" -ZeroDeployExitCode
     } -Tag 'Sad', 'Timeout', 'j18'
 
-    It "has a bad tag on the container" {
-        $deploy = Deploy-MinimalJob -PassThru -SkipInit -ImageTag "latest " -TimeoutSecs 5
+    It "has a invalid tag on the container" {
+        $deploy = Deploy-MinimalJob -PassThru -SkipInit -ImageTag "latest " -TimeoutSecs 5 # note the trailing space
         $deploy[1].Status | Should -Be 'ConfigError'
         $deploy[1].LastBadEvents.Count | Should -BeGreaterThan 0
         'Error creating: Pod "..." is invalid: spec.containers[0].image: Invalid value: "docker.io/init-app:latest ": must not have leading or trailing whitespace' | Should -BeIn $deploy[1].LastBadEvents
     } -Tag 'Sad', 'Config', 'j20'
+
+    It "has a bad tag on the container with short active deadline" {
+        $deploy = Deploy-MinimalJob -PassThru -SkipInit -ImageTag "ZZZZ" -TimeoutSecs 5 -ActiveDeadlineSeconds 2
+        $deploy[1].Status | Should -Be 'Timeout'
+        $deploy[1].LastBadEvents.Count | Should -BeGreaterThan 0
+        $deploy[1].LastBadEvents | Where-Object { $_ -like "*ZZZZ`" is not present with pull policy of*" } | Should -Not -BeNullOrEmpty
+    } -Tag 'Sad', 'Config', 'j21'
 }
 

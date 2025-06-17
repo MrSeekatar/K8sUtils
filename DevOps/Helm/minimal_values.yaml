@@ -19,6 +19,7 @@ job:
 deployment:
   enabled: true
 
+jobActiveDeadlineSeconds: 30
 jobTtlSecondsAfterFinished: 30
 
 image:

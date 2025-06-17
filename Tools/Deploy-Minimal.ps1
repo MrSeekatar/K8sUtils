@@ -41,6 +41,55 @@ Readiness url to use, defaults to /info
 .PARAMETER SkipRollbackOnError
 If set, don't do a helm rollback on error
 
+.PARAMETER TimeoutSecs
+How long to wait for the main container to be ready, defaults to 60 seconds
+
+.PARAMETER PreHookTimeoutSecs
+How long to wait for the preHook job to complete, defaults to 15 seconds
+
+.PARAMETER PollIntervalSec
+How often to poll for the main container to be ready, defaults to 3 seconds
+
+.PARAMETER Replicas
+Number of replicas to use for the deployment, defaults to 1
+
+.PARAMETER ColorType
+Type of color to use for output, defaults to ANSI, can be None or DevOps
+
+.PARAMETER BadSecret
+If set, use a bad secret name in the main container
+
+.PARAMETER PassThru
+If set, return the result of the helm upgrade command
+
+.PARAMETER SkipDeploy
+If set, do not deploy the main container, just the init and preHook jobs
+
+.PARAMETER AlwaysCheckPreHook
+If set, always check the preHook job, even if SkipPreHook is set
+
+.PARAMETER SkipSetStartTime
+If set, do not set the env.deployTime in the main container, so all manifests are the same
+
+.PARAMETER CpuRequest
+CPU request for the main container, defaults to 10m
+
+.PARAMETER HookCpuRequest
+CPU request for the preHook job, defaults to 10m
+
+.PARAMETER chartName
+Name of the chart to deploy, defaults to minimal
+
+.PARAMETER ServiceAccount
+Service account to use for the deployment, defaults to empty string
+
+.PARAMETER registry
+Container registry to use, defaults to docker.io
+
+.PARAMETER activeDeadlineSeconds
+How long to wait for the preHook job to complete before it is killed, defaults to 30 seconds
+
+
 .EXAMPLE
 
 .NOTES
@@ -79,7 +128,9 @@ function Deploy-Minimal {
         [string] $HookCpuRequest = "10m",
         [string] $chartName = "minimal",
         [string] $ServiceAccount = "",
-        [string] $registry = "docker.io"
+        [string] $registry = "docker.io",
+        [int] $activeDeadlineSeconds = 30
+
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -138,6 +189,7 @@ function Deploy-Minimal {
                 "env.runCount=$RunCount",
                 "image.tag=$ImageTag",
                 "image.pullPolicy=$($registry -eq "docker.io" ? "Never" : "IfNotPresent")",
+                "jobActiveDeadlineSeconds=$activeDeadlineSeconds",
                 "preHook.create=$(!$SkipPreHook)",
                 "preHook.fail=$HookFail",
                 "preHook.imageTag=$HookTag",

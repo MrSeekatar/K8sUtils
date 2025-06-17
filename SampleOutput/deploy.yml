@@ -73,8 +73,8 @@ spec:
             configMapKeyRef:
               key: example.property
               name: example-config
-        image: "{{ values.registry}}/minimal:latest"
-        imagePullPolicy: {{ .Values.imagePullPolicy | default "IfNotPresent" }}
+        image: minimal:latest
+        imagePullPolicy: Never
         livenessProbe:
           failureThreshold: 3
           httpGet:

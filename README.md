@@ -12,6 +12,7 @@ K8sUtils is a time-saving PowerShell module for deploying Helm charts and jobs i
 - [Testing `Invoke-HelmUpgrade`](#testing-invoke-helmupgrade)
 - [Pod Phases](#pod-phases)
 - [Container States](#container-states)
+- [Pre-Install Hook Job Timeout Settings](#pre-install-hook-job-timeout-settings)
 - [Links](#links)
 
 This module was created to solve a problem when using `helm --wait` in a CI/CD pipeline. `--wait` is a wonderful feature that waits for a successful deployment instead of returning immediately after tossing the manifests to K8s. If anything goes wrong, however, with `--wait` Helm will wait until the timeout and then return a timeout error to the pipeline. At that point, you may have lost all the logs and events that could help diagnose the problem and then have to re-run the deployment and babysit it to try to catch the logs or events from K8s.
@@ -297,10 +298,22 @@ stateDiagram
     terminated --> [*]
 ```
 
+## Pre-Install Hook Job Timeout Settings
+
+The job has a `activeDeadlineSeconds` setting that will kill the job and its pod after the specified number of seconds. This is true for whether it is running, or failing such as with an image pull error. This takes precedence over the `backoffLimit` setting, which is the number of times to retry the job before giving up.
+
+When the job is a pre-install hook, the `helm install --timeout` value comes into play. There are two scenarios to consider:
+
+| Scenario                              | Helm install error                  | State                                              |
+| ------------------------------------- | ----------------------------------- | -------------------------------------------------- |
+| `activeDeadlineSeconds` < `--timeout` | Deadline exceeded                   | No job or pod. Must look at Events                 |
+| `activeDeadlineSeconds` > `--timeout` | timed out waiting for the condition | Job and pod may still be running, or trying to run |
+
 ## Links
 
 - K8s Doc
   - [Init Containers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/)
   - [Pod Lifecycle](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/)
+  - [Jobs doc](https://kubernetes.io/docs/concepts/workloads/controllers/job/#job-termination-and-cleanup) anchor on "Job Termination and Cleanup"
 - Helm Doc
   - [Helm Hooks](https://helm.sh/docs/topics/charts_hooks/)

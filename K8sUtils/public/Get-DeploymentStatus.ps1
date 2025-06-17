@@ -77,12 +77,11 @@ function Get-DeploymentStatus {
     }
     $hash = $rs.metadata.labels."pod-template-hash"
     Write-Verbose "rs pod-template-hash is $hash. Uid is $($rs.metadata.uid)"
-    $rsEvents = Write-K8sEvent -Prefix "ReplicaSet" -Uid $rs.metadata.uid `
+    $rsEvents = Get-AndWriteK8sEvent -Prefix "ReplicaSet" -Uid $rs.metadata.uid `
                                         -Namespace $Namespace `
                                         -PassThru `
                                         -LogLevel ok `
                                         -FilterStartupWarnings
-    # $rsEvents = Get-K8sEvent -ObjectName $rs.metadata.name -NoNormal -Namespace $Namespace
     if ($rsEvents) {
         Write-Verbose "Rs Events are $($rsEvents | ConvertTo-Json -depth 10)"
         $ret = [PodStatus]::new("<replica set error>")

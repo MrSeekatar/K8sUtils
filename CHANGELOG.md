@@ -1,20 +1,29 @@
 # Change Log
 
-## [1.0.32] 2025-06-09
+## [1.0.32] 2025-06-17
 
 ### Added
 
-- Support for running tests in Azure Kubernetes Service
+- Support for running tests in cloud Kubernetes. Tested in Azure Kubernetes Service
+- Handling a case when jobs can't kick off a pod due to a configuration error
+- `Get-JobPodEvent` to get events for a job's pod when the pod is never created
+- Support for different time zones for comparing timestamps by setting offset parameter on `Set-K8sUtilsConfig`. It defaults to UTC
 
 ### Changed
 
 - Removed -HappyTest from Deploy-Minimal and moved Should check into the test script to avoid error when running as a one-off
+- Split `Write-K8sEvent` to `Get-AndWriteK8sEvent` and `Write-K8sEvent`
+
+### Fixed
+
+- Now handles the case when a job gets a deadline exceeded error since at that point the job and pod are gone. Especially for the pre-install hook scenario.
+- Alias and commands sorted in output when psm1 loads
 
 ## [1.0.31] 2025-06-03
 
 ### Added
 
-- Uid parameter to Get-K8sEvent, and Write-K8sEvent for better determining which pod an event is for
+- Uid parameter to Get-K8sEvent, and Get-AndWriteK8sEvent for better determining which pod an event is for
 
 ### Fixed
 

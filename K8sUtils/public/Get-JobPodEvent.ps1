@@ -1,21 +1,20 @@
 <#
 .SYNOPSIS
-Retrieves events related to a specific Kubernetes job and its associated pod.
+Retrieves events related to a specific Kubernetes job's pod.
 
 .DESCRIPTION
-This function queries Kubernetes for events related to a specified job and its created pod.
-It filters events based on a provided timestamp and extracts relevant information.
+Get events for a pod by finding the job's event that created the pod.
 
 .PARAMETER JobName
 The name of the Kubernetes job to query events for.
 
-.PARAMETER FromWhen
+.PARAMETER Since
 The timestamp from which to retrieve events (default is 5 minutes ago).
 
 .EXAMPLE
 Get-JobPodEvent -JobName "test-prehook"
 
-Get events for a specific job
+Get events for a specific job's pod
 
 .NOTES
 This is used when a job kicks off a pod that doesn't start so you can get the events for that pod.
@@ -25,28 +24,26 @@ function Get-JobPodEvent {
     param (
         [Parameter(Mandatory)]
         [string] $JobName,
-        [DateTime] $FromWhen = (Get-Date).AddMinutes(-5)
+        [DateTime] $Since = (Get-CurrentTime ([TimeSpan]::FromMinutes(-5)))
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
 
-    # Define the start time in RFC3339 format (e.g., 2025-06-13T10:00:00Z)
-    $start = $FromWhen.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    Write-Verbose "Getting events for job '$JobName' since $Since"
 
-    # Step 1: Get events related to the job
-    $jobEventsJson = kubectl get events --field-selector "involvedObject.kind=Job,involvedObject.name=$JobName" -o json
-    if ($LASTEXITCODE -ne 0) {
+    $jobEvents = Get-K8sEvent -ObjectName $JobName -Kind Job
+    if (!$jobEvents -ne 0) {
         throw "Failed to get events for job '$JobName'."
     }
-    $jobEvents = $jobEventsJson | ConvertFrom-Json -Depth 10
 
     # Filter events after the timestamp
-    $filteredJobEvents = $jobEvents.items | Where-Object {
-        $eventTime = if ($_.eventTime) { $_.eventTime } else { $_.lastTimestamp }
-        $eventTime -ge $start
-    }
+    $filteredJobEvents = @($jobEvents | Where-Object {
+        $eventTime = $_.eventTime ? $_.eventTime : $_.lastTimestamp
+        $eventTime -ge $Since
+    })
+    Write-Verbose "Filtered $($jobEvents.Count - $filteredJobEvents.Count) events by time for job $JobName"
 
-    # Step 2: Find the event that created the pod (reason = "SuccessfulCreate")
+    # Find the event that created the pod (reason = "SuccessfulCreate")
     $createPodEvent = $filteredJobEvents | Where-Object {
         $_.reason -eq "SuccessfulCreate" -and $_.involvedObject.kind -eq "Job"
     } | Select-Object -Last 1
@@ -65,10 +62,5 @@ function Get-JobPodEvent {
         return $null
     }
 
-    # Step 3: Get all events for that pod
-    $podEventsJson = kubectl get events --field-selector "involvedObject.kind=Pod,involvedObject.name=$podName,type=Warning" -o json
-    $podEvents = $podEventsJson | ConvertFrom-Json
-
-    $podEvents.items | ForEach-Object { "$($_.reason): $($_.message)" }
-
+    Get-K8sEvent -ObjectName $podName -Kind Pod -NoNormal
 }

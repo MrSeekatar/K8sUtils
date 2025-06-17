@@ -1,21 +1,15 @@
 <#
 .SYNOPSIS
-Private function to write the events the output
+Write out Kubernetes events for a given object
 
-.PARAMETER ObjectName
+.PARAMETER Name
 Name of the object to get events for
-
-.PARAMETER Uid
-Uid of the object to get events for
 
 .PARAMETER Prefix
 Prefix for logging, usually the type of the object
 
 .PARAMETER Since
 Only get events since this time
-
-.PARAMETER Namespace
-Namespace to get the events from
 
 .PARAMETER LogLevel
 Log level to use for the header
@@ -31,50 +25,48 @@ If PassThru is set, return array of strings error messages
 #>
 function Write-K8sEvent {
     [CmdletBinding()]
-    param(
-        [Parameter(Mandatory, ParameterSetName = "ObjectName")]
-        [Alias("PodName", "RsName")]
-        [string]$ObjectName,
-        [Parameter(Mandatory, ParameterSetName = "Uid")]
-        [string]$Uid,
+    param (
         [Parameter(Mandatory)]
-        [string]$Prefix,
-        [DateTime]$Since,
-        [string] $Namespace = "default",
+        [string] $Name,
+        [array] $Events,
+        [Parameter(Mandatory)]
+        [string] $Prefix,
+        [DateTime] $Since,
         [ValidateSet("error", "warning", "ok", "normal")]
         [string] $LogLevel = "ok",
         [switch] $PassThru,
         [switch] $FilterStartupWarnings
     )
 
-    $params = @{
-        Namespace = $Namespace
-    }
-    if ($Uid) {
-        $params["Uid"] = $Uid
-    } else {
-        $params["ObjectName"] = $ObjectName
-    }
-    $events = Get-K8sEvent @params
-    if ($null -eq $events) {
-        Write-Status "Get-K8sEvent returned null for $ObjectName" -LogLevel warning
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = "Stop"
+    $msg = "Events for $Prefix $Name"
+    if (!$Events) {
+        Write-Status "No $msg" -LogLevel ok
+        if ($PassThru) {
+            return @()
+        }
         return
     }
-    $msg = "Events for $Prefix $ObjectName"
+
     if ($Since) {
         $msg += " since $($Since.ToString("HH:mm:ss"))"
-        $events = $events | Where-Object { $_.lastTimestamp -gt $Since }
+        $Events = @($Events | Where-Object { $_.lastTimestamp -gt $Since })
     }
-
-    $errors = $events | Where-Object { $_.type -ne "Normal" } | Select-Object -ExpandProperty Message
+    if ($Events) {
+        Write-Verbose ($Events | ConvertTo-Json -Depth 5)
+    } else {
+        Write-Verbose "No events found for $Prefix $Name since $($Since.ToString("HH:mm:ss"))"
+    }
+    $errors = $Events | Where-Object { $_.type -ne "Normal" } | Select-Object -ExpandProperty Message
     if ($errors -and $FilterStartupWarnings) {
         $errors = $errors | Where-Object { $_ -notLike "Startup probe failed:*" }
     }
-    $filteredEvents = $events | Select-Object type, reason, message, @{n='creationTimestamp';e={$_.metadata.creationTimestamp}}
+    $filteredEvents = $Events | Select-Object type, reason, message, @{n='creationTimestamp';e={$_.metadata.creationTimestamp}}
     if ($filteredEvents) {
         Write-Header $msg -LogLevel $LogLevel
         $filteredEvents | Out-String -Width 500 | Write-Plain
-        Write-Footer "End events for $Prefix $ObjectName"
+        Write-Footer "End events for $Prefix $Name"
     } else {
         Write-Status "No $msg" -LogLevel ok
     }

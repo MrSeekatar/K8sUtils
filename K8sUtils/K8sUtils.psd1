@@ -69,9 +69,20 @@ Description = 'time-saving PowerShell module for deploying Helm charts and jobs 
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = 'Add-Annotation', 'Convert-Value', 'Get-DeploymentStatus',
-               'Get-PodByJobName', 'Get-K8sEvent', 'Get-PodStatus', 'Get-JobPodSelector', 'Get-JobStatus',
-               'Invoke-HelmUpgrade','Test-DeployStatus'
+FunctionsToExport = @(
+    'Add-Annotation',
+    'Convert-Value',
+    'Get-DeploymentStatus',
+    'Get-JobPodEvent',
+    'Get-JobPodSelector',
+    'Get-JobStatus',
+    'Get-K8sEvent',
+    'Get-PodByJobName',
+    'Get-PodStatus',
+    'Invoke-HelmUpgrade',
+    'Set-K8sUtilsConfig',
+    'Test-DeployStatus'
+)
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()
@@ -80,7 +91,13 @@ CmdletsToExport = @()
 VariablesToExport = '*'
 
 # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
-AliasesToExport = 'Get-PodEvent', 'Get-RsEvent', 'Get-ReplicaSetEvent','Get-JobEvent','Get-EventByUid'
+AliasesToExport = @(
+    'Get-EventByUid',
+    'Get-JobEvent',
+    'Get-PodEvent',
+    'Get-ReplicaSetEvent',
+    'Get-RsEvent'
+)
 
 # DSC resources to export from this module
 # DscResourcesToExport = @()

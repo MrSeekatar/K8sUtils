@@ -18,13 +18,14 @@ metadata:
     # "helm.sh/hook-delete-policy": hook-succeeded
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
-  backoffLimit: 1 #default is 6, if 0 may not get error output
-  activeDeadlineSeconds: 10
-  {{- if .Values.jobTtlSecondsAfterFinished }}
-  ttlSecondsAfterFinished: {{ .Values.jobTtlSecondsAfterFinished }}
-  {{- else }}
-  ttlSecondsAfterFinished: 0
-  {{- end }}
+  # restarts after failure, default is 6, set to 0 to not restart
+  backoffLimit: 0
+
+  # how long to wait for job to complete/fail. Takes precedence over backoffLimit.
+  activeDeadlineSeconds: {{ .Values.jobActiveDeadlineSeconds | default 30 }}
+
+  # this will remove the job after jobTtlSecondsAfterFinished seconds of completion, failed or otherwise, so can grab logs
+  ttlSecondsAfterFinished: {{ .Values.jobTtlSecondsAfterFinished | default 0 }}
   template:
     metadata:
       name: "{{ .Release.Name }}"

@@ -14,6 +14,9 @@ If set, don't return normal events, only warnings
 .PARAMETER Namespace
 K8s namespace to use, defaults to default
 
+.PARAMETER Kind
+Kind of the object to get events for, such as Pod, ReplicaSet, Job, etc. Case sensitive
+
 .EXAMPLE
 Get-K8sEvent -ObjectName  test-minimal-7894b5dbf9-xkvgc
 
@@ -42,15 +45,22 @@ function Get-K8sEvent {
         [Parameter(Mandatory, ParameterSetName = "Uid")]
         [string] $Uid,
         [switch] $NoNormal,
-        [string] $Namespace = "default"
+        [string] $Namespace = "default",
+        [string] $Kind
     )
-    $involved = [bool]$ObjectName ? "involvedObject.name=$ObjectName" : "involvedObject.uid=$Uid"
-    Write-Verbose "kubectl get events --namespace $Namespace --field-selector `"$involved`" -o json"
-    $json = kubectl get events --namespace $Namespace --field-selector $involved -o json
+    $selector = [bool]$ObjectName ? "involvedObject.name=$ObjectName" : "involvedObject.uid=$Uid"
+    if ($NoNormal) {
+        $selector += ",type!=Normal"
+    }
+    if ($Kind) {
+        $selector += ",involvedObject.kind=$Kind"
+    }
+    Write-Verbose "kubectl get events --namespace $Namespace --field-selector `"$selector`" -o json"
+    $json = kubectl get events --namespace $Namespace --field-selector $selector -o json
 
     Write-Verbose "kubectl exit code: $LASTEXITCODE"
     if ($LASTEXITCODE -ne 0) {
-        Write-Status "kubectl get events --namespace $Namespace --field-selector `"$involved`" -o json" -LogLevel warning
+        Write-Status "kubectl get events --namespace $Namespace --field-selector `"$selector`" -o json" -LogLevel warning
         Write-Status "  had exit code of $LASTEXITCODE" -LogLevel warning
         Write-Status "  JSON is $json" -LogLevel warning
         return $null
@@ -63,12 +73,11 @@ function Get-K8sEvent {
     }
     if ($events.items) {
         Write-Verbose "Events count: $($events.items.count)"
+        $events.items | ForEach-Object {
+            Write-Verbose "  $($_.message) $($_.eventTime ? $_.eventTime : $_.lastTimestamp)"
+        }
     }
-    if ($NoNormal) {
-        $ret = $events.items | Where-Object { $_.type -ne "Normal" }
-    } else {
-        $ret = $events.items
-    }
+    $ret = $events.items
     if ($null -eq $ret) {
         Write-Verbose "Null items, returning empty array"
         $ret = @()

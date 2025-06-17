@@ -169,6 +169,13 @@ Describe "Deploys Minimal API" {
         $deploy.PreHookStatus.Status | Should -Be 'Crash'
     } -Tag 'Crash','Sad','t20'
 
+    It "has prehook job crash without init" {
+        $deploy = Deploy-Minimal -PassThru -HookFail -TimeoutSecs 20 -PreHookTimeoutSecs 20 -SkipInit
+        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError
+
+        $deploy.PreHookStatus.Status | Should -Be 'Crash'
+    } -Tag 'Crash','Sad','t20.1'
+
     It "has prehook config error" {
         $deploy = Deploy-Minimal -PassThru -HookTag zzz
         Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError
@@ -177,6 +184,15 @@ Describe "Deploys Minimal API" {
         $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
         $deploy.PreHookStatus.LastBadEvents[1] | Should -Be 'Error: ErrImageNeverPull'
     } -Tag 'Config','Sad','t21'
+
+    It "has prehook config error without init" {
+        $deploy = Deploy-Minimal -PassThru -HookTag zzz -SkipInit
+        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError
+
+        $deploy.PreHookStatus.Status | Should -Be 'ConfigError'
+        $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
+        $deploy.PreHookStatus.LastBadEvents[1] | Should -Be 'Error: ErrImageNeverPull'
+    } -Tag 'Config','Sad','t21.1'
 
     It "has prehook timeout" {
         $deploy = Deploy-Minimal -PassThru -PreHookTimeoutSecs 5 -HookRunCount 100
@@ -285,6 +301,26 @@ Describe "Deploys Minimal API" {
         Test-MainPod $deploy.PodStatuses[0]
 
     } -Tag 'Happy','t31'
+
+    It "tests prehook with bad tag and timeout " {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -PreHookTimeoutSecs 10 -HookTag zzz
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError -PodCount 0
+
+        $deploy.PreHookStatus.Status | Should -Be 'ConfigError'
+        $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
+        $deploy.PreHookStatus.LastBadEvents[0] | Should -BeLike '*is not present with pull*'
+        $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike '*ErrImage*'
+    } -Tag 'Sad','t32'
+
+    It "tests prehook with bad tag and short active deadline " {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -PreHookTimeoutSecs 5 -HookTag zzz -ActiveDeadlineSeconds 2
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError -PodCount 0
+
+        $deploy.PreHookStatus.Status | Should -Be 'Timeout'
+        $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
+        $deploy.PreHookStatus.LastBadEvents[0] | Should -BeLike '*is not present with pull*'
+        $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike '*ErrImage*'
+    } -Tag 'Sad','t33'
 
 }
 
