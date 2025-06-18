@@ -141,7 +141,7 @@ Describe "Deploys Minimal API" {
 
         Test-MainPod $deploy.PodStatuses[0] -status 'ConfigError' -reason "Possible timeout"
         $deploy.PodStatuses[0].LastBadEvents.Count | Should -BeGreaterThan 1
-        $deploy.PodStatuses[0].LastBadEvents[1] | Should -Be 'Error: ErrImageNeverPull'
+        $deploy.PodStatuses[0].LastBadEvents[1] | Should -BeLike 'Error: ErrImage*Pull'
 
     } -Tag 'Sad', 'Crash', 't17'
 
@@ -182,7 +182,7 @@ Describe "Deploys Minimal API" {
 
         $deploy.PreHookStatus.Status | Should -Be 'ConfigError'
         $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
-        $deploy.PreHookStatus.LastBadEvents[1] | Should -Be 'Error: ErrImageNeverPull'
+        $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike 'Error: ErrImage*Pull'
     } -Tag 'Config','Sad','t21'
 
     It "has prehook config error without init" {
@@ -191,7 +191,7 @@ Describe "Deploys Minimal API" {
 
         $deploy.PreHookStatus.Status | Should -Be 'ConfigError'
         $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
-        $deploy.PreHookStatus.LastBadEvents[1] | Should -Be 'Error: ErrImageNeverPull'
+        $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike 'Error: ErrImage*Pull'
     } -Tag 'Config','Sad','t21.1'
 
     It "has prehook timeout" {

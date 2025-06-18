@@ -147,7 +147,7 @@ function Deploy-Minimal {
     if (!$SkipInit) {
         $initContainer = @{
             image           = "$registry/init-app:$InitTag"
-            imagePullPolicy = "Never"
+            imagePullPolicy = $($registry -eq "docker.io" ? "Never" : "IfNotPresent")
             name            = "init-container-app"
             env             = @(
                 @{
