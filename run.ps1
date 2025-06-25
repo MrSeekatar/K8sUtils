@@ -72,7 +72,7 @@ function Invoke-Test {
         [string] $testFile
     )
     if ($Registry) {
-        $PSDefaultParameterValues['Deploy-Minimal:registry'] = $Registry
+        $PSDefaultParameterValues['Deploy-*:registry'] = $Registry
     }
 
     try {

@@ -41,9 +41,6 @@ If set, use a bad secret name for the job
 .PARAMETER StartOnly
 If set, don't wait for the job to complete, just start it
 
-.PARAMETER ImagePullPolicy
-Image pull policy to use for the job, defaults to Never. Set to Always or IfNotPresent as needed.
-
 .PARAMETER Registry
 Docker registry to use for the job image, defaults to docker.io
 
@@ -67,13 +64,12 @@ function Deploy-MinimalJobK8s {
         [string] $ColorType = "ANSI",
         [switch] $BadSecret,
         [switch] $StartOnly,
-        [ValidateSet("Always", "IfNotPresent", "Never")]
-        [string] $ImagePullPolicy = "Never",
         [string] $Registry = "docker.io",
         [int] $ActiveDeadlineSeconds = 30
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
+    $imagePullPolicy=$($Registry -eq "docker.io" ? "Never" : "IfNotPresent")
 
     $initContainer = $SkipInit ? "" : @"
       initContainers:
@@ -100,7 +96,7 @@ metadata:
   name: "test-job"
 spec:
   backoffLimit: 0 #default is 6
-  ActiveDeadlineSeconds: $ActiveDeadlineSeconds
+  activeDeadlineSeconds: $ActiveDeadlineSeconds
   ttlSecondsAfterFinished: 600
   template:
     metadata:

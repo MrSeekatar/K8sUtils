@@ -68,6 +68,7 @@ function Deploy-MinimalJob {
         [string] $ColorType = "ANSI",
         [switch] $BadSecret,
         [switch] $PassThru,
+        [string] $registry = "docker.io",
         [int] $ActiveDeadlineSeconds = 30
     )
     Set-StrictMode -Version Latest
@@ -84,8 +85,8 @@ function Deploy-MinimalJob {
 
     if (!$SkipInit) {
         $initContainer = @{
-            image           = "init-app:$InitTag"
-            imagePullPolicy = "Never"
+            image           = "$registry/init-app:$InitTag"
+            imagePullPolicy = $($registry -eq "docker.io" ? "Never" : "IfNotPresent")
             name            = "init-container-app"
             env             = @(
                 @{
@@ -115,6 +116,9 @@ function Deploy-MinimalJob {
     $null = kubectl delete job test-job --ignore-not-found # so don't find prev one
 
     $helmSet += "deployment.enabled=false",
+                "registry=$registry",
+                "imagePullPolicy=$($registry -eq "docker.io" ? "Never" : "IfNotPresent")",
+                "image.pullPolicy=$($registry -eq "docker.io" ? "Never" : "IfNotPresent")",
                 "service.enabled=false",
                 "preHook.create=false",
                 "ingress.enabled=false",
