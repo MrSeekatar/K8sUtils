@@ -37,7 +37,7 @@ function Test-Pod( $podStatus, $status, $containerStatus, $reason, $nameLike, $c
         $podStatus.ContainerStatuses[0].ContainerName | Should -Be $containerName
         $podStatus.ContainerStatuses[0].Status | Should -Be $containerStatus
         if ($reason) {
-            $podStatus.ContainerStatuses[0].Reason | Should -Be $reason
+            $podStatus.ContainerStatuses[0].Reason | Should -BeLike $reason
         }
     }
 }

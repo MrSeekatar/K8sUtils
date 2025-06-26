@@ -74,7 +74,7 @@ Describe "Deploys Minimal API" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ImageTag zzz
         Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
-        Test-MainPod $deploy.PodStatuses[0] -status 'ConfigError' -reason "ErrImageNeverPull"
+        Test-MainPod $deploy.PodStatuses[0] -status 'ConfigError' -reason "ErrImage*Pull"
     } -Tag 'Config','Sad','t8'
 
     It "has the main container with a bad secret name" {
@@ -106,7 +106,7 @@ Describe "Deploys Minimal API" {
     } -Tag 'Probe', 'Happy', 't12'
 
     It "has a startup timeout" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 10 -StartupProbe
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 50 -StartupProbe
         Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Timeout' -reason "Possible timeout"
@@ -213,15 +213,15 @@ Describe "Deploys Minimal API" {
     } -Tag 'Config','Sad','t23'
 
     It "tests taints" {
-        $node = k get node -o jsonpath="{.items[0].metadata.name}"
-        kubectl taint nodes $node key1=value1:NoSchedule
+        kubectl taint nodes --all key1=value1:NoSchedule
+        $LASTEXITCODE | Should -Be 0 -Because "Couldn't set taint"
         try {
             $deploy = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -RunCount 1 -PreHookTimeoutSecs 5 -TimeoutSecs 5
             Test-Deploy $deploy -Running $false -PodCount 1 -RollbackStatus 'RolledBack' -ExpectedStatus $podError
             $deploy.PodStatuses[0].LastBadEvents[0] | Should -BeLike '*schedul*'
         }
         finally {
-            kubectl taint nodes $node key1:NoSchedule-
+            kubectl taint nodes --all key1:NoSchedule-
         }
     } -Tag 'Sad','t24'
 
@@ -308,7 +308,7 @@ Describe "Deploys Minimal API" {
 
         $deploy.PreHookStatus.Status | Should -Be 'ConfigError'
         $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
-        $deploy.PreHookStatus.LastBadEvents[0] | Should -BeLike '*is not present with pull*'
+        $deploy.PreHookStatus.LastBadEvents[0] | Should -Match '(is not present with pull|Failed to pull image)'
         $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike '*ErrImage*'
     } -Tag 'Sad','t32'
 
@@ -318,7 +318,7 @@ Describe "Deploys Minimal API" {
 
         $deploy.PreHookStatus.Status | Should -Be 'Timeout'
         $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
-        $deploy.PreHookStatus.LastBadEvents[0] | Should -BeLike '*is not present with pull*'
+        $deploy.PreHookStatus.LastBadEvents[0] | Should -Match '(is not present with pull|Failed to pull image)'
         $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike '*ErrImage*'
     } -Tag 'Sad','t33'
 

@@ -32,6 +32,8 @@ param (
     [string] $NuGetApiKey = $env:nuget_password,
     [string[]] $tag = @(),
     [switch] $prerelease,
+    [Alias("context")]
+    [Alias("kube-context")]
     [string] $KubeContext = "rancher-desktop",
     [string] $Registry
 )
@@ -93,7 +95,7 @@ function Invoke-Test {
         $global:test_results = $result
     } finally {
         if ($Registry) {
-            $PSDefaultParameterValues.Remove('Deploy-Minimal:registry')
+            $PSDefaultParameterValues.Remove('Deploy-*:registry')
         }
     }
 }

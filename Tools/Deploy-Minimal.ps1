@@ -8,6 +8,9 @@ If set, don't actually do the helm upgrade
 .PARAMETER Fail
 Have the main container fail on start
 
+.PARAMETER RunCount
+How many times to log a message in the main container, e.g. number of seconds before starts its main loop (ready), defaults to 0
+
 .PARAMETER InitRunCount
 How many times to log a message in the init container, e.g. number of seconds before it exits, defaults to 1
 
@@ -22,6 +25,9 @@ Do not run the preHook job
 
 .PARAMETER HookFail
 Have the preHook job fail after HookRunCount loops
+
+.PARAMETER SkipInit
+If set, do not deploy the init container
 
 .PARAMETER ImageTag
 Tag to use for the main container, defaults to latest
@@ -182,7 +188,6 @@ function Deploy-Minimal {
     }
 
     $helmSet += "deployment.enabled=$($SkipDeploy ? "false" : "true")",
-                "registry=$registry",
                 "imagePullPolicy=$($registry -eq "docker.io" ? "Never" : "IfNotPresent")",
                 "env.deployTime=$($SkipSetStartTime ? "2024-01-01" : (Get-Date))",
                 "env.failOnStart=$fail",
@@ -196,6 +201,7 @@ function Deploy-Minimal {
                 "preHook.runCount=$HookRunCount",
                 "preHook.cpuRequest=$HookCpuRequest",
                 "readinessPath=$Readiness",
+                "registry=$registry",
                 "replicaCount=$Replicas",
                 "resources.requests.cpu=$CpuRequest",
                 "serviceAccount.name=$ServiceAccount"

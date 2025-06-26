@@ -30,7 +30,7 @@ CompanyName = 'Wallace Bros. JOAT Services'
 Copyright = '(c) Jim Wallace. All rights reserved.'
 
 # Description of the functionality provided by this module (shows up in Gallery)
-Description = 'time-saving PowerShell module for deploying Helm charts and jobs in CI/CD pipelines. It captures all the logs and events of a deployment in the pipeline''s output. In the event of a failure, it will return early, instead of timing out.'
+Description = 'K8sUtils is a time-saving PowerShell module for deploying Helm charts and jobs in CI/CD pipelines to Kubernetes. It captures all the logs and events of a deployment in the pipeline''s output. In the event of a failure, it will return early, instead of timing out.'
 
 # Minimum version of the PowerShell engine required by this module
 # PowerShellVersion = ''

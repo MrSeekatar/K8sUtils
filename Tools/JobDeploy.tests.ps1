@@ -34,7 +34,7 @@ Describe "Deploys Minimal API" {
 
     It "has main container has bad image tag" {
         $deploy = Deploy-MinimalJob -PassThru -SkipInit -ImageTag zzz
-        Test-Job $deploy -Running $false -status 'ConfigError' -reason "ErrImageNeverPull" -ZeroDeployExitCode
+        Test-Job $deploy -Running $false -status 'ConfigError' -reason "ErrImage*Pull" -ZeroDeployExitCode
     } -Tag 'Config','Sad','j8'
 
     It "has the main container with a bad secret name" {
@@ -71,14 +71,14 @@ Describe "Deploys Minimal API" {
         $deploy = Deploy-MinimalJob -PassThru -SkipInit -ImageTag "latest " -TimeoutSecs 5 # note the trailing space
         $deploy[1].Status | Should -Be 'ConfigError'
         $deploy[1].LastBadEvents.Count | Should -BeGreaterThan 0
-        'Error creating: Pod "..." is invalid: spec.containers[0].image: Invalid value: "docker.io/init-app:latest ": must not have leading or trailing whitespace' | Should -BeIn $deploy[1].LastBadEvents
+        $deploy[1].LastBadEvents | Where-Object { $_ -like "*must not have leading or trailing whitespace*" } | Should -Not -BeNullOrEmpty
     } -Tag 'Sad', 'Config', 'j20'
 
     It "has a bad tag on the container with short active deadline" {
         $deploy = Deploy-MinimalJob -PassThru -SkipInit -ImageTag "ZZZZ" -TimeoutSecs 5 -ActiveDeadlineSeconds 2
-        $deploy[1].Status | Should -Be 'Timeout'
+        $deploy[1].Status | Should -Match '(Timeout|Unknown|ConfigError)'
         $deploy[1].LastBadEvents.Count | Should -BeGreaterThan 0
-        $deploy[1].LastBadEvents | Where-Object { $_ -like "*ZZZZ`" is not present with pull policy of*" } | Should -Not -BeNullOrEmpty
+        $deploy[1].LastBadEvents | Where-Object { $_ -like "*ErrImage*Pull*" } | Should -Not -BeNullOrEmpty
     } -Tag 'Sad', 'Config', 'j21'
 }
 
