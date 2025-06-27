@@ -12,6 +12,7 @@ It has been tested on MacOS, Windows, and Linux.
 - [Using `Get-JobStatus`](#using-get-jobstatus)
 - [How `Invoke-HelmUpgrade` Works](#how-invoke-helmupgrade-works)
 - [Testing `Invoke-HelmUpgrade`](#testing-invoke-helmupgrade)
+  - [Running the Pester Tests](#running-the-pester-tests)
 - [Pod Phases](#pod-phases)
 - [Container States](#container-states)
 - [Pre-Install Hook Job Timeout Settings](#pre-install-hook-job-timeout-settings)
@@ -205,7 +206,15 @@ The `run.ps1` script has the following tasks that you can execute with `.\run.ps
 | upgradeHelm[^1] | Upgrade/install the Helm chart in the Kubernetes cluster using `minimal_values.yaml`     |
 | uninstallHelm   | Uninstall the test Helm chart in the Kubernetes cluster                                  |
 
-[^1]: The `config-and-secret.yaml` manifest must be applied before running this task.
+### Running the Pester Tests
+
+Each test task listed above creates tons of output, and a summary and the end so you know which tests failed and why. I usually run each one separately. The `-tags` parameter allows you to run tests with those. By default it will run against `rancher-desktop` K8s configuration, but you can override that with parameters. Here's running test t2 against AKS.
+
+```powershell
+./run.ps1 test -tag t2 -KubeContext widget-aks-test-sc -Registry widget.azurecr.io
+```
+
+[^1]: The `applyManifests` task must be run one time before this task.
 
 ### Kubernetes Manifests <!-- omit in toc -->
 

@@ -1,10 +1,18 @@
 #! pwsh
 
 <#
-.EXAMPLE
-./run.ps1 test -tag t2  -KubeContext loyal-aks-test-sc -Registry loyal.azurecr.io
+.SYNOPSIS
+Run tasks associated with this repo. Use tab to cycle through them
 
-Run against AKS
+.EXAMPLE
+./run.ps1 test
+
+Run all tests against Rancher Desktop (default)
+
+.EXAMPLE
+./run.ps1 test -tag t2 -KubeContext widget-aks-test-sc -Registry widget.azurecr.io
+
+Run test t2 against AKS
 #>
 [CmdletBinding()]
 param (
