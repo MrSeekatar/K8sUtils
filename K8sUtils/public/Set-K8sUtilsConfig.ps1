@@ -1,10 +1,23 @@
-﻿function Set-K8sUtilsConfig {
+﻿<#
+.SYNOPSIS
+Set some configuration settings for K8sUtils
+
+.PARAMETER ColorType
+Type of color to use for output, defaults to ANSI, can be None or DevOps
+
+.PARAMETER OffsetMinutes
+Number of minutes to offset UTC time.
+#>
+function Set-K8sUtilsConfig {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions','', Justification = 'Just setting variables')]
     [CmdletBinding()]
     param (
         [ValidateSet("None","ANSI","DevOps")]
-        [string] $ColorType
+        [string] $ColorType,
+        [int] $OffsetMinutes = 0.0
     )
+    $script:UtcOffset = New-TimeSpan -Minutes $OffsetMinutes
+
     if ($ColorType -eq "None" -or $env:NO_COLOR -eq "1") {
         $script:ColorType = "None"
         $script:HeaderPrefix = ">> "

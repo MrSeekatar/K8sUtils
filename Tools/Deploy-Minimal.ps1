@@ -8,6 +8,9 @@ If set, don't actually do the helm upgrade
 .PARAMETER Fail
 Have the main container fail on start
 
+.PARAMETER RunCount
+How many times to log a message in the main container, e.g. number of seconds before starts its main loop (ready), defaults to 0
+
 .PARAMETER InitRunCount
 How many times to log a message in the init container, e.g. number of seconds before it exits, defaults to 1
 
@@ -22,6 +25,9 @@ Do not run the preHook job
 
 .PARAMETER HookFail
 Have the preHook job fail after HookRunCount loops
+
+.PARAMETER SkipInit
+If set, do not deploy the init container
 
 .PARAMETER ImageTag
 Tag to use for the main container, defaults to latest
@@ -40,6 +46,55 @@ Readiness url to use, defaults to /info
 
 .PARAMETER SkipRollbackOnError
 If set, don't do a helm rollback on error
+
+.PARAMETER TimeoutSecs
+How long to wait for the main container to be ready, defaults to 60 seconds
+
+.PARAMETER PreHookTimeoutSecs
+How long to wait for the preHook job to complete, defaults to 15 seconds
+
+.PARAMETER PollIntervalSec
+How often to poll for the main container to be ready, defaults to 3 seconds
+
+.PARAMETER Replicas
+Number of replicas to use for the deployment, defaults to 1
+
+.PARAMETER ColorType
+Type of color to use for output, defaults to ANSI, can be None or DevOps
+
+.PARAMETER BadSecret
+If set, use a bad secret name in the main container
+
+.PARAMETER PassThru
+If set, return the result of the helm upgrade command
+
+.PARAMETER SkipDeploy
+If set, do not deploy the main container, just the init and preHook jobs
+
+.PARAMETER AlwaysCheckPreHook
+If set, always check the preHook job, even if SkipPreHook is set
+
+.PARAMETER SkipSetStartTime
+If set, do not set the env.deployTime in the main container, so all manifests are the same
+
+.PARAMETER CpuRequest
+CPU request for the main container, defaults to 10m
+
+.PARAMETER HookCpuRequest
+CPU request for the preHook job, defaults to 10m
+
+.PARAMETER chartName
+Name of the chart to deploy, defaults to minimal
+
+.PARAMETER ServiceAccount
+Service account to use for the deployment, defaults to empty string
+
+.PARAMETER registry
+Container registry to use, defaults to docker.io
+
+.PARAMETER activeDeadlineSeconds
+How long to wait for the preHook job to complete before it is killed, defaults to 30 seconds
+
 
 .EXAMPLE
 
@@ -79,7 +134,9 @@ function Deploy-Minimal {
         [string] $HookCpuRequest = "10m",
         [string] $chartName = "minimal",
         [string] $ServiceAccount = "",
-        [switch] $HappyTest
+        [string] $registry = "docker.io",
+        [int] $activeDeadlineSeconds = 30
+
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -95,8 +152,8 @@ function Deploy-Minimal {
 
     if (!$SkipInit) {
         $initContainer = @{
-            image           = "init-app:$InitTag"
-            imagePullPolicy = "Never"
+            image           = "$registry/init-app:$InitTag"
+            imagePullPolicy = $($registry -eq "docker.io" ? "Never" : "IfNotPresent")
             name            = "init-container-app"
             env             = @(
                 @{
@@ -131,16 +188,20 @@ function Deploy-Minimal {
     }
 
     $helmSet += "deployment.enabled=$($SkipDeploy ? "false" : "true")",
+                "imagePullPolicy=$($registry -eq "docker.io" ? "Never" : "IfNotPresent")",
                 "env.deployTime=$($SkipSetStartTime ? "2024-01-01" : (Get-Date))",
                 "env.failOnStart=$fail",
                 "env.runCount=$RunCount",
                 "image.tag=$ImageTag",
+                "image.pullPolicy=$($registry -eq "docker.io" ? "Never" : "IfNotPresent")",
+                "jobActiveDeadlineSeconds=$activeDeadlineSeconds",
                 "preHook.create=$(!$SkipPreHook)",
                 "preHook.fail=$HookFail",
                 "preHook.imageTag=$HookTag",
                 "preHook.runCount=$HookRunCount",
                 "preHook.cpuRequest=$HookCpuRequest",
                 "readinessPath=$Readiness",
+                "registry=$registry",
                 "replicaCount=$Replicas",
                 "resources.requests.cpu=$CpuRequest",
                 "serviceAccount.name=$ServiceAccount"
@@ -149,7 +210,7 @@ function Deploy-Minimal {
     $releaseName = "test"
     try {
         $logFolder = [System.IO.Path]::GetTempPath()
-        $ret = Invoke-HelmUpgrade -ValueFile "minimal_values.yaml" `
+        $ret = Invoke-HelmUpgrade -ValueFile minimal_values.yaml `
                            -ChartName $chartName `
                            -ReleaseName $releaseName `
                            -HelmSet ($helmSet -join ',')`
@@ -165,11 +226,6 @@ function Deploy-Minimal {
                            -Verbose:$VerbosePreference `
                            -LogFileFolder $logFolder
 
-        if ($HappyTest) {
-            $LASTEXITCODE | Should -Be 0
-        } else {
-            $LASTEXITCODE | Should -Not -Be 0
-        }
         Write-Host "Logs for job are in $logFolder" -ForegroundColor Cyan
         if ($PassThru) {
             $ret

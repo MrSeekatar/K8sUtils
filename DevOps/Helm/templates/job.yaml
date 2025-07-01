@@ -10,12 +10,8 @@ metadata:
     helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
 spec:
   backoffLimit: 0
-  activeDeadlineSeconds: 3000
-  {{- if .Values.jobTtlSecondsAfterFinished }}
-  ttlSecondsAfterFinished: {{ .Values.jobTtlSecondsAfterFinished }}
-  {{- else }}
-  ttlSecondsAfterFinished: 0
-  {{- end }}
+  activeDeadlineSeconds: {{ .Values.jobActiveDeadlineSeconds | default 30 }}
+  ttlSecondsAfterFinished: {{ .Values.jobTtlSecondsAfterFinished | default 0 }}
   template:
     metadata:
       name: "{{ .Release.Name }}"
@@ -27,8 +23,8 @@ spec:
       restartPolicy: Never
       containers:
       - name: pre-install-upgrade-job
-        image: "init-app:{{ .Values.job.imageTag }}"
-        imagePullPolicy: Never
+        image: "{{ .Values.registry }}/init-app:{{ .Values.job.imageTag }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
         env:
         - name: RUN_COUNT
           value: "{{ .Values.job.runCount }}"

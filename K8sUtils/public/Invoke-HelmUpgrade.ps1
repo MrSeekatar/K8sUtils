@@ -222,6 +222,7 @@ function Invoke-HelmUpgrade {
         } else {
             Write-Header -Msg "Helm upgrade$hookMsg" -HeaderPrefix ""
         }
+        $startTime = (Get-CurrentTime ([TimeSpan]::FromSeconds(-5))) # start a few seconds back to avoid very close timing
         # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
         helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Write-MyHost
         $upgradeExit = $LASTEXITCODE
@@ -244,7 +245,24 @@ function Invoke-HelmUpgrade {
                                                         -PodType PreInstallJob `
                                                         -LogFileFolder $LogFileFolder
             Write-Verbose "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
-            $status.PreHookStatus = $hookStatus
+            if ($hookStatus -is "array" ) {
+                Write-Warning "Multiple hook statuses returned:`n$($hookStatus  | ConvertTo-Json -Depth 5 -EnumsAsStrings)" # so we can see the status
+            }
+            $status.PreHookStatus = $hookStatus | Select-Object -Last 1 # get the last status, in case it was a job
+            if ($status.PreHookStatus.PodName -eq '<no pods found>') {
+                $events = Get-JobPodEvent -JobName $PreHookJobName -Since $startTime
+                if ($events) {
+                    $errors = Write-K8sEvent -Name "$PreHookJobName's pod" `
+                                        -Prefix "PreHookJob" `
+                                        -Events $events `
+                                        -LogLevel error `
+                                        -PassThru
+                    $status.PreHookStatus.LastBadEvents = $errors
+                    Write-Verbose "Prehook job '$PreHookJobName' events: $($status.PreHookStatus.LastBadEvents | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+                } else {
+                    Write-Verbose "No events found for prehook job '$PreHookJobName'"
+                }
+            }
         }
 
         if ($upgradeExit -ne 0 -or ($status.PreHookStatus -and $status.PreHookStatus.Status -ne [Status]::Completed)) {

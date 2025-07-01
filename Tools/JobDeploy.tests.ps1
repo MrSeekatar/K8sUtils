@@ -13,13 +13,13 @@ Describe "Deploys Minimal API" {
     It "runs init ok" {
         $deploy = Deploy-MinimalJob -PassThru
 
-        Test-Job $deploy
+        Test-Job $deploy -ZeroDeployExitCode
     } -Tag 'Happy','j1'
 
     It "runs without init ok" {
         $deploy = Deploy-MinimalJob -PassThru -SkipInit
 
-        Test-Job $deploy
+        Test-Job $deploy -ZeroDeployExitCode
     } -Tag 'Happy','j2'
 
     It "runs a dry run" {
@@ -29,49 +29,56 @@ Describe "Deploys Minimal API" {
 
     It "has main container crash" {
         $deploy = Deploy-MinimalJob -PassThru -SkipInit -Fail
-        Test-Job $deploy -Running $false -status 'Crash'
+        Test-Job $deploy -Running $false -status 'Crash' -ZeroDeployExitCode
     } -Tag 'Crash','Sad','j7'
 
     It "has main container has bad image tag" {
         $deploy = Deploy-MinimalJob -PassThru -SkipInit -ImageTag zzz
-        Test-Job $deploy -Running $false -status 'ConfigError' -reason "ErrImageNeverPull"
+        Test-Job $deploy -Running $false -status 'ConfigError' -reason "ErrImage*Pull" -ZeroDeployExitCode
     } -Tag 'Config','Sad','j8'
 
     It "has the main container with a bad secret name" {
         $deploy = Deploy-MinimalJob -PassThru -SkipInit -BadSecret
-        Test-Job $deploy -Running $false -status 'ConfigError' -reason "CreateContainerConfigError"
+        Test-Job $deploy -Running $false -status 'ConfigError' -reason "CreateContainerConfigError" -ZeroDeployExitCode
     } -Tag 'Config','Sad','j9'
 
     It "has the main container too short time out" {
         $deploy = Deploy-MinimalJob -PassThru -SkipInit -TimeoutSec 3 -RunCount 100
-        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout"
+        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout" -ZeroDeployExitCode
     } -Tag 'Timeout','Sad','j10'
 
     It "has the main container time out" {
         $deploy = Deploy-MinimalJob -PassThru -SkipInit -TimeoutSec 10 -RunCount 100
-        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout"
+        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout" -ZeroDeployExitCode
     } -Tag 'Timeout','Sad','j11'
 
     It "has an init failure" {
         $deploy = Deploy-MinimalJob -PassThru -InitFail
-        Test-Job $deploy -Running $false -status 'Crash' -reason "Possible timeout"
+        Test-Job $deploy -Running $false -status 'Crash' -reason "Possible timeout" -ZeroDeployExitCode
     } -Tag 'Sad', 'Crash', 'j16'
 
     It "has init bad config" {
         $deploy = Deploy-MinimalJob -PassThru -InitTag zzz
-        Test-Job $deploy -Running $false -status 'ConfigError' -reason "Possible timeout"
+        Test-Job $deploy -Running $false -status 'ConfigError' -reason "Possible timeout" -ZeroDeployExitCode
     } -Tag 'Sad', 'Crash', 'j17'
 
     It "has an init timeout" {
         $deploy = Deploy-MinimalJob -PassThru -TimeoutSec 5 -InitRunCount 50
-        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout"
+        Test-Job $deploy -Running $false -status 'Timeout' -reason "Possible timeout" -ZeroDeployExitCode
     } -Tag 'Sad', 'Timeout', 'j18'
 
-    It "has a bad tag on the container" {
-        $deploy = Deploy-MinimalJob -PassThru -SkipInit -ImageTag "latest " -TimeoutSecs 5
+    It "has a invalid tag on the container" {
+        $deploy = Deploy-MinimalJob -PassThru -SkipInit -ImageTag "latest " -TimeoutSecs 5 # note the trailing space
         $deploy[1].Status | Should -Be 'ConfigError'
         $deploy[1].LastBadEvents.Count | Should -BeGreaterThan 0
-        'Error creating: Pod "..." is invalid: spec.containers[0].image: Invalid value: "init-app:latest ": must not have leading or trailing whitespace' | Should -BeIn $deploy[1].LastBadEvents
+        $deploy[1].LastBadEvents | Where-Object { $_ -like "*must not have leading or trailing whitespace*" } | Should -Not -BeNullOrEmpty
     } -Tag 'Sad', 'Config', 'j20'
+
+    It "has a bad tag on the container with short active deadline" {
+        $deploy = Deploy-MinimalJob -PassThru -SkipInit -ImageTag "ZZZZ" -TimeoutSecs 5 -ActiveDeadlineSeconds 2
+        $deploy[1].Status | Should -Match '(Timeout|Unknown|ConfigError)'
+        $deploy[1].LastBadEvents.Count | Should -BeGreaterThan 0
+        $deploy[1].LastBadEvents | Where-Object { $_ -like "*ErrImage*Pull*" } | Should -Not -BeNullOrEmpty
+    } -Tag 'Sad', 'Config', 'j21'
 }
 

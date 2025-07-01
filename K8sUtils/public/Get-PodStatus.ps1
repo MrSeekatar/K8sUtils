@@ -93,7 +93,7 @@ $start = Get-Date
 $timeoutEnd = $start.AddSeconds($TimeoutSec)
 $logSeconds = "600s"
 $extraSeconds = 1 # extra seconds to add to logSeconds to avoid missing something
-$lastEventTime = (Get-Date).AddMinutes(-5)
+$lastEventTime = (Get-CurrentTime ([TimeSpan]::FromMinutes(-5)))
 $timedOut = $false
 
 Write-Status "Checking status of pods of type $podType that match selector $Selector for ${TimeoutSec}s"
@@ -138,8 +138,8 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             $podStatuses[$pod.metadata.name].Status = [Status]::Timeout
 
             # write final events and logs for this pod
-            Write-Verbose "Calling Write-K8sEvent for pod $($pod.metadata.name) with LogLevel ok and FilterStartupWarnings"
-            $podStatuses[$pod.metadata.name].LastBadEvents = Write-K8sEvent -Prefix $prefix -PodName $pod.metadata.name `
+            Write-Verbose "Calling Get-AndWriteK8sEvent for pod $($pod.metadata.name) with LogLevel ok and FilterStartupWarnings"
+            $podStatuses[$pod.metadata.name].LastBadEvents = Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name `
                                                                             -Namespace $Namespace `
                                                                             -PassThru `
                                                                             -LogLevel error `
@@ -159,7 +159,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             $pod | ConvertTo-Json -Depth 10 | Out-File (Join-Path ([System.IO.Path]::GetTempPath()) "pod.json")
         }
 
-        Write-Verbose "Ok phase is $okPhase. Pod's phase is $($pod.status.phase)"
+        Write-Verbose "Expected phase is $okPhase. Pod's phase is $($pod.status.phase)"
         if ($pod.status.phase -eq $okPhase) {
             Write-Verbose "  $prefix $($pod.metadata.name) status is $($pod.status.phase)"
             if (allContainersReady $pod.status.containerStatuses) {
@@ -177,8 +177,8 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 }
 
                 # write final events and logs for this pod
-                Write-Verbose "Calling Write-K8sEvent for pod $($pod.metadata.name) with LogLevel ok and FilterStartupWarnings"
-                $podStatuses[$pod.metadata.name].LastBadEvents = Write-K8sEvent -Prefix $prefix -PodName $pod.metadata.name `
+                Write-Verbose "Calling Get-AndWriteK8sEvent for pod $($pod.metadata.name) with LogLevel ok and FilterStartupWarnings"
+                $podStatuses[$pod.metadata.name].LastBadEvents = Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name `
                                                                                 -Namespace $Namespace `
                                                                                 -PassThru `
                                                                                 -LogLevel ok `
@@ -192,13 +192,13 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         }
 
         if ($timedOut) {
-            Write-K8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -FilterStartupWarnings
+            Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -FilterStartupWarnings
             $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -HasInit:$HasInit -LogFileFolder $LogFileFolder
             break
         }
 
         # check for any errors since not ready yet
-        $lastEventTime = Get-Date
+        $lastEventTime = (Get-CurrentTime)
         $events = Get-PodEvent -Namespace $Namespace -PodName $pod.metadata.name
         if ($events) {
             $errors = @($events | Where-Object { $_.type -ne "Normal" -and $_.message -notlike "Startup probe failed:*" -and $_.reason -ne "FailedScheduling"})
@@ -206,8 +206,8 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             if ($errors -or $pod.status.phase -eq "Failed" ) {
                 Write-Status "Pod $($pod.metadata.name) has $($errors.count) errors" -LogLevel Error
                 # write final events and logs for this pod
-                Write-Verbose "Calling Write-K8sEvent for pod $($pod.metadata.name) with LogLevel Error"
-                $podStatuses[$pod.metadata.name].LastBadEvents = Write-K8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
+                Write-Verbose "Calling Get-AndWriteK8sEvent for pod $($pod.metadata.name) with LogLevel Error"
+                $podStatuses[$pod.metadata.name].LastBadEvents = Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
                 $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit -LogFileFolder $LogFileFolder
 
                 # get latest pod status since sometimes get containerCreating status here
@@ -234,7 +234,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             } elseif ($VerbosePreference -eq 'Continue') {
                 Write-Verbose "No errors found in events for pod $($pod.metadata.name) yet"
 
-                Write-K8sEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
+                Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
                 $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since $logSeconds -Namespace $Namespace -HasInit:$HasInit
             }
        } # else no events
@@ -271,7 +271,16 @@ if (!$ok) {
         $status.Status = [Status]::Timeout
         $podStatuses["<no pods found>"] = $status
     }
-    $podStatuses.Values | ForEach-Object { $_.Status = [Status]::Timeout }
+    $podStatuses.Values | ForEach-Object {
+        if ($_.PodName -and !$_.LastBadEvents) {
+            # try one more to see if there are errors in the case where the pod disappeared due to deadline exceeded, etc.
+            $events = Get-AndWriteK8sEvent -Prefix $prefix -PodName $_.PodName -Since ($lastEventTime - (New-TimeSpan -Minutes 5)) -Namespace $Namespace -NoNormal -PassThru
+            if ($events) {
+                $_.LastBadEvents = $events
+            }
+        }
+        $_.Status = [Status]::Timeout
+    }
 
 }
 

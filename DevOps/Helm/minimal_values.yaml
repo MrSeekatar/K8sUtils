@@ -1,6 +1,9 @@
 # Values file for deploying the minimal test app
 appVersion: "1.17.0"
 
+registry: "docker.io"
+imagePullPolicy: Never
+
 replicaCount: 1
 
 preHook:
@@ -15,6 +18,9 @@ job:
 
 deployment:
   enabled: true
+
+jobActiveDeadlineSeconds: 30
+jobTtlSecondsAfterFinished: 30
 
 image:
   repository: "minimal"
@@ -142,5 +148,3 @@ extraVolumes:
       secretName: example-secret2
   - name: mt
     emptyDir: {}
-
-jobTtlSecondsAfterFinished: 0

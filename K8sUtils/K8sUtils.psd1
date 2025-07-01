@@ -12,7 +12,7 @@
 RootModule = 'K8sUtils.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.31'
+ModuleVersion = '1.0.32'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -30,7 +30,7 @@ CompanyName = 'Wallace Bros. JOAT Services'
 Copyright = '(c) Jim Wallace. All rights reserved.'
 
 # Description of the functionality provided by this module (shows up in Gallery)
-Description = 'time-saving PowerShell module for deploying Helm charts and jobs in CI/CD pipelines. It captures all the logs and events of a deployment in the pipeline''s output. In the event of a failure, it will return early, instead of timing out.'
+Description = 'K8sUtils is a time-saving PowerShell module for deploying Helm charts and jobs in CI/CD pipelines to Kubernetes. It captures all the logs and events of a deployment in the pipeline''s output. In the event of a failure, it will return early, instead of timing out.'
 
 # Minimum version of the PowerShell engine required by this module
 # PowerShellVersion = ''
@@ -69,9 +69,20 @@ Description = 'time-saving PowerShell module for deploying Helm charts and jobs 
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = 'Add-Annotation', 'Convert-Value', 'Get-DeploymentStatus',
-               'Get-PodByJobName', 'Get-K8sEvent', 'Get-PodStatus', 'Get-JobPodSelector', 'Get-JobStatus',
-               'Invoke-HelmUpgrade','Test-DeployStatus'
+FunctionsToExport = @(
+    'Add-Annotation',
+    'Convert-Value',
+    'Get-DeploymentStatus',
+    'Get-JobPodEvent',
+    'Get-JobPodSelector',
+    'Get-JobStatus',
+    'Get-K8sEvent',
+    'Get-PodByJobName',
+    'Get-PodStatus',
+    'Invoke-HelmUpgrade',
+    'Set-K8sUtilsConfig',
+    'Test-DeployStatus'
+)
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()
@@ -80,7 +91,13 @@ CmdletsToExport = @()
 VariablesToExport = '*'
 
 # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
-AliasesToExport = 'Get-PodEvent', 'Get-RsEvent', 'Get-ReplicaSetEvent','Get-JobEvent','Get-EventByUid'
+AliasesToExport = @(
+    'Get-EventByUid',
+    'Get-JobEvent',
+    'Get-PodEvent',
+    'Get-ReplicaSetEvent',
+    'Get-RsEvent'
+)
 
 # DSC resources to export from this module
 # DscResourcesToExport = @()

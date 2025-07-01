@@ -83,6 +83,13 @@ Describe "Deploys Minimal API" {
         $deploy = Deploy-MinimalJobK8s -SkipInit -ImageTag "latest " -TimeoutSecs 5
         $deploy.Status | Should -Be 'ConfigError'
         $deploy.LastBadEvents.Count | Should -BeGreaterThan 0
-        'Error creating: Pod "..." is invalid: spec.containers[0].image: Invalid value: "init-app:latest ": must not have leading or trailing whitespace' | Should -BeIn $deploy.LastBadEvents
+        $deploy.LastBadEvents | Where-Object { $_ -like "*must not have leading or trailing whitespace*" } | Should -Not -BeNullOrEmpty
     } -Tag 'Sad', 'Config', 'k20'
+
+    It "has a bad tag on the container with short active deadline" {
+        $deploy = Deploy-MinimalJobK8s -SkipInit -ImageTag "ZZZZ" -TimeoutSecs 5 -ActiveDeadlineSeconds 2
+        $deploy.Status | Should -Match '(Timeout|Unknown|ConfigError)'
+        $deploy.LastBadEvents.Count | Should -BeGreaterThan 0
+        $deploy.LastBadEvents | Where-Object { $_ -like "*ErrImage*Pull*" } | Should -Not -BeNullOrEmpty
+    } -Tag 'Sad', 'Config', 'k21'
 }

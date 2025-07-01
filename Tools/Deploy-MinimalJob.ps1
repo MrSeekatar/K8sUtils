@@ -26,6 +26,24 @@ Tag to use for the init container, defaults to latest
 .PARAMETER SkipRollbackOnError
 If set, don't do a helm rollback on error
 
+.PARAMETER TimeoutSecs
+How long to wait for the job to complete, defaults to 600 seconds
+
+.PARAMETER PollIntervalSec
+How often to poll for the job to complete, defaults to 3 seconds
+
+.PARAMETER ColorType
+Type of color to use for output, defaults to ANSI, can be None or DevOps
+
+.PARAMETER BadSecret
+If set, use a bad secret name in the job
+
+.PARAMETER PassThru
+If set, return the ReleaseStatus and PodStatus objects instead of writing to the console
+
+.PARAMETER ActiveDeadlineSeconds
+How long to wait for the job to complete, defaults to 30 seconds
+
 .EXAMPLE
 
 .OUTPUTS
@@ -49,12 +67,16 @@ function Deploy-MinimalJob {
         [ValidateSet("None", "ANSI", "DevOps")]
         [string] $ColorType = "ANSI",
         [switch] $BadSecret,
-        [switch] $PassThru
+        [switch] $PassThru,
+        [string] $registry = "docker.io",
+        [int] $ActiveDeadlineSeconds = 30
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
 
     Push-Location (Join-Path $PSScriptRoot "../DevOps/helm")
+
+    $imagePullPolicy=$($Registry -eq "docker.io" ? "Never" : "IfNotPresent")
 
     # to clear out init containers from values.yaml, don't set anything and do this, but requires newer helm
     $helmSet = @()
@@ -65,8 +87,8 @@ function Deploy-MinimalJob {
 
     if (!$SkipInit) {
         $initContainer = @{
-            image           = "init-app:$InitTag"
-            imagePullPolicy = "Never"
+            image           = "$registry/init-app:$InitTag"
+            imagePullPolicy = $imagePullPolicy
             name            = "init-container-app"
             env             = @(
                 @{
@@ -96,13 +118,18 @@ function Deploy-MinimalJob {
     $null = kubectl delete job test-job --ignore-not-found # so don't find prev one
 
     $helmSet += "deployment.enabled=false",
+                "registry=$registry",
+                "imagePullPolicy=$imagePullPolicy",
+                "image.pullPolicy=$imagePullPolicy",
                 "service.enabled=false",
                 "preHook.create=false",
                 "ingress.enabled=false",
+                "jobActiveDeadlineSeconds=$activeDeadlineSeconds",
                 "job.create=true",
                 "job.fail=$Fail",
                 "job.imageTag=$ImageTag",
                 "job.runCount=$RunCount"
+
 
     Write-Verbose ("HelmSet:`n   "+($helmSet -join "`n   "))
     $releaseName = "test"
@@ -119,6 +146,7 @@ function Deploy-MinimalJob {
                            -SkipRollbackOnError:$SkipRollbackOnError `
                            -ColorType $ColorType `
                            -Verbose:$VerbosePreference
+
         if ($PassThru) {
             $ret
         } else {

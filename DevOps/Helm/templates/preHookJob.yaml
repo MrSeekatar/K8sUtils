@@ -18,13 +18,14 @@ metadata:
     # "helm.sh/hook-delete-policy": hook-succeeded
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
+  # restarts after failure, default is 6, set to 0 to not restart
   backoffLimit: 0
-  activeDeadlineSeconds: 3000
-  {{- if .Values.jobTtlSecondsAfterFinished }}
-  ttlSecondsAfterFinished: {{ .Values.jobTtlSecondsAfterFinished }}
-  {{- else }}
-  ttlSecondsAfterFinished: 0
-  {{- end }}
+
+  # how long to wait for job to complete/fail. Takes precedence over backoffLimit.
+  activeDeadlineSeconds: {{ .Values.jobActiveDeadlineSeconds | default 30 }}
+
+  # this will remove the job after jobTtlSecondsAfterFinished seconds of completion, failed or otherwise, so can grab logs
+  ttlSecondsAfterFinished: {{ .Values.jobTtlSecondsAfterFinished | default 0 }}
   template:
     metadata:
       name: "{{ .Release.Name }}"
@@ -39,8 +40,8 @@ spec:
       #   disktype: ssd
       containers:
       - name: pre-install-upgrade-job
-        image: "init-app:{{ .Values.preHook.imageTag }}"
-        imagePullPolicy: Never
+        image: "{{ .Values.registry }}/init-app:{{ .Values.preHook.imageTag }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
         env:
           - name: RUN_COUNT
             value: "{{ .Values.preHook.runCount }}"

@@ -1,4 +1,19 @@
 #! pwsh
+
+<#
+.SYNOPSIS
+Run tasks associated with this repo. Use tab to cycle through them
+
+.EXAMPLE
+./run.ps1 test
+
+Run all tests against Rancher Desktop (default)
+
+.EXAMPLE
+./run.ps1 test -tag t2 -KubeContext widget-aks-test-sc -Registry widget.azurecr.io
+
+Run test t2 against AKS
+#>
 [CmdletBinding()]
 param (
     [ArgumentCompleter({
@@ -25,7 +40,10 @@ param (
     [string] $NuGetApiKey = $env:nuget_password,
     [string[]] $tag = @(),
     [switch] $prerelease,
-    [string] $KubeContext = "rancher-desktop"
+    [Alias("context")]
+    [Alias("kube-context")]
+    [string] $KubeContext = "rancher-desktop",
+    [string] $Registry
 )
 
 $currentTask = ""
@@ -63,21 +81,31 @@ function Invoke-Test {
         [Parameter(Mandatory)]
         [string] $testFile
     )
-    if (!(Get-Command -Name Docker -ErrorAction SilentlyContinue) -or !(Get-Command -Name Helm -ErrorAction SilentlyContinue)) {
-        throw "Docker and Helm must be installed for these tests"
+    if ($Registry) {
+        $PSDefaultParameterValues['Deploy-*:registry'] = $Registry
     }
-    $images = docker images --format json | ConvertFrom-json -depth 4
-    if (!($images | Where-Object { $_.Repository -eq 'minimal' })) {
-        throw "Must have a minimal image for these tests. See README.md to build it."
+
+    try {
+        if (!(Get-Command -Name Docker -ErrorAction SilentlyContinue) -or !(Get-Command -Name Helm -ErrorAction SilentlyContinue)) {
+            throw "Docker and Helm must be installed for these tests"
+        }
+        $images = docker images --format json | ConvertFrom-json -depth 4
+        if (!($images | Where-Object { $_.Repository -eq 'minimal' })) {
+            throw "Must have a minimal image for these tests. See README.md to build it."
+        }
+        if (!($images | Where-Object { $_.Repository -eq 'init-app' })){
+            throw "Must have a init-app image for these tests. See README.md to build it."
+        }
+        $result = Invoke-Pester -PassThru -Tag $tag -Path $testFile
+        $i = 0
+        Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i-1}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String  -Width 1000)  -InformationAction Continue
+        Write-Information "Test results: are in `$test_results" -InformationAction Continue
+        $global:test_results = $result
+    } finally {
+        if ($Registry) {
+            $PSDefaultParameterValues.Remove('Deploy-*:registry')
+        }
     }
-    if (!($images | Where-Object { $_.Repository -eq 'init-app' })){
-        throw "Must have a init-app image for these tests. See README.md to build it."
-    }
-    $result = Invoke-Pester -PassThru -Tag $tag -Path $testFile
-    $i = 0
-    Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i-1}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String  -Width 1000)  -InformationAction Continue
-    Write-Information "Test results: are in `$test_results" -InformationAction Continue
-    $global:test_results = $result
 }
 
 try {

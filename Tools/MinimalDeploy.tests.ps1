@@ -11,9 +11,9 @@ BeforeAll {
 Describe "Deploys Minimal API" {
 
     It "runs hook, init ok" {
-        $deploy = Deploy-Minimal -PassThru -HappyTest
+        $deploy = Deploy-Minimal -PassThru
 
-        Test-Deploy $deploy
+        Test-Deploy $deploy -ZeroExitCode
 
         Test-PreHook $deploy.PreHookStatus
 
@@ -21,9 +21,9 @@ Describe "Deploys Minimal API" {
     } -Tag 'Happy','t1'
 
     It "runs without init ok" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -HappyTest
+        $deploy = Deploy-Minimal -PassThru -SkipInit
 
-        Test-Deploy $deploy
+        Test-Deploy $deploy -ZeroExitCode
 
         Test-PreHook $deploy.PreHookStatus
 
@@ -31,23 +31,24 @@ Describe "Deploys Minimal API" {
     } -Tag 'Happy','t2'
 
     It "runs without prehook ok" {
-        $deploy = Deploy-Minimal -PassThru -SkipPreHook -HappyTest
+        $deploy = Deploy-Minimal -PassThru -SkipPreHook
 
-        Test-Deploy $deploy
+        Test-Deploy $deploy -ZeroExitCode
 
         Test-MainPod $deploy.PodStatuses[0]
     } -Tag 'Happy','t3'
 
     It "runs without init or prehook ok" {
-        $deploy = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -HappyTest
+        $deploy = Deploy-Minimal -PassThru -SkipPreHook -SkipInit
 
-        Test-Deploy $deploy
+        Test-Deploy $deploy -ZeroExitCode
 
         Test-MainPod $deploy.PodStatuses[0]
     } -Tag 'Happy',"Shortest",'t4'
 
     It "runs with prehook only ok" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipDeploy -HappyTest
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipDeploy
+        $LASTEXITCODE | Should -Be 0
 
         $deploy.Running | Should -Be $false
         $deploy.ReleaseName | Should -Be 'test'
@@ -57,7 +58,8 @@ Describe "Deploys Minimal API" {
     } -Tag 'Happy','t5'
 
     It "runs a dry run" {
-        $deploy = Deploy-Minimal -PassThru -DryRun -HappyTest 2>&1 | Out-Null
+        $deploy = Deploy-Minimal -PassThru -DryRun 2>&1 | Out-Null
+        $LASTEXITCODE | Should -Be 0
         $deploy | Should -Be $null
     } -Tag 'Happy','t6'
 
@@ -72,7 +74,7 @@ Describe "Deploys Minimal API" {
         $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -ImageTag zzz
         Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
-        Test-MainPod $deploy.PodStatuses[0] -status 'ConfigError' -reason "ErrImageNeverPull"
+        Test-MainPod $deploy.PodStatuses[0] -status 'ConfigError' -reason "ErrImage*Pull"
     } -Tag 'Config','Sad','t8'
 
     It "has the main container with a bad secret name" {
@@ -97,14 +99,14 @@ Describe "Deploys Minimal API" {
     } -Tag 'Timeout','Sad','t11'
 
     It "has a temporary startup timeout" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 60 -RunCount 10 -StartupProbe -HappyTest
-        Test-Deploy $deploy -Running $true
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 60 -RunCount 10 -StartupProbe
+        Test-Deploy $deploy -Running $true -ZeroExitCode
 
         Test-MainPod $deploy.PodStatuses[0]
     } -Tag 'Probe', 'Happy', 't12'
 
     It "has a startup timeout" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 10 -StartupProbe
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -TimeoutSec 10 -RunCount 50 -StartupProbe
         Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $podError
 
         Test-MainPod $deploy.PodStatuses[0] -status 'Timeout' -reason "Possible timeout"
@@ -139,7 +141,7 @@ Describe "Deploys Minimal API" {
 
         Test-MainPod $deploy.PodStatuses[0] -status 'ConfigError' -reason "Possible timeout"
         $deploy.PodStatuses[0].LastBadEvents.Count | Should -BeGreaterThan 1
-        $deploy.PodStatuses[0].LastBadEvents[1] | Should -Be 'Error: ErrImageNeverPull'
+        $deploy.PodStatuses[0].LastBadEvents[1] | Should -BeLike 'Error: ErrImage*Pull'
 
     } -Tag 'Sad', 'Crash', 't17'
 
@@ -167,14 +169,30 @@ Describe "Deploys Minimal API" {
         $deploy.PreHookStatus.Status | Should -Be 'Crash'
     } -Tag 'Crash','Sad','t20'
 
+    It "has prehook job crash without init" {
+        $deploy = Deploy-Minimal -PassThru -HookFail -TimeoutSecs 20 -PreHookTimeoutSecs 20 -SkipInit
+        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError
+
+        $deploy.PreHookStatus.Status | Should -Be 'Crash'
+    } -Tag 'Crash','Sad','t20.1'
+
     It "has prehook config error" {
         $deploy = Deploy-Minimal -PassThru -HookTag zzz
         Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError
 
         $deploy.PreHookStatus.Status | Should -Be 'ConfigError'
         $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
-        $deploy.PreHookStatus.LastBadEvents[1] | Should -Be 'Error: ErrImageNeverPull'
+        $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike 'Error: ErrImage*Pull'
     } -Tag 'Config','Sad','t21'
+
+    It "has prehook config error without init" {
+        $deploy = Deploy-Minimal -PassThru -HookTag zzz -SkipInit
+        Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError
+
+        $deploy.PreHookStatus.Status | Should -Be 'ConfigError'
+        $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
+        $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike 'Error: ErrImage*Pull'
+    } -Tag 'Config','Sad','t21.1'
 
     It "has prehook timeout" {
         $deploy = Deploy-Minimal -PassThru -PreHookTimeoutSecs 5 -HookRunCount 100
@@ -195,28 +213,28 @@ Describe "Deploys Minimal API" {
     } -Tag 'Config','Sad','t23'
 
     It "tests taints" {
-        $node = k get node -o jsonpath="{.items[0].metadata.name}"
-        kubectl taint nodes $node key1=value1:NoSchedule
+        kubectl taint nodes --all key1=value1:NoSchedule
+        $LASTEXITCODE | Should -Be 0 -Because "Couldn't set taint"
         try {
             $deploy = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -RunCount 1 -PreHookTimeoutSecs 5 -TimeoutSecs 5
             Test-Deploy $deploy -Running $false -PodCount 1 -RollbackStatus 'RolledBack' -ExpectedStatus $podError
             $deploy.PodStatuses[0].LastBadEvents[0] | Should -BeLike '*schedul*'
         }
         finally {
-            kubectl taint nodes $node key1:NoSchedule-
+            kubectl taint nodes --all key1:NoSchedule-
         }
     } -Tag 'Sad','t24'
 
     It "tests no changes" {
-        $deploy1 = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -TimeoutSecs 10 -SkipSetStartTime -HappyTest
+        $deploy1 = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -TimeoutSecs 10 -SkipSetStartTime
 
-        Test-Deploy $deploy1
+        Test-Deploy $deploy1 -ZeroExitCode
 
         Test-MainPod $deploy1.PodStatuses[0]
 
-        $deploy2 = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -TimeoutSecs 10 -SkipSetStartTime -HappyTest
+        $deploy2 = Deploy-Minimal -PassThru -SkipPreHook -SkipInit -TimeoutSecs 10 -SkipSetStartTime
 
-        Test-Deploy $deploy2
+        Test-Deploy $deploy2 -ZeroExitCode
 
         Test-MainPod $deploy2.PodStatuses[0]
 
@@ -277,12 +295,32 @@ Describe "Deploys Minimal API" {
     } -Tag 'Sad','t30'
 
     It "tests service account with secret access" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook -HappyTest
-        Test-Deploy $deploy
+        $deploy = Deploy-Minimal -PassThru -SkipInit -SkipPreHook
+        Test-Deploy $deploy -ZeroExitCode
 
         Test-MainPod $deploy.PodStatuses[0]
 
     } -Tag 'Happy','t31'
+
+    It "tests prehook with bad tag and timeout " {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -PreHookTimeoutSecs 10 -HookTag zzz
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError -PodCount 0
+
+        $deploy.PreHookStatus.Status | Should -Be 'ConfigError'
+        $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
+        $deploy.PreHookStatus.LastBadEvents[0] | Should -Match '(is not present with pull|Failed to pull image)'
+        $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike '*ErrImage*'
+    } -Tag 'Sad','t32'
+
+    It "tests prehook with bad tag and short active deadline " {
+        $deploy = Deploy-Minimal -PassThru -SkipInit -PreHookTimeoutSecs 5 -HookTag zzz -ActiveDeadlineSeconds 2
+        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError -PodCount 0
+
+        $deploy.PreHookStatus.Status | Should -Be 'Timeout'
+        $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
+        $deploy.PreHookStatus.LastBadEvents[0] | Should -Match '(is not present with pull|Failed to pull image)'
+        $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike '*ErrImage*'
+    } -Tag 'Sad','t33'
 
 }
 
