@@ -209,11 +209,11 @@ function Invoke-HelmUpgrade {
     try {
         $hookMsg = $PreHookJobName ? " waiting ${PreHookTimeoutSecs}s prehook job '$PreHookJobName'" : ""
 
-        Write-Verbose "helm status --namespace $Namespace $ReleaseName -o json"
+        Write-VerboseStatus "helm status --namespace $Namespace $ReleaseName -o json"
         $prevReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10 -AsHashtable # AsHashTable allows for duplicate keys in env, etc.
         if ($prevReleaseVersion -and ($prevReleaseVersion.ContainsKey('version'))) {
             $prevVersion = $prevReleaseVersion.version
-            Write-Verbose "Previous version of $ReleaseName was $prevVersion"
+            Write-VerboseStatus "Previous version of $ReleaseName was $prevVersion"
         }
         "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Write-MyHost
 
@@ -244,7 +244,7 @@ function Invoke-HelmUpgrade {
                                                         -PollIntervalSec $PollIntervalSec `
                                                         -PodType PreInstallJob `
                                                         -LogFileFolder $LogFileFolder
-            Write-Verbose "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+            Write-Debug "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
             if ($hookStatus -is "array" ) {
                 Write-Warning "Multiple hook statuses returned:`n$($hookStatus  | ConvertTo-Json -Depth 5 -EnumsAsStrings)" # so we can see the status
             }
@@ -258,9 +258,9 @@ function Invoke-HelmUpgrade {
                                         -LogLevel error `
                                         -PassThru
                     $status.PreHookStatus.LastBadEvents = $errors
-                    Write-Verbose "Prehook job '$PreHookJobName' events: $($status.PreHookStatus.LastBadEvents | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+                    Write-Debug "Prehook job '$PreHookJobName' events: $($status.PreHookStatus.LastBadEvents | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
                 } else {
-                    Write-Verbose "No events found for prehook job '$PreHookJobName'"
+                    Write-VerboseStatus "No events found for prehook job '$PreHookJobName'"
                 }
             }
         }
@@ -269,7 +269,7 @@ function Invoke-HelmUpgrade {
             $status.Running = $false
             if ($status.PreHookStatus -and
                 $status.PreHookStatus.Status -eq [Status]::Running ) { # timeout
-                    Write-Verbose "Helm upgrade failed, setting prehook status to timeout"
+                    Write-VerboseStatus "Helm upgrade failed, setting prehook status to timeout"
                     $status.PreHookStatus.Status = [Status]::Timeout
             }
             $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError `
@@ -290,13 +290,13 @@ function Invoke-HelmUpgrade {
                                     -LogFileFolder $LogFileFolder
 
             $status.PodStatuses = @() # ?? can't assign the array to podStatuses
-            Write-Verbose "Pod statuses are $($podStatuses | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+            Write-Debug "Pod statuses are $($podStatuses | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
             $status.PodStatuses += $podStatuses
             $status.Running = ![bool]($podStatuses | Where-Object status -ne Running)
         } else {
             Write-Status "No DeploymentSelector specified, not checking main pod. Ok if this is a job"
         }
-        Write-Verbose "PodStatuses: $($status.PodStatuses | Format-List | Out-String)"
+        Write-VerboseStatus "PodStatuses: $($status.PodStatuses | Format-List | Out-String)"
 
         if ($DeploymentSelector -and !$status.Running) {
             $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release '$ReleaseName' had errors" -PrevVersion $prevVersion

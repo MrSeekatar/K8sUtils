@@ -73,6 +73,6 @@ function Convert-Value {
     }
 
     $content = (Get-Content $ValuesFile -Raw) -replace "$StartDelimiter([\w-]+)$EndDelimiter", '${$1}'
-    Write-Verbose "Content: $content"
+    Write-VerboseStatus "Content: $content"
     $ExecutionContext.InvokeCommand.ExpandString($content)
 }

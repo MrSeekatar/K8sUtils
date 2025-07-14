@@ -69,7 +69,7 @@ function Deploy-MinimalJobK8s {
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
-    $imagePullPolicy=$($Registry -eq "docker.io" ? "Never" : "IfNotPresent")
+    $imagePullPolicy=$($Registry -eq "docker.io" ? "Never" : "Always")
 
     $initContainer = $SkipInit ? "" : @"
       initContainers:

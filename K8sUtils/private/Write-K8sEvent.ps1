@@ -54,9 +54,9 @@ function Write-K8sEvent {
         $Events = @($Events | Where-Object { $_.lastTimestamp -gt $Since })
     }
     if ($Events) {
-        Write-Verbose ($Events | ConvertTo-Json -Depth 5)
+        Write-Debug ($Events | ConvertTo-Json -Depth 5)
     } else {
-        Write-Verbose "No events found for $Prefix $Name since $($Since.ToString("HH:mm:ss"))"
+        Write-VerboseStatus "No events found for $Prefix $Name since $($Since.ToString("HH:mm:ss"))"
     }
     $errors = $Events | Where-Object { $_.type -ne "Normal" } | Select-Object -ExpandProperty Message
     if ($errors -and $FilterStartupWarnings) {

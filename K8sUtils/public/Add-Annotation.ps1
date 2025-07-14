@@ -45,13 +45,13 @@ param(
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
-    Write-Verbose "ResourceName: $ResourceName, AnnotationName: $AnnotationName, AnnotationValue: $AnnotationValue, Match: $Match, Namespace: $Namespace"
+    Write-VerboseStatus "ResourceName: $ResourceName, AnnotationName: $AnnotationName, AnnotationValue: $AnnotationValue, Match: $Match, Namespace: $Namespace"
 
     if (!(Get-Command kubectl -ErrorAction SilentlyContinue)) {
         throw "kubectl is not installed"
     }
 
-    Write-Verbose "kubectl get $ResourceName -n $Namespace -o json"
+    Write-VerboseStatus "kubectl get $ResourceName -n $Namespace -o json"
     $resources = (kubectl get $ResourceName -n $Namespace -o json | ConvertFrom-Json).items
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to retrieve $ResourceName in $Namespace"
@@ -59,7 +59,7 @@ param(
 
     foreach ($resource in $resources | Where-Object { $_.metadata.name -match $Match }) {
         $name = $resource.metadata.name
-        Write-Verbose "Adding annotation $AnnotationName=$AnnotationValue to $ResourceName $name in $Namespace namespace"
+        Write-VerboseStatus "Adding annotation $AnnotationName=$AnnotationValue to $ResourceName $name in $Namespace namespace"
         $result = [PSCustomObject]@{
             ResourceName = $ResourceName
             Name = $name
@@ -70,7 +70,7 @@ param(
         try {
             $existingValue = $resource.metadata.annotations.$AnnotationName
             if ($existingValue -eq $AnnotationValue) {
-                Write-Verbose "Annotation $AnnotationName=$AnnotationValue already exists on $ResourceName $name in $Namespace namespace"
+                Write-VerboseStatus "Annotation $AnnotationName=$AnnotationValue already exists on $ResourceName $name in $Namespace namespace"
                 $result.ValueMatched = $true
                 $result
                 continue
