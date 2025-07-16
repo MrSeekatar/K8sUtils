@@ -29,7 +29,7 @@ function Get-JobPodEvent {
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
 
-    Write-Verbose "Getting events for job '$JobName' since $Since"
+    Write-VerboseStatus "Getting events for job '$JobName' since $Since"
 
     $jobEvents = Get-K8sEvent -ObjectName $JobName -Kind Job
     if (!$jobEvents -ne 0) {
@@ -41,7 +41,7 @@ function Get-JobPodEvent {
         $eventTime = $_.eventTime ? $_.eventTime : $_.lastTimestamp
         $eventTime -ge $Since
     })
-    Write-Verbose "Filtered $($jobEvents.Count - $filteredJobEvents.Count) events by time for job $JobName"
+    Write-VerboseStatus "Filtered $($jobEvents.Count - $filteredJobEvents.Count) events by time for job $JobName"
 
     # Find the event that created the pod (reason = "SuccessfulCreate")
     $createPodEvent = $filteredJobEvents | Where-Object {
@@ -49,16 +49,16 @@ function Get-JobPodEvent {
     } | Select-Object -Last 1
 
     if (-not $createPodEvent) {
-        Write-Verbose "No 'SuccessfulCreate' event found for job '$JobName'."
+        Write-VerboseStatus "No 'SuccessfulCreate' event found for job '$JobName'."
         return $null
     }
 
     # Extract pod name from the message (e.g., "Created pod: test-prehook-xxxxx")
     if ($createPodEvent.message -match "Created pod: (\S+)") {
         $podName = $matches[1]
-        Write-Verbose "Job created pod: $podName"
+        Write-VerboseStatus "Job created pod: $podName"
     } else {
-        Write-Verbose "Could not extract pod name from creation event message."
+        Write-VerboseStatus "Could not extract pod name from creation event message."
         return $null
     }
 

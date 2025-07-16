@@ -55,10 +55,10 @@ function Get-K8sEvent {
     if ($Kind) {
         $selector += ",involvedObject.kind=$Kind"
     }
-    Write-Verbose "kubectl get events --namespace $Namespace --field-selector `"$selector`" -o json"
+    Write-Debug "kubectl get events --namespace $Namespace --field-selector `"$selector`" -o json"
     $json = kubectl get events --namespace $Namespace --field-selector $selector -o json
 
-    Write-Verbose "kubectl exit code: $LASTEXITCODE"
+    Write-VerboseStatus "kubectl exit code: $LASTEXITCODE"
     if ($LASTEXITCODE -ne 0) {
         Write-Status "kubectl get events --namespace $Namespace --field-selector `"$selector`" -o json" -LogLevel warning
         Write-Status "  had exit code of $LASTEXITCODE" -LogLevel warning
@@ -67,19 +67,19 @@ function Get-K8sEvent {
     }
     $events = $json | ConvertFrom-Json
     if ($null -eq $events) { # valid if no events, such as it didn't need to create a new pod
-        Write-Verbose "Null events after conversion"
+        Write-VerboseStatus "Null events after conversion"
         Write-Output @() -NoEnumerate # Prevent @() from turning into $null
         return
     }
     if ($events.items) {
-        Write-Verbose "Events count: $($events.items.count)"
+        Write-VerboseStatus "Events count: $($events.items.count)"
         $events.items | ForEach-Object {
-            Write-Verbose "  $($_.message) $($_.eventTime ? $_.eventTime : $_.lastTimestamp)"
+            Write-VerboseStatus "  $($_.message) $($_.eventTime ? $_.eventTime : $_.lastTimestamp)"
         }
     }
     $ret = $events.items
     if ($null -eq $ret) {
-        Write-Verbose "Null items, returning empty array"
+        Write-VerboseStatus "Null items, returning empty array"
         $ret = @()
     }
     Write-Output $ret -NoEnumerate

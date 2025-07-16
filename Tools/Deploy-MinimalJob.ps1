@@ -76,7 +76,7 @@ function Deploy-MinimalJob {
 
     Push-Location (Join-Path $PSScriptRoot "../DevOps/helm")
 
-    $imagePullPolicy=$($Registry -eq "docker.io" ? "Never" : "IfNotPresent")
+    $imagePullPolicy=$($Registry -eq "docker.io" ? "Never" : "Always")
 
     # to clear out init containers from values.yaml, don't set anything and do this, but requires newer helm
     $helmSet = @()

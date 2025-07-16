@@ -44,6 +44,7 @@ function Write-PodLog {
         [string] $LogFileFolder
     )
     $extraLogParams = @()
+    $previousLogParam = @()
     $logFilename = $null
 
     $msg = "Logs for $prefix $PodName"
@@ -58,21 +59,32 @@ function Write-PodLog {
     $podJson = kubectl get pod $PodName --namespace $Namespace -o json
     $podStatus =  $podJson | ConvertFrom-Json -Depth 100
     if ($LASTEXITCODE -ne 0) {
-        $extraLogParams += "--previous"
+        Write-VerboseStatus "Adding --previous get pod failed with exit code $LASTEXITCODE"
+        $previousLogParam += "--previous"
         $LASTEXITCODE = 0
     } elseif ($podStatus.status.containerStatuses.restartCount -gt 0) {
-        $extraLogParams += "--previous"
+        Write-VerboseStatus "Adding --previous because pod $PodName has been restarted"
+        $previousLogParam += "--previous"
     }
 
-    Write-Verbose ($podJson | Out-String)
-    Write-Verbose "kubectl logs --namespace $Namespace $PodName $($extraLogParams -join ' ')"
+    Write-Debug ($podJson | Out-String)
     Write-Header $msg -LogLevel $LogLevel
     $tempFile = Get-TempLogFile
     if ($LogFileFolder) {
         Start-Transcript -Path $tempFile -UseMinimalHeader | Out-Null
     }
-    kubectl logs --namespace $Namespace $PodName $extraLogParams 2>&1 |
-        Where-Object { $_ -NotMatch 'Error.*: (PodInitializing|ContainerCreating)' } | Write-Plain
+
+    Write-VerboseStatus "kubectl logs --namespace $Namespace $PodName $($extraLogParams+$previousLogParam -join ' ')"
+    $logs = kubectl logs --namespace $Namespace $PodName @extraLogParams @previousLogParam 2>&1
+    $getLogsExitCode = $LASTEXITCODE
+    if ($previousLogParam -and $logs -is "string" -and $logs -like "unable to retrieve container logs for*") {
+        Write-Status "Did not get previous logs for pod $PodName, trying without --previous container logs" -LogLevel warning -Length 0
+        Write-VerboseStatus "kubectl logs --namespace $Namespace $PodName $($extraLogParams -join ' ')"
+        $logs = kubectl logs --namespace $Namespace $PodName @extraLogParams 2>&1
+        $getLogsExitCode = $LASTEXITCODE
+    }
+    $logs | Where-Object { $_ -NotMatch 'Error.*: (PodInitializing|ContainerCreating)' } | Write-Plain
+
     if ($LogFileFolder) {
         Stop-Transcript | Out-Null
         $logFilename = Join-Path $LogFileFolder "$PodName.log"
@@ -83,13 +95,12 @@ function Write-PodLog {
         } | Set-Content $logFilename
         Remove-Item $tempFile -ErrorAction SilentlyContinue
     }
-    $getLogsExitCode = $LASTEXITCODE
     Write-Footer "End logs for $prefix $PodName"
 
     if ($getLogsExitCode -ne 0) {
         $msg = "Error getting logs for pod $PodName (exit = $getLogsExitCode), checking status"
         # TODO if you have multiple containers, this returns multiple chunks of json, but not in an array
-        Write-Verbose "kubectl get pod $PodName -o jsonpath='{.status.containerStatuses.*.state}'"
+        Write-Debug "kubectl get pod $PodName -o jsonpath='{.status.containerStatuses.*.state}'"
         $state = ,(kubectl get pod $PodName -o jsonpath="{.status.containerStatuses.*.state}" | ConvertFrom-Json -Depth 5)
         foreach ($s in $state) {
             # can have running, waiting, or terminated properties

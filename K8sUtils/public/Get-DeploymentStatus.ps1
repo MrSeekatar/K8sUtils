@@ -44,13 +44,13 @@ function Get-DeploymentStatus {
 
     Set-StrictMode -Version Latest
 
-    Write-Verbose "Get-DeploymentStatus has timeout of $TimeoutSec seconds and selector $Selector in namespace $Namespace"
+    Write-VerboseStatus "Get-DeploymentStatus has timeout of $TimeoutSec seconds and selector $Selector in namespace $Namespace"
 
     # get the deployment to get the replica count, loop since it may not be ready yet
     $replicas = $null
     for ( $i = 0; $i -lt 10 -and $null -eq $replicas; $i++) {
         # todo check to see if it exists, or don't use jsonpath since items[0] can fail
-        Write-Verbose "kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20 -AsHashtable"
+        Write-Debug "kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20 -AsHashtable"
         $deployments = kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20 -AsHashtable
         if (!$deployments) {
             Write-Warning "No items from kubectl get deploy -l $Selector. Trying again in 1 second."
@@ -68,7 +68,7 @@ function Get-DeploymentStatus {
     # get the current replicaSet's for hash to get pods in this deployment
     # && doesn't seems to work to get owner and revision in the JSON Path in one call
     # "jsonpath-as-json={.items[?(@.metadata.ownerReferences[0].name==`"$deploymentName`")]}"
-    Write-Verbose "kubectl get rs -l $Selector -o jsonpath={.items[?(@.metadata.annotations.deployment\.kubernetes\.io/revision==`"$revision`")]}"
+    Write-VerboseStatus "kubectl get rs -l $Selector -o jsonpath={.items[?(@.metadata.annotations.deployment\.kubernetes\.io/revision==`"$revision`")]}"
     $rs = kubectl get rs -l $Selector -o "jsonpath={.items[?(@.metadata.annotations.deployment\.kubernetes\.io/revision==`"$revision`")]}" |
                             ConvertFrom-Json -Depth 20
 
@@ -76,14 +76,14 @@ function Get-DeploymentStatus {
         throw "When looking for pod, nothing returned from kubectl get rs -l $Selector --namespace $Namespace. Check selector."
     }
     $hash = $rs.metadata.labels."pod-template-hash"
-    Write-Verbose "rs pod-template-hash is $hash. Uid is $($rs.metadata.uid)"
+    Write-VerboseStatus "rs pod-template-hash is $hash. Uid is $($rs.metadata.uid)"
     $rsEvents = Get-AndWriteK8sEvent -Prefix "ReplicaSet" -Uid $rs.metadata.uid `
                                         -Namespace $Namespace `
                                         -PassThru `
                                         -LogLevel ok `
                                         -FilterStartupWarnings
     if ($rsEvents) {
-        Write-Verbose "Rs Events are $($rsEvents | ConvertTo-Json -depth 10)"
+        Write-Debug "Rs Events are $($rsEvents | ConvertTo-Json -depth 10)"
         $ret = [PodStatus]::new("<replica set error>")
         $ret.Status = [Status]::ConfigError
         $ret.LastBadEvents = $rsEvents
@@ -100,7 +100,7 @@ function Get-DeploymentStatus {
                          -PollIntervalSec $PollIntervalSec `
                          -LogFileFolder $LogFileFolder
 
-    Write-Verbose "ret for pod is $($ret | out-string)"
+    Write-VerboseStatus "ret for pod is $($ret | out-string)"
 
     return $ret
 }

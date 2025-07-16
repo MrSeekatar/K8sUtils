@@ -192,3 +192,8 @@ function Write-Plain() {
         $msg | Write-MyHost
     }
 }
+
+function Write-VerboseStatus([string] $msg) {
+    $stack = Get-PSCallStack
+    Write-Verbose "$($stack.Count -gt 1 ? $stack[1].Command : '') => $msg"
+}

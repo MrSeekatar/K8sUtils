@@ -95,11 +95,11 @@ Container registry to use, defaults to docker.io
 .PARAMETER activeDeadlineSeconds
 How long to wait for the preHook job to complete before it is killed, defaults to 30 seconds
 
-
 .EXAMPLE
+Deploy-Minimal -PassThru -SkipInit -SkipPreHook -registry loyal.azurecr.io -ImageTag test-198145
 
-.NOTES
-General notes
+Deploy using a specific registry without init or pre install containers
+
 #>
 function Deploy-Minimal {
     [CmdletBinding()]
@@ -153,7 +153,7 @@ function Deploy-Minimal {
     if (!$SkipInit) {
         $initContainer = @{
             image           = "$registry/init-app:$InitTag"
-            imagePullPolicy = $($registry -eq "docker.io" ? "Never" : "IfNotPresent")
+            imagePullPolicy = $($registry -eq "docker.io" ? "Never" : "Always")
             name            = "init-container-app"
             env             = @(
                 @{
@@ -188,12 +188,12 @@ function Deploy-Minimal {
     }
 
     $helmSet += "deployment.enabled=$($SkipDeploy ? "false" : "true")",
-                "imagePullPolicy=$($registry -eq "docker.io" ? "Never" : "IfNotPresent")",
+                "imagePullPolicy=$($registry -eq "docker.io" ? "Never" : "Always")",
                 "env.deployTime=$($SkipSetStartTime ? "2024-01-01" : (Get-Date))",
                 "env.failOnStart=$fail",
                 "env.runCount=$RunCount",
                 "image.tag=$ImageTag",
-                "image.pullPolicy=$($registry -eq "docker.io" ? "Never" : "IfNotPresent")",
+                "image.pullPolicy=$($registry -eq "docker.io" ? "Never" : "Always")",
                 "jobActiveDeadlineSeconds=$activeDeadlineSeconds",
                 "preHook.create=$(!$SkipPreHook)",
                 "preHook.fail=$HookFail",
@@ -224,7 +224,8 @@ function Deploy-Minimal {
                            -SkipRollbackOnError:$SkipRollbackOnError `
                            -ColorType $ColorType `
                            -Verbose:$VerbosePreference `
-                           -LogFileFolder $logFolder
+                           -LogFileFolder $logFolder `
+                           -Debug:($DebugPreference -eq "Continue") `
 
         Write-Host "Logs for job are in $logFolder" -ForegroundColor Cyan
         if ($PassThru) {

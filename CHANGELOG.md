@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.0.33] 2025-07-14
+
+### Changed
+
+- Image pull policy to `Always` to pick up changes from `latest`
+- Verbose logging now shows calling function name for better debugging
+- Very verbose logging such as JSON dumps now only are output when `-Debug` is set
+
+### Fixed
+
+- When getting logs could get "unable to retrieve container logs for containerd..." if the pod had been restarted and `--previous` used. Now it tries again without `--previous`
+
 ## [1.0.32] 2025-06-26
 
 ### Added

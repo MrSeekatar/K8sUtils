@@ -44,13 +44,13 @@ function Get-JobStatus {
     $ErrorActionPreference = 'Stop'
     Set-StrictMode -Version Latest
 
-    Write-Verbose "kubectl get job $JobName --namespace $Namespace -o json"
+    Write-Debug "kubectl get job $JobName --namespace $Namespace -o json"
     $job = kubectl get job $JobName --namespace $Namespace -o json | ConvertFrom-Json
 
     if ($job) {
         $uid = $job.spec.template.metadata.labels.'batch.kubernetes.io/controller-uid'
         $selector = "batch.kubernetes.io/controller-uid=$uid"
-        Write-Verbose "Checking pods for job selector $selector in namespace $Namespace"
+        Write-VerboseStatus "Checking pods for job selector $selector in namespace $Namespace"
 
         $status = Get-PodStatus -Selector $selector `
             -ReplicaCount $ReplicaCount `
@@ -64,7 +64,7 @@ function Get-JobStatus {
         if ($status.PodName -eq "<no pods found>") {
             $jobEvents = Get-EventByUid -Uid $uid -Namespace $Namespace -NoNormal
             if ($jobEvents) {
-                Write-Verbose "Job '$JobName' has $($jobEvents.Count) events"
+                Write-VerboseStatus "Job '$JobName' has $($jobEvents.Count) events"
                 $status.Status = "ConfigError"
                 $status.LastBadEvents = $jobEvents.Message | ForEach-Object { $_ -replace 'Pod "[\w-]*"', 'Pod "..."' } | Select-Object -Unique
             }
