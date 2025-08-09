@@ -192,6 +192,7 @@ function Deploy-Minimal {
                 "env.deployTime=$($SkipSetStartTime ? "2024-01-01" : (Get-Date))",
                 "env.failOnStart=$fail",
                 "env.runCount=$RunCount",
+                "env.MYCONFIG__REQUIREDKEY=ok",
                 "image.tag=$ImageTag",
                 "image.pullPolicy=$($registry -eq "docker.io" ? "Never" : "Always")",
                 "jobActiveDeadlineSeconds=$activeDeadlineSeconds",
