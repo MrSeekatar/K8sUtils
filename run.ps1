@@ -86,8 +86,10 @@ function Invoke-Test {
     }
 
     try {
-        if (!(Get-Command -Name Docker -ErrorAction SilentlyContinue) -or !(Get-Command -Name Helm -ErrorAction SilentlyContinue)) {
-            throw "Docker and Helm must be installed for these tests"
+        if (!(Get-Command -Name docker -ErrorAction SilentlyContinue) -or
+            !(Get-Command -Name helm -ErrorAction SilentlyContinue) -or
+            !(Get-Command -Name Invoke-Pester -ErrorAction SilentlyContinue) ) {
+            throw "docker, helm, and Invoke-Pester must be installed for these tests"
         }
         $images = docker images --format json | ConvertFrom-json -depth 4
         if (!($images | Where-Object { $_.Repository -eq 'minimal' })) {
