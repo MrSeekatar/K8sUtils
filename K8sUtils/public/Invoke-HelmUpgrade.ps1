@@ -168,6 +168,9 @@ function Invoke-HelmUpgrade {
         $parms += "--version"
         $parms += $ChartVersion
     }
+    if ($DebugPreference -eq "Continue") {
+        $parms += "--debug"
+    }
     if (!$Quiet) {
         Write-Header -Msg "Invoke-HelmUpgrade parameters"
         Write-Plain "Invoke-HelmUpgrade parameters:"
