@@ -165,7 +165,7 @@ function Write-Status() {
 
         $date = $script:AddDate ? "$((Get-Date).ToString("u")) " : ""
         if ($Length -gt 0) {
-            $maxWidth = $Host.UI.RawUI.WindowSize.Width
+            $maxWidth = 120
             $msgLen = ($statusPrefix + $date + $msg + $Suffix).Length
             if ($msgLen -lt $maxWidth) {
                 $Length = [Math]::Min($Length, $maxWidth - $msgLen - 1)
