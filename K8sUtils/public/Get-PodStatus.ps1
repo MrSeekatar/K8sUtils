@@ -97,6 +97,7 @@ $lastEventTime = (Get-CurrentTime ([TimeSpan]::FromMinutes(-5)))
 $timedOut = $false
 
 Write-Status "Checking status of pods of type $podType that match selector $Selector for ${TimeoutSec}s"
+Write-Warning "????? Checking status of pods of type $podType that match selector $Selector for ${TimeoutSec}s"
 $podCount = 0
 while ($runningCount -lt $ReplicaCount -and !$timedOut)
 {

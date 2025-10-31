@@ -248,18 +248,31 @@ function Invoke-HelmUpgrade {
         }
 
         $getPodJob = $null
+         Write-Verbose "Maybe starting thread job $PreHookJobName"
         if ($PreHookJobName) {
             $statusVar = Get-Variable status
             Write-Verbose "Starting thread job>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+            $InformationPreference = [System.Management.Automation.ActionPreference]::Continue
             $getPodJob = Start-ThreadJob -ArgumentList $PreHookJobName, $Namespace, $PollIntervalSec, $LogFileFolder -ScriptBlock {
                 param($PreHookJobName, $Namespace, $PollIntervalSec, $LogFileFolder)
                 $ErrorActionPreference = "Stop"
                 Set-StrictMode -Version Latest
 
+
+                # Write-Host " Type is $(($using:statusVar).GetType())"
+                # Write-Host " Type is $(($using:statusVar).Value.GetType())"
+                # Write-Host " Members are  $(($using:statusVar).Value | gm)"
+                $InformationPreference = $using:InformationPreference
+                $VerbosePreference = $using:VerbosePreference
+                $DebugPreference = $using:DebugPreference
+
                 try {
-                    Write-Verbose ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-                    Write-Verbose ">>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
-                    Write-Verbose ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+                    Write-Warning "########## WARNING IN THREAD JOB PWD is $PWD ##########"
+                    ipmo /Users/jwallace/other-code/K8sUtils/K8sUtils/K8sUtils.psd1
+                    Write-Warning "########## WARNING IN THREAD JOB ##########"
+                    Write-Verbose "########### VERBOSE IN THREAD JOB ##########"
+                    Write-Debug "########### DEBUG IN THREAD JOB ##########"
+                    "K8s Util Version is $((Get-Module K8sUtils).Version) LogFileFolder is $LogFileFolder"
                 $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                                             -Namespace $Namespace `
                                                             -TimeoutSec 10 `
@@ -301,6 +314,7 @@ function Invoke-HelmUpgrade {
         }
         Write-Warning "<<<<<<<<<<<<<<<<<< getting job output <<<<<<<<<<<<<<<<<<<<<<<<< $($null -ne $getPodJob)"
         if ($null -ne $getPodJob) {
+            Write-Warning "about to receive"
             Receive-Job $getPodJob -Wait -AutoRemoveJob | Write-MyHost
             Write-Warning "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<Get pod job receive completed"
         } else {
@@ -351,7 +365,7 @@ function Invoke-HelmUpgrade {
         $err = $_
         if ($DeploymentSelector) {
             Write-Warning "Rolling back due to error in catch block"
-            Write-Warning "$_`n$($_.ScriptStackTrace)"
+            Write-Warning "Exception: $_`n$($_.ScriptStackTrace)"
             $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release '$ReleaseName' had errors" -PrevVersion $prevVersion
         }
         Write-Warning "Caught error. Following status may be incomplete"
