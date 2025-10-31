@@ -21,6 +21,7 @@ function Write-MyHost {
     )
     process {
         $suffix = $script:ColorType -eq "ANSI" ? $PSStyle.Reset : ""
+        $InformationPreference = "Continue"
         Write-Information "$msg$suffix" -InformationAction Continue
         # Write-Host $msg
     }
