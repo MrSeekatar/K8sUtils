@@ -97,7 +97,6 @@ $lastEventTime = (Get-CurrentTime ([TimeSpan]::FromMinutes(-5)))
 $timedOut = $false
 
 Write-Status "Checking status of pods of type $podType that match selector $Selector for ${TimeoutSec}s"
-Write-Warning "????? Checking status of pods of type $podType that match selector $Selector for ${TimeoutSec}s"
 $podCount = 0
 while ($runningCount -lt $ReplicaCount -and !$timedOut)
 {
@@ -226,8 +225,8 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 Write-Status "Pod $($pod.metadata.name) has $($errors.count) errors" -LogLevel Error
                 # write final events and logs for this pod
                 Write-VerboseStatus "Calling Get-AndWriteK8sEvent for pod $($pod.metadata.name) with LogLevel Error"
-                $podStatuses[$pod.metadata.name].LastBadEvents = Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
                 $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit -LogFileFolder $LogFileFolder
+                $podStatuses[$pod.metadata.name].LastBadEvents = Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
 
                 # get latest pod status since sometimes get containerCreating status here
                 $name = $pod.metadata.name
