@@ -21,7 +21,6 @@ function Write-MyHost {
     )
     process {
         $suffix = $script:ColorType -eq "ANSI" ? $PSStyle.Reset : ""
-        $InformationPreference = "Continue"
         Write-Information "$msg$suffix" -InformationAction Continue
         # Write-Host $msg
     }
@@ -195,6 +194,9 @@ function Write-Plain() {
 }
 
 function Write-VerboseStatus([string] $msg) {
+    if ($VerbosePreference -ne 'Continue') {
+        return
+    }
     $stack = Get-PSCallStack
-    Write-Verbose "$($stack.Count -gt 1 ? $stack[1].Command : '') => $msg"
+    Write-Host "$($PSStyle.Formatting.Verbose)VRB: $($stack.Count -gt 1 ? $stack[1].Command : '') => $msg$($PSStyle.Reset)"
 }
