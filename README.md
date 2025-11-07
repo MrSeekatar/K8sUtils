@@ -38,7 +38,7 @@ The following table lists the commands in the module. Most are called by `Invoke
 | Get-JobPodEvent      | Get the events for a pod started by a job              |
 | Get-JobPodSelector   | Get the selector for pods for a job                    |
 | Get-JobStatus        | Get the status and logs of a K8s job                   |
-| Get-PodByJobName     | Get a pod give a K8s job name                          |
+| Get-PodByJobName     | Get a pod given a K8s job name                         |
 | Get-PodEvent         | Get all the K8s events for a pod                       |
 | Get-PodStatus        | Get the status of a pod, dumping events and logs       |
 | Invoke-HelmUpgrade   | Calls `helm upgrade` and polls K8s for events and logs |
@@ -208,7 +208,7 @@ The `run.ps1` script has the following tasks that you can execute with `.\run.ps
 
 ### Running the Pester Tests
 
-Each test task listed above creates tons of output, and a summary and the end so you know which tests failed and why. I usually run each one separately. The `-tags` parameter allows you to run tests with those. By default it will run against `rancher-desktop` K8s configuration, but you can override that with parameters. Here's running test t2 against AKS.
+Each test task listed above run for quite a while and creates tons of output as well as a summary and the end so you know which tests failed and why. When test new changes, I usually run each one, or a few separately. The `-tag` parameter allows you to tests with one or more tags (see the *.tests.ps1 files). By default it will run against `rancher-desktop` K8s configuration, but you can override that with parameters. Here's running test t2 against AKS.
 
 ```powershell
 ./run.ps1 test -tag t2 -KubeContext widget-aks-test-sc -Registry widget.azurecr.io
@@ -220,12 +220,11 @@ Each test task listed above creates tons of output, and a summary and the end so
 
 In the `DevOps/Kubernetes` folder are the following manifests:
 
-| Name                   | Description                                                  |
-| ---------------------- | ------------------------------------------------------------ |
-| config-and-secret.yaml | ConfigMap and Secret for the minimal1 deployment             |
-| deploy-with            |
-| out-helm.yaml          | Used for testing without Helm                                |
-| lock-down-secrets.yml  | Creates service accounts and roles for testing secret access |
+| Name                     | Description                                                  |
+| ------------------------ | ------------------------------------------------------------ |
+| config-and-secret.yaml   | ConfigMap and Secret for the minimal1 deployment             |
+| deploy-without-helm.yaml | Used for testing without Helm                                |
+| lock-down-secrets.yml    | Creates service accounts and roles for testing secret access |
 
 > Set `$env:invokeHelmAllowLowTimeouts=1` to allow short timeouts for testing, otherwise it will set the minimum to 120s for pre-install hook and 180s for main. Setting `$env:TF_BUILD=$true` will simulate running in an Azure DevOps pipeline and change header and footer output format.
 
@@ -262,7 +261,7 @@ The following table shows the scenarios of deploying the app with Helm and the v
 
 ### Other Scenarios <!-- omit in toc -->
 
-These test cases are difficult to test or yet to be covered with tests.
+These scenarios are difficult to test or yet to be covered with tests, but can be manually verified.
 
 | Description                                  | Manual<br>Test | `Deploy-Minimal` Switches                                                                        |
 | -------------------------------------------- | :------------: | ------------------------------------------------------------------------------------------------ |
@@ -301,11 +300,11 @@ These values in the values file can be set with switches to `Deploy-Minimal` to 
 | registry                 | string        | Container registry for pulling images.                                                               |
 | replicaCount             | number        | Number of replica to run, defaults to 1                                                              |
 | resources.requests.cpu   | number        | CPU request for manifest                                                                             |
-| serviceAccount.name      | string        | Service account to use for the deployment, defaults to empty string                                 |
+| serviceAccount.name      | string        | Service account to use for the deployment, defaults to empty string                                  |
 
 ## Pod Phases
 
-To be "ok" we look for `Succeeded` for pre-install jobs and `Running` for the main pod. For both, we look for `Failed` and if it doesn't reach an "ok" state within the timeout, we return a timeout error. Stored in `pod.status.phase`.
+To be "ok" we look for `Succeeded` for pre-install jobs and `Running` for the main pod. For both, we look for `Failed` and if it doesn't reach an "ok" state within the timeout, we return a timeout error. Stored in `pod.status.phase`. See the [K8s doc](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase) for more details.
 
 ```mermaid
 stateDiagram
@@ -320,18 +319,18 @@ stateDiagram
 
 ## Container States
 
-Within a pod, the container states are tracked in `pod.status.containerStatuses[].state`
+Within a pod, the container states are tracked in `pod.status.containerStatuses[].state`. Depending on the state, different fields are populated. See the [K8s doc](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-states) for more details.
 
-- `waiting` has: reason, message
-- `terminated` has: containerID, exitCode, finishedAt, reason, message, signal, startedAt
-- `running` has: startedAt
+- `Waiting` has: reason, message
+- `Terminated` has: containerID, exitCode, finishedAt, reason, message, signal, startedAt
+- `Running` has: startedAt
 
 ```mermaid
 stateDiagram
-    [*] --> waiting
-    waiting --> running
-    running --> terminated: Succeeded or Failed
-    terminated --> [*]
+    [*] --> Waiting
+    Waiting --> Running
+    Running --> Terminated: Succeeded or Failed
+    Terminated --> [*]
 ```
 
 ## Pre-Install Hook Job Timeout Settings

@@ -198,5 +198,11 @@ function Write-VerboseStatus([string] $msg) {
         return
     }
     $stack = Get-PSCallStack
-    Write-Host "$($PSStyle.Formatting.Verbose)VRB: $($stack.Count -gt 1 ? $stack[1].Command : '') => $msg$($PSStyle.Reset)"
+    $s = @()
+    $stack | Select-Object -Skip 1 -SkipLast 1 | ForEach-Object {
+        $location = $_.Location -match "line (\d+)" ? $Matches[1] : ""
+        $s += "$($_.Command):$Location"
+    }
+    $s = $s -join " <- "
+    Write-Host "$($PSStyle.Formatting.Verbose)VRB: $s => $msg$($PSStyle.Reset)"
 }

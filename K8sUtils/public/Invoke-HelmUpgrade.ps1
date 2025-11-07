@@ -229,28 +229,8 @@ function Invoke-HelmUpgrade {
             Write-Header -Msg "Helm upgrade$hookMsg" -HeaderPrefix ""
         }
         $startTime = (Get-CurrentTime ([TimeSpan]::FromSeconds(-5))) # start a few seconds back to avoid very close timing
-        $upgradeExitVar = Get-Variable upgradeExit
-
-        $helmJob = Start-ThreadJob -ScriptBlock {
-            param($ReleaseName, $Chart, $ValueFile, $PreHookTimeoutSecs, $Namespace, $parms)
-            $ErrorActionPreference = "Stop"
-            Set-StrictMode -Version Latest
-
-            # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
-            helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1
-
-            ($using:upgradeExitVar).Value = $LASTEXITCODE
-        } -ArgumentList $ReleaseName, $Chart, $ValueFile, $PreHookTimeoutSecs,  $Namespace, $parms
-        Write-Verbose "Helm job is $($helmJob | Out-String)"
-
-        if ($DryRun) {
-            Receive-Job $helmJob -Wait -AutoRemoveJob | Write-MyHost
-            Write-Verbose "Dry run job receive completed"
-            return
-        }
-
         $getPodJob = $null
-        if ($PreHookJobName) {
+        if (!$DryRun -and $PreHookJobName) {
             $statusVar = Get-Variable status
 
             $getPodJob = Start-ThreadJob -ArgumentList $PreHookJobName, $Namespace, $LogFileFolder -ScriptBlock {
@@ -264,7 +244,7 @@ function Invoke-HelmUpgrade {
 
                 try {
                     Import-Module /Users/jwallace/other-code/K8sUtils/K8sUtils/K8sUtils.psd1 -ArgumentList $true -Verbose:$false
-                    Write-Host "K8s Util Version is $((Get-Module K8sUtils).Version) LogFileFolder is '$LogFileFolder'"
+                    Write-Verbose "K8sUtil Version is $((Get-Module K8sUtils).Version). LogFileFolder is '$LogFileFolder'"
 
                     $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                                                 -Namespace $Namespace `
@@ -295,6 +275,29 @@ function Invoke-HelmUpgrade {
                     Write-Error "Error getting prehook pod status: $_`n$($_.ScriptStackTrace)"
                 }
             }
+            Write-Verbose "Prehook jobId is $($getPodJob.Id)"
+        }
+
+        $upgradeExitVar = Get-Variable upgradeExit
+
+        $helmJob = Start-ThreadJob -ScriptBlock {
+            param($ReleaseName, $Chart, $ValueFile, $PreHookTimeoutSecs, $Namespace, $parms)
+            $ErrorActionPreference = "Stop"
+            Set-StrictMode -Version Latest
+
+            # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
+            "Start upgrade $((Get-Date).ToString("u"))"
+            helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1
+            "End upgrade $((Get-Date).ToString("u"))"
+
+            ($using:upgradeExitVar).Value = $LASTEXITCODE
+        } -ArgumentList $ReleaseName, $Chart, $ValueFile, $PreHookTimeoutSecs,  $Namespace, $parms
+        Write-Verbose "Helm jobId is $($helmJob.Id)"
+
+        if ($DryRun) {
+            Receive-Job $helmJob -Wait -AutoRemoveJob | Write-MyHost
+            Write-Verbose "Dry run job receive completed"
+            return
         }
 
         Write-Verbose "Getting helm output"

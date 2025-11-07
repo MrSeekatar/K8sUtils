@@ -55,7 +55,7 @@ function Get-K8sEvent {
     if ($Kind) {
         $selector += ",involvedObject.kind=$Kind"
     }
-    Write-Debug "kubectl get events --namespace $Namespace --field-selector `"$selector`" -o json"
+    Write-VerboseStatus "kubectl get events --namespace $Namespace --field-selector `"$selector`" -o json"
     $json = kubectl get events --namespace $Namespace --field-selector $selector -o json
 
     Write-VerboseStatus "kubectl exit code: $LASTEXITCODE"
