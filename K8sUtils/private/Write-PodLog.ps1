@@ -100,7 +100,7 @@ function Write-PodLog {
     if ($getLogsExitCode -ne 0) {
         $msg = "Error getting logs for pod $PodName (exit = $getLogsExitCode), checking status"
         # TODO if you have multiple containers, this returns multiple chunks of json, but not in an array
-        Write-Debug "kubectl get pod $PodName -o jsonpath='{.status.containerStatuses.*.state}'"
+        Write-VerboseStatus "kubectl get pod $PodName -o jsonpath='{.status.containerStatuses.*.state}'"
         $state = ,(kubectl get pod $PodName -o jsonpath="{.status.containerStatuses.*.state}" | ConvertFrom-Json -Depth 5)
         foreach ($s in $state) {
             # can have running, waiting, or terminated properties
@@ -110,7 +110,7 @@ function Write-PodLog {
                 if ($s.waiting.reason -eq 'ContainerCreating') {
                     Write-Status "Pod is in ContainerCreating"
                 } else {
-                    Write-Status "Pod is waiting" -LogLevel error
+                    Write-Status "Pod $PodName is waiting" -LogLevel error
                     Write-Status ($s.waiting | Out-String -Width 500) -LogLevel error
                 }
             } elseif ($s -and (Get-Member -InputObject $s -Name terminated) -and (Get-Member -InputObject $s.terminated -Name reason)) {

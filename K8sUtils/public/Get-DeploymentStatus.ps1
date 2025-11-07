@@ -50,7 +50,7 @@ function Get-DeploymentStatus {
     $replicas = $null
     for ( $i = 0; $i -lt 10 -and $null -eq $replicas; $i++) {
         # todo check to see if it exists, or don't use jsonpath since items[0] can fail
-        Write-Debug "kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20 -AsHashtable"
+        Write-VerboseStatus "kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20 -AsHashtable"
         $deployments = kubectl get deploy --namespace $Namespace -l $Selector -o jsonpath='{.items}' | ConvertFrom-Json -Depth 20 -AsHashtable
         if (!$deployments) {
             Write-Warning "No items from kubectl get deploy -l $Selector. Trying again in 1 second."

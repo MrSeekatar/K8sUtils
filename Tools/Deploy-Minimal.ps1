@@ -210,7 +210,7 @@ function Deploy-Minimal {
     Write-Verbose ("HelmSet:`n   "+($helmSet -join "`n   "))
     $releaseName = "test"
     try {
-        $logFolder = $null # [System.IO.Path]::GetTempPath()
+        $logFolder = [System.IO.Path]::GetTempPath()
         $ret = Invoke-HelmUpgrade -ValueFile minimal_values.yaml `
                            -ChartName $chartName `
                            -ReleaseName $releaseName `
