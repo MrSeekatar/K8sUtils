@@ -141,7 +141,7 @@ function Deploy-Minimal {
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
 
-    Push-Location (Join-Path $PSScriptRoot "../DevOps/helm")
+    Push-Location (Join-Path $PSScriptRoot "../DevOps/Helm")
 
     # to clear out init containers from values.yaml, don't set anything and do this, but requires newer helm
     $helmSet = @()

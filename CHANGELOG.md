@@ -5,7 +5,15 @@
 ### Added
 
 - Allow the -Debug switch on Invoke-HelmUpgrade to pass through to helm as --debug
+- Logging of pods that disappear from a ReplicaSet in Get-PodStatus
 
+### Changed
+
+- Verbose logging shows a line with the call stack for better debugging
+
+### Fixed
+
+- Path case in Deploy-Minimal.ps1 for Linux
 
 ## [1.0.33] 2025-07-14
 

@@ -110,6 +110,7 @@ env:
   # cannot use $() for anything but constant values, no CM or Secret refs
   DOTNET_USE_POLLING_FILE_WATCHER: "true"
   MYCONFIG__APIKEY: "myApiKey"
+  MYCONFIG__REQUIREDKEY: ok
   # example-secret: passwordInEnv
 
 configMap:
