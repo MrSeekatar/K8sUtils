@@ -194,6 +194,18 @@ function Write-Plain() {
 }
 
 function Write-VerboseStatus([string] $msg) {
+    if ($VerbosePreference -ne 'Continue') {
+        return
+    }
     $stack = Get-PSCallStack
-    Write-Verbose "$($stack.Count -gt 1 ? $stack[1].Command : '') => $msg"
+    $frameList = @()
+    $frames = $stack | Select-Object -Skip 1 -SkipLast 1
+    foreach ($frame in $frames) {
+        $location = $frame.Location -match "line (\d+)" ? $Matches[1] : ""
+        if ($frame.Command -eq 'Invoke-HelmUpgrade') {
+            break
+        }
+        $frameList += "$($frame.Command):$Location"
+    }
+    Write-Host "$($PSStyle.Formatting.Verbose)VRB: $($frameList -join " <- ")`n => $msg$($PSStyle.Reset)"
 }

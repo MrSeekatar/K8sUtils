@@ -113,6 +113,24 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
     $pods = $pods.items
     Write-VerboseStatus "Got $($pods.Count) pods from kubectl get pod --namespace $Namespace --selector $Selector"
     $podCount = $pods.Count
+    Write-VerboseStatus ( "    $($pods.metadata.name -join ',')" )
+
+    # Handle odd case when a pod is a pod in $podStatuses that is no longer in $pods
+    #   - remove it from $podStatuses
+    #   - get its events and logs for diagnostics
+    $goners = $podStatuses.Keys | Where-Object { $_ -notin $pods.metadata.name }
+    if ($goners) {
+        foreach ($goner in $goners) {
+            Write-Warning "Pod '$goner' is no longer returned by selector $Selector. Removing from podStatuses."
+            $podStatuses.Remove($goner)
+            $null = Get-AndWriteK8sEvent -Prefix $prefix -PodName $goner `
+                                                    -Namespace $Namespace `
+                                                    -LogLevel warning `
+                                                    -FilterStartupWarnings
+
+            $null = Write-PodLog -Prefix $prefix -PodName $goner -Namespace $Namespace -LogLevel warning -HasInit:$HasInit -LogFileFolder $LogFileFolder
+        }
+    }
 
     $i = 0
     foreach ($pod in $pods) {

@@ -345,6 +345,14 @@ When the job is a pre-install hook, the `helm install --timeout` value comes int
 | `activeDeadlineSeconds` < `--timeout` | Deadline exceeded                   | No job or pod. Must look at Events                 |
 | `activeDeadlineSeconds` > `--timeout` | timed out waiting for the condition | Job and pod may still be running, or trying to run |
 
+```powershell
+# deadline exceeded error, no logs from pre-hook job
+Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 10 -activeDeadlineSeconds 5
+
+# timeout error, logs from pre-hook job available
+Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 5 -activeDeadlineSeconds 10
+```
+
 ## Links
 
 - K8s Doc
@@ -353,4 +361,3 @@ When the job is a pre-install hook, the `helm install --timeout` value comes int
   - [Jobs doc](https://kubernetes.io/docs/concepts/workloads/controllers/job/#job-termination-and-cleanup) anchor on "Job Termination and Cleanup"
 - Helm Doc
   - [Helm Hooks](https://helm.sh/docs/topics/charts_hooks/)
-  - [Jobs doc](https://kubernetes.io/docs/concepts/workloads/controllers/job/#job-termination-and-cleanup) anchor on "Job Termination and Cleanup"

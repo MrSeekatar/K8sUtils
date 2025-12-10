@@ -11,7 +11,7 @@ function rollbackAndWarn {
             Write-Status "Current helm release: $($currentReleaseVersion | ConvertTo-Json -Depth 20 -EnumsAsStrings)"
             return [RollbackStatus]::HelmStatusFailed
         }
-        Write-VerboseStatus "Current version of $ReleaseName is $($currentReleaseVersion.version)"
+        Write-VerboseStatus "Current version of '$ReleaseName' is $($currentReleaseVersion.version)"
         if (!$currentReleaseVersion -or $currentReleaseVersion.version -eq $prevVersion) {
             Write-Status "No change in release '$ReleaseName', not rolling back $($currentReleaseVersion.version) = $prevVersion" -LogLevel warning
             # throw "$msg, no change"
