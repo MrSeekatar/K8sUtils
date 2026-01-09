@@ -110,7 +110,7 @@ Do a Helm upgrade of a hra builder to dev
 
 #>
 function Invoke-HelmUpgrade {
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingCmdletAliases','', Justification = 'Locally helm is an alias')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingCmdletAliases', '', Justification = 'Locally helm is an alias')]
     [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)]
@@ -132,7 +132,7 @@ function Invoke-HelmUpgrade {
         [int] $PollIntervalSec = 5,
         [switch] $SkipRollbackOnError,
         [switch] $DryRun,
-        [ValidateSet("None","ANSI","DevOps")]
+        [ValidateSet("None", "ANSI", "DevOps")]
         [string] $ColorType = $script:ColorType,
         [string] $LogFileFolder,
         [switch] $Quiet
@@ -193,7 +193,7 @@ function Invoke-HelmUpgrade {
     }
 
 
-    if (!$env:invokeHelmAllowLowTimeouts){
+    if (!$env:invokeHelmAllowLowTimeouts) {
         if ($PreHookTimeoutSecs -lt $minPreHookTimeoutSecs) {
             Write-Warning "PreHookTimeoutSecs ($PreHookTimeoutSecs) is less than $minPreHookTimeoutSecs seconds, setting to $minPreHookTimeoutSecs."
             $PreHookTimeoutSecs = $minPreHookTimeoutSecs
@@ -233,52 +233,66 @@ function Invoke-HelmUpgrade {
             $statusVar = Get-Variable status
             $startTime = (Get-CurrentTime ([TimeSpan]::FromSeconds(-5))) # start a few seconds back to avoid very close timing
 
-            $getPodJob = Start-ThreadJob -ArgumentList $PreHookJobName, $Namespace, $LogFileFolder, $startTime, $PreHookTimeoutSecs `
-                -ScriptBlock {
-                param($PreHookJobName, $Namespace, $LogFileFolder, $startTime, $PreHookTimeoutSecs)
-                $ErrorActionPreference = "Stop"
-                Set-StrictMode -Version Latest
+            $newWay = $false
+            if ($newWay) {
+                $getPodJob = Get-PreHookJob -PreHookJobName $PreHookJobName `
+                    -Namespace $Namespace `
+                    -LogFileFolder $LogFileFolder `
+                    -StartTime $startTime `
+                    -PreHookTimeoutSecs $PreHookTimeoutSecs `
+                    -Status $status `
+                    -InformationPreference $InformationPreference `
+                    -VerbosePreference $VerbosePreference `
+                    -DebugPreference $DebugPreference
+            } else {
+                $module = Join-Path $PSScriptRoot ../K8sUtils.psd1
+                $getPodJob = Start-ThreadJob -ArgumentList $PreHookJobName, $Namespace, $LogFileFolder, $startTime, $PreHookTimeoutSecs, $module `
+                    -ScriptBlock {
+                    param($PreHookJobName, $Namespace, $LogFileFolder, $startTime, $PreHookTimeoutSecs, $module)
+                    $ErrorActionPreference = "Stop"
+                    Set-StrictMode -Version Latest
 
-                $inThreadPollIntervalSec = 1
-                $status = ($using:statusVar).Value
-                $InformationPreference = $using:InformationPreference
-                $VerbosePreference = $using:VerbosePreference
-                $DebugPreference = $using:DebugPreference
+                    $inThreadPollIntervalSec = 1
+                    $status = ($using:statusVar).Value
+                    $InformationPreference = $using:InformationPreference
+                    $VerbosePreference = $using:VerbosePreference
+                    $DebugPreference = $using:DebugPreference
 
-                try {
-                    Import-Module (Join-Path $PSScriptRoot ../K8sUtils.psd1) -ArgumentList $true -Verbose:$false
-                    Write-Verbose "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$LogFileFolder'"
+                    try {
+                        Import-Module $module -ArgumentList $true -Verbose:$false
+                        Write-Verbose "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$LogFileFolder'"
 
-                    $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
-                                                                -Namespace $Namespace `
-                                                                -TimeoutSec $PreHookTimeoutSecs `
-                                                                -PollIntervalSec $inThreadPollIntervalSec `
-                                                                -PodType PreInstallJob `
-                                                                -LogFileFolder $LogFileFolder
-                    Write-Debug "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
-                    if ($hookStatus -is "array" ) {
-                        Write-Warning "Multiple hook statuses returned:`n$($hookStatus  | ConvertTo-Json -Depth 5 -EnumsAsStrings)" # so we can see the status
-                    }
-                    $status.PreHookStatus = $hookStatus | Select-Object -Last 1 # get the last status, in case it was a job
-                    if ($status.PreHookStatus.PodName -eq '<no pods found>') {
-                        $events = Get-JobPodEvent -JobName $PreHookJobName -Since $startTime
-                        if ($events) {
-                            $errors = Write-K8sEvent -Name "$PreHookJobName's pod" `
-                                                -Prefix "PreHookJob" `
-                                                -Events $events `
-                                                -LogLevel error `
-                                                -PassThru
-                            $status.PreHookStatus.LastBadEvents = $errors
-                            Write-Debug "Prehook job '$PreHookJobName' events: $($status.PreHookStatus.LastBadEvents | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
-                        } else {
-                            Write-Verbose "No events found for prehook job '$PreHookJobName' since $startTime"
+                        $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
+                            -Namespace $Namespace `
+                            -TimeoutSec $PreHookTimeoutSecs `
+                            -PollIntervalSec $inThreadPollIntervalSec `
+                            -PodType PreInstallJob `
+                            -LogFileFolder $LogFileFolder
+                        Write-Debug "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+                        if ($hookStatus -is "array" ) {
+                            Write-Warning "Multiple hook statuses returned:`n$($hookStatus  | ConvertTo-Json -Depth 5 -EnumsAsStrings)" # so we can see the status
                         }
+                        $status.PreHookStatus = $hookStatus | Select-Object -Last 1 # get the last status, in case it was a job
+                        if ($status.PreHookStatus.PodName -eq '<no pods found>') {
+                            $events = Get-JobPodEvent -JobName $PreHookJobName -Since $startTime
+                            if ($events) {
+                                $errors = Write-K8sEvent -Name "$PreHookJobName's pod" `
+                                    -Prefix "PreHookJob" `
+                                    -Events $events `
+                                    -LogLevel error `
+                                    -PassThru
+                                $status.PreHookStatus.LastBadEvents = $errors
+                                Write-Debug "Prehook job '$PreHookJobName' events: $($status.PreHookStatus.LastBadEvents | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
+                            } else {
+                                Write-Verbose "No events found for prehook job '$PreHookJobName' since $startTime"
+                            }
+                        }
+                    } catch {
+                        Write-Error "Error getting prehook pod status: $_`n$($_.ScriptStackTrace)"
                     }
-                } catch {
-                    Write-Error "Error getting prehook pod status: $_`n$($_.ScriptStackTrace)"
                 }
+                Write-Verbose "Prehook jobId is $($getPodJob.Id)"
             }
-            Write-Verbose "Prehook jobId is $($getPodJob.Id)"
         }
 
         $upgradeExitVar = Get-Variable upgradeExit
@@ -294,7 +308,7 @@ function Invoke-HelmUpgrade {
             "End upgrade $((Get-Date).ToString("u"))"
 
             ($using:upgradeExitVar).Value = $LASTEXITCODE
-        } -ArgumentList $ReleaseName, $Chart, $ValueFile, $PreHookTimeoutSecs,  $Namespace, $parms
+        } -ArgumentList $ReleaseName, $Chart, $ValueFile, $PreHookTimeoutSecs, $Namespace, $parms
         Write-Verbose "Helm jobId is $($helmJob.Id)"
 
         if ($DryRun) {
@@ -323,14 +337,15 @@ function Invoke-HelmUpgrade {
         if ($upgradeExit -ne 0 -or ($status.PreHookStatus -and $status.PreHookStatus.Status -ne [Status]::Completed)) {
             $status.Running = $false
             if ($status.PreHookStatus -and
-                $status.PreHookStatus.Status -eq [Status]::Running ) { # timeout
-                    Write-VerboseStatus "Helm upgrade failed, setting prehook status to timeout"
-                    $status.PreHookStatus.Status = [Status]::Timeout
+                $status.PreHookStatus.Status -eq [Status]::Running ) {
+                # timeout
+                Write-VerboseStatus "Helm upgrade failed, setting prehook status to timeout"
+                $status.PreHookStatus.Status = [Status]::Timeout
             }
             $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError `
-                                                        -releaseName $ReleaseName `
-                                                        -msg "Helm upgrade got last exit code $upgradeExit" `
-                                                        -prevVersion $prevVersion
+                -releaseName $ReleaseName `
+                -msg "Helm upgrade got last exit code $upgradeExit" `
+                -prevVersion $prevVersion
             Write-Output $status
             $upgradeExit = 9
             return
@@ -339,15 +354,15 @@ function Invoke-HelmUpgrade {
 
         if ($DeploymentSelector) {
             $podStatuses = Get-DeploymentStatus -TimeoutSec $PodTimeoutSecs `
-                                    -Namespace $Namespace `
-                                    -Selector $DeploymentSelector `
-                                    -PollIntervalSec $PollIntervalSec `
-                                    -LogFileFolder $LogFileFolder
+                -Namespace $Namespace `
+                -Selector $DeploymentSelector `
+                -PollIntervalSec $PollIntervalSec `
+                -LogFileFolder $LogFileFolder
 
             $status.PodStatuses = @() # ?? can't assign the array to podStatuses
             Write-Debug "Pod statuses are $($podStatuses | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
             $status.PodStatuses += $podStatuses
-            $status.Running = ![bool]($podStatuses | Where-Object status -ne Running)
+            $status.Running = ![bool]($podStatuses | Where-Object status -NE Running)
         } else {
             Write-Status "No DeploymentSelector specified, not checking main pod. Ok if this is a job"
         }
