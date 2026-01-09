@@ -1,3 +1,7 @@
+<#
+.SYNOPSIS
+Helper to test using a ThreadJob to get pod logs
+#>
 [CmdletBinding()]
 param (
     [string] $JobName = "test-prehook",
@@ -5,7 +9,6 @@ param (
     [int] $PollIntervalSec = 1
 )
 
-$prefix = "PreHookPodEvent"
 $hasInit = $false
 $follow = $true
 $logJob = $null
@@ -62,14 +65,12 @@ while ($true) {
     break
 }
 
-$logLevel = "ok"
 if ($logJob) {
     Write-Verbose "Getting output for jobId is $($logJob.Id)"
     Receive-Job $logJob -Wait -AutoRemoveJob
     Write-Verbose "Finished getting logs for pod $($pod.metadata.name) from jobId $($logJob.Id)"
 } else {
     Write-Warning "Did not start log job for pod $($pod.metadata.name)"
-    $logLevel = "warning"
 }
 
 if ($podUid) {

@@ -165,7 +165,7 @@ function Write-Status() {
 
         $date = $script:AddDate ? "$((Get-Date).ToString("u")) " : ""
         if ($Length -gt 0) {
-            $maxWidth = 120
+            $maxWidth = try { $Host.UI.RawUI.WindowSize.Width } catch { 120 } # account for running a JobThread without a host
             $msgLen = ($statusPrefix + $date + $msg + $Suffix).Length
             if ($msgLen -lt $maxWidth) {
                 $Length = [Math]::Min($Length, $maxWidth - $msgLen - 1)

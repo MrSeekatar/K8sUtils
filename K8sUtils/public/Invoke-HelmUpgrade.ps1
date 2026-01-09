@@ -228,28 +228,31 @@ function Invoke-HelmUpgrade {
         } else {
             Write-Header -Msg "Helm upgrade$hookMsg" -HeaderPrefix ""
         }
-        $startTime = (Get-CurrentTime ([TimeSpan]::FromSeconds(-5))) # start a few seconds back to avoid very close timing
         $getPodJob = $null
         if (!$DryRun -and $PreHookJobName) {
             $statusVar = Get-Variable status
+            $startTime = (Get-CurrentTime ([TimeSpan]::FromSeconds(-5))) # start a few seconds back to avoid very close timing
 
-            $getPodJob = Start-ThreadJob -ArgumentList $PreHookJobName, $Namespace, $LogFileFolder -ScriptBlock {
-                param($PreHookJobName, $Namespace, $LogFileFolder)
+            $getPodJob = Start-ThreadJob -ArgumentList $PreHookJobName, $Namespace, $LogFileFolder, $startTime, $PreHookTimeoutSecs `
+                -ScriptBlock {
+                param($PreHookJobName, $Namespace, $LogFileFolder, $startTime, $PreHookTimeoutSecs)
                 $ErrorActionPreference = "Stop"
                 Set-StrictMode -Version Latest
+
+                $inThreadPollIntervalSec = 1
                 $status = ($using:statusVar).Value
                 $InformationPreference = $using:InformationPreference
                 $VerbosePreference = $using:VerbosePreference
                 $DebugPreference = $using:DebugPreference
 
                 try {
-                    Import-Module /Users/jwallace/other-code/K8sUtils/K8sUtils/K8sUtils.psd1 -ArgumentList $true -Verbose:$false
-                    Write-Verbose "K8sUtil Version is $((Get-Module K8sUtils).Version). LogFileFolder is '$LogFileFolder'"
+                    Import-Module (Join-Path $PSScriptRoot ../K8sUtils.psd1) -ArgumentList $true -Verbose:$false
+                    Write-Verbose "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$LogFileFolder'"
 
                     $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
                                                                 -Namespace $Namespace `
-                                                                -TimeoutSec 10 `
-                                                                -PollIntervalSec 1 `
+                                                                -TimeoutSec $PreHookTimeoutSecs `
+                                                                -PollIntervalSec $inThreadPollIntervalSec `
                                                                 -PodType PreInstallJob `
                                                                 -LogFileFolder $LogFileFolder
                     Write-Debug "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"

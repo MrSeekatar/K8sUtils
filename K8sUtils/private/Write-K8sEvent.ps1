@@ -66,9 +66,9 @@ function Write-K8sEvent {
     if ($filteredEvents) {
         Write-Header $msg -LogLevel $LogLevel
         $filteredEvents | Out-String -Width 500 | Write-Plain
-        Write-Footer "End events for $Prefix $Name"
+        Write-Footer "End filtered events for $Prefix $Name"
     } else {
-        Write-Status "No $msg (filtered)" -LogLevel ok
+        Write-Status "No $msg" -LogLevel ok
     }
 
     if ($PassThru) {

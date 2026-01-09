@@ -11,7 +11,7 @@ BeforeAll {
 Describe "Deploys Minimal API" {
 
     It "runs hook, init ok" {
-        $deploy = Deploy-Minimal -PassThru
+        $deploy = Deploy-Minimal -PassThru -Verbose
 
         Test-Deploy $deploy -ZeroExitCode
 
