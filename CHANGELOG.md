@@ -10,6 +10,11 @@
 ### Changed
 
 - Verbose logging shows a line with the call stack for better debugging
+- Reworked code around helm upgrade
+  - Now it uses `Start-ThreadJob` so we can get pre-install hook logs while `helm upgrade` is running.
+  - This fixes case where `deadline exceeded` error does not get logs
+  - Write-VerboseStatus messages had to be updated so thread job output would be in order instead of grouped by Write-* type
+- Write-VerboseStatus messages now show all callstack functions and line numbers for better debugging, instead of first one
 
 ### Fixed
 
