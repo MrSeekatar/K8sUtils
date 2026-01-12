@@ -59,23 +59,39 @@ Test-ThreadJobParameters -Verbose
 
     # Test 3: Using $using: scope modifier
     Write-Host "`n[Test 3] `$using: Scope Modifier Method" -ForegroundColor Yellow
+    $moduleName = Join-Path $PSScriptRoot '..\K8sUtils\K8sUtils.psd1'
+    $configHashVar = Get-Variable -Name configHash
+
     $usingJob = Start-ThreadJob -ScriptBlock {
         $VerbosePreference = $using:VerbosePreference
+        Write-Verbose "Thread job executing: Combined methods with integer=$argInt and using i=$using:i"
+
+        Import-Module $using:moduleName -ArgumentList $true -Verbose:$false
+        Write-Verbose "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$LogFileFolder'"
+
+        $configHash = ($using:configHashVar).Value
+        Write-Host "Config from InputObject: $($inputConfig | Out-String)"
+        $configHash.Timeout = 300
         Write-Verbose "Thread job executing: Using scope modifier with i=$using:i"
     }
 
     $usingJob | Receive-Job -Wait -AutoRemoveJob
+    Write-Host "After job completion, original configHash Timeout: $($configHash.Timeout)" -ForegroundColor Green
 
     # Test 4: Combining multiple methods
     Write-Host "`n[Test 4] Combined Methods" -ForegroundColor Yellow
-    $configHashVar = Get-Variable -Name configHash
+
     $combinedJob = $configHash | Start-ThreadJob -ScriptBlock {
         param($inputConfig, $argInt)
         $VerbosePreference = $using:VerbosePreference
         Write-Verbose "Thread job executing: Combined methods with integer=$argInt and using i=$using:i"
+
+        Import-Module $using:moduleName -ArgumentList $true -Verbose:$false
+        Write-Verbose "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$LogFileFolder'"
+
         $configHash = ($using:configHashVar).Value
-        Write-Host "Config from InputObject:"
-        $configHash.Timeout = 100
+        Write-Host "Config from InputObject: $($inputConfig | Out-String)"
+        $configHash.Timeout = 400
     } -ArgumentList $i
 
     $combinedJob | Receive-Job -Wait -AutoRemoveJob
