@@ -113,7 +113,9 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
     $pods = $pods.items
     Write-VerboseStatus "Got $($pods.Count) pods from kubectl get pod --namespace $Namespace --selector $Selector"
     $podCount = $pods.Count
-    Write-VerboseStatus ( "    $($pods.metadata.name -join ',')" )
+    if ($pods.Count){
+        Write-VerboseStatus ( "    $($pods.metadata.name -join ',')" )
+    }
 
     # Handle odd case when a pod is a pod in $podStatuses that is no longer in $pods
     #   - remove it from $podStatuses

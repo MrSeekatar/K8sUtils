@@ -1,0 +1,14 @@
+TODO
+
+1. The rollback of PlatformApi looks like it's due to it finding 3 pods to check status, but it only has 2?
+Final status show 3 with one Unknown
+
+2. The debug switch branch needs to be merged into this one. I have a worktree for that branch
+
+
+Pending to running for 1/2
+    4csqw Pending to running for 1/2
+Checking pod 2/2 shows
+    pfv45 has status of running at start then
+    k5xrw starts as pending then once it gets to running it thinks 2/2 pods or ok, but pfv45 goes to unknown
+

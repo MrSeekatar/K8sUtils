@@ -110,8 +110,8 @@ function Write-PodLog {
                 if ($s.waiting.reason -eq 'ContainerCreating') {
                     Write-Status "Pod is in ContainerCreating"
                 } else {
-                    Write-Status "Pod $PodName is waiting" -LogLevel error
-                    Write-Status ($s.waiting | Out-String -Width 500) -LogLevel error
+                    Write-Status "Pod $PodName is waiting" -LogLevel warning
+                    Write-Status ($s.waiting | Out-String -Width 500) -LogLevel warning
                 }
             } elseif ($s -and (Get-Member -InputObject $s -Name terminated) -and (Get-Member -InputObject $s.terminated -Name reason)) {
                 # terminated can have containerID, exitCode, finishedAt, reason, message, signal, startedAt

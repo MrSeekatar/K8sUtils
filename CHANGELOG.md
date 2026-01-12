@@ -10,10 +10,6 @@
 ### Changed
 
 - Verbose logging shows a line with the call stack for better debugging
-## [1.0.34] 2025-11-10
-
-### Changed
-
 - Reworked code around helm upgrade
   - Now it uses `Start-ThreadJob` so we can get pre-install hook logs while `helm upgrade` is running.
   - This fixes case where `deadline exceeded` error does not get logs

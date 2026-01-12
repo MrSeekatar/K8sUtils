@@ -193,6 +193,8 @@ function Write-Plain() {
     }
 }
 
+$script:frames = ""
+
 function Write-VerboseStatus([string] $msg) {
     if ($VerbosePreference -ne 'Continue') {
         return
@@ -205,7 +207,13 @@ function Write-VerboseStatus([string] $msg) {
         if ($frame.Command -eq 'Invoke-HelmUpgrade') {
             break
         }
-        $frameList += "$($frame.Command):$Location"
+        $frameList += "$($frame.Command)#L$Location"
     }
-    Write-Host "$($PSStyle.Formatting.Verbose)VRB: $($frameList -join " <- ")`n => $msg$($PSStyle.Reset)"
+    $frames = "$($frameList -join " <- ")`n  => "
+    if ($frames -ne $script:frames) {
+        $script:frames = $frames
+    } else {
+        $frames = ""
+    }
+    Write-Host "$($PSStyle.Formatting.Verbose)VRB: $frames$msg$($PSStyle.Reset)"
 }

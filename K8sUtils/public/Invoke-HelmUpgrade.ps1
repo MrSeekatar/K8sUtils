@@ -317,7 +317,7 @@ function Invoke-HelmUpgrade {
             return
         }
 
-        Write-Verbose "Getting helm output"
+        Write-Verbose "Recieving helm job output"
         Receive-Job $helmJob -Wait -AutoRemoveJob | Write-MyHost
         Write-Verbose "Helm job receive completed"
         if ($upgradeExit -eq 0) {
@@ -327,12 +327,13 @@ function Invoke-HelmUpgrade {
             Write-Status "👆 Check Helm output for error message 👆" -LogLevel Error
         }
         if ($null -ne $getPodJob) {
-            Write-Verbose "Getting prehook job output"
+            Write-Verbose "Recieving prehook job output"
             Receive-Job $getPodJob -Wait -AutoRemoveJob | Write-MyHost
             Write-Verbose "Get prehook job receive completed"
         } else {
-            Write-Verbose  "No getPodJob to receive"
+            Write-Verbose "No getPodJob to receive"
         }
+        $VerbosePreference = "SilentlyContinue" # suppress helm verbose output FOR NOW
 
         if ($upgradeExit -ne 0 -or ($status.PreHookStatus -and $status.PreHookStatus.Status -ne [Status]::Completed)) {
             $status.Running = $false
