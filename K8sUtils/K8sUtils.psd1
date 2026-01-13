@@ -78,6 +78,7 @@ FunctionsToExport = @(
     'Get-JobStatus',
     'Get-K8sEvent',
     'Get-PodByJobName',
+    'Get-PreHookJobStatus',
     'Get-PodStatus',
     'Invoke-HelmUpgrade',
     'Set-K8sUtilsConfig',

@@ -61,6 +61,7 @@ Test-ThreadJobParameters -Verbose
     Write-Host "`n[Test 3] `$using: Scope Modifier Method" -ForegroundColor Yellow
     $moduleName = Join-Path $PSScriptRoot '..\K8sUtils\K8sUtils.psd1'
     $configHashVar = Get-Variable -Name configHash
+    $parms = @("info","-o","text")
 
     $usingJob = Start-ThreadJob -ScriptBlock {
         $VerbosePreference = $using:VerbosePreference
@@ -72,6 +73,7 @@ Test-ThreadJobParameters -Verbose
         $configHash = ($using:configHashVar).Value
         Write-Host "Config from InputObject: $($inputConfig | Out-String)"
         $configHash.Timeout = 300
+        rdctl @using:parms
         Write-Verbose "Thread job executing: Using scope modifier with i=$using:i"
     }
 
