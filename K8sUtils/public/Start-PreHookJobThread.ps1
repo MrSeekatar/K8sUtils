@@ -57,7 +57,7 @@ function Start-PreHookJobThread {
         Set-StrictMode -Version Latest
 
         Import-Module $using:module -ArgumentList $true -Verbose:$false
-        Write-Verbose "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$using:LogFileFolder'"
+        Write-VerboseStatus "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$using:LogFileFolder'"
 
         $inThreadPollIntervalSec = 1
         $status = ($using:statusVar).Value
@@ -65,15 +65,15 @@ function Start-PreHookJobThread {
         $VerbosePreference = $using:VerbosePreference
         $DebugPreference = $using:DebugPreference
 
-        Invoke-PreHookJobWorker -PreHookJobName $using:PreHookJobName `
-                                -Namespace $using:Namespace `
-                                -LogFileFolder $using:LogFileFolder `
-                                -StartTime $using:startTime `
-                                -PreHookTimeoutSecs $using:PreHookTimeoutSecs `
-                                -PollIntervalSec $inThreadPollIntervalSec `
-                                -Status $status
+        Get-PreHookJobStatus -PreHookJobName $using:PreHookJobName `
+                             -Namespace $using:Namespace `
+                             -LogFileFolder $using:LogFileFolder `
+                             -StartTime $using:startTime `
+                             -PreHookTimeoutSecs $using:PreHookTimeoutSecs `
+                             -PollIntervalSec $inThreadPollIntervalSec `
+                             -Status $status
     }
-    Write-Verbose "Prehook jobId is $($getPodJob.Id)"
+    Write-VerboseStatus "Prehook jobId is $($getPodJob.Id)"
     return $getPodJob
 }
 

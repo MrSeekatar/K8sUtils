@@ -135,7 +135,8 @@ function Deploy-Minimal {
         [string] $chartName = "minimal",
         [string] $ServiceAccount = "",
         [string] $registry = "docker.io",
-        [int] $activeDeadlineSeconds = 30
+        [int] $activeDeadlineSeconds = 30,
+        [switch] $VerboseStack
 
     )
     Set-StrictMode -Version Latest
@@ -227,6 +228,7 @@ function Deploy-Minimal {
                            -Verbose:$VerbosePreference `
                            -LogFileFolder $logFolder `
                            -Debug:($DebugPreference -eq "Continue") `
+                           -VerboseStack:$VerboseStack
 
         Write-Host "Logs for job are in $logFolder" -ForegroundColor Cyan
         if ($PassThru) {

@@ -74,7 +74,7 @@ function Get-PreHookJobStatus {
                     $Status.PreHookStatus.LastBadEvents = $errors
                     Write-Debug "Prehook job '$PreHookJobName' events: $($Status.PreHookStatus.LastBadEvents | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
                 } else {
-                    Write-Verbose "No events found for prehook job '$PreHookJobName' since $StartTime"
+                    Write-VerboseStatus "No events found for prehook job '$PreHookJobName' since $StartTime"
                 }
             }
         } catch {
