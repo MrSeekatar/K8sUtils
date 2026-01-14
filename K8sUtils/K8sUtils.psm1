@@ -1,4 +1,4 @@
-param( [bool] $Quiet = $false )
+param( [bool] $Quiet = $false, [bool] $LogVerboseStack = $false )
 
 if (!(Get-Command "kubectl" -ErrorAction Ignore) -or !(Get-Command "helm" -ErrorAction Ignore)) {
     throw "kubectl and helm must be installed and in the PATH. Correct and reload the module."
@@ -11,6 +11,7 @@ $exports += Get-Alias | Where-Object source -eq 'k8sutils' | Select-Object -Expa
 # see psd1 Export-ModuleMember -Function $exports -Alias '*'
 
 Set-K8sUtilsConfig
+$script:verboseStack = $LogVerboseStack
 
 if (!$Quiet -and !(Test-Path env:TF_BUILD)) {
     $me = $MyInvocation.MyCommand.Name -split '\.' | Select-Object -First 1

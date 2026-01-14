@@ -53,6 +53,12 @@ How to colorize the output. Defaults to DevOps if TF_BUILD env var, otherwise AN
 .PARAMETER LogFileFolder
 If specified, pod logs will be written to this folder
 
+.PARAMETER Quiet
+If set will not log out all the settings
+
+.PARAMETER StackOnVerbose
+If set, will turn on verbose logging and include call stack
+
 .EXAMPLE
     $parms = "preHook.fail=$HookFail," +
               "preHook.imageTag=$HookTag," +
@@ -136,14 +142,14 @@ function Invoke-HelmUpgrade {
         [string] $ColorType = $script:ColorType,
         [string] $LogFileFolder,
         [switch] $Quiet,
-        [switch] $VerboseStack
+        [switch] $StackOnVerbose
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
 
-    $script:verboseStack = [bool]$VerboseStack
+    $script:stackOnVerbose = [bool]$StackOnVerbose
     $prevVerbosePref = $VerbosePreference
-    if ($VerboseStack) {
+    if ($StackOnVerbose) {
         $VerbosePreference = "Continue"
     }
 
@@ -181,21 +187,22 @@ function Invoke-HelmUpgrade {
     if (!$Quiet) {
         Write-Header -Msg "Invoke-HelmUpgrade parameters"
         Write-Plain "Invoke-HelmUpgrade parameters:"
-        Write-Plain "    ValueFile: $ValueFile"
-        Write-Plain "    ChartName: $ChartName"
-        Write-Plain "    ReleaseName: $ReleaseName"
-        Write-Plain "    DeploymentSelector: $DeploymentSelector"
         Write-Plain "    Chart: $Chart"
+        Write-Plain "    ChartName: $ChartName"
         Write-Plain "    ChartVersion: $ChartVersion"
-        Write-Plain "    Namespace: $Namespace"
-        Write-Plain "    PreHookJobName: $PreHookJobName"
-        Write-Plain "    PodTimeoutSecs: $PodTimeoutSecs"
-        Write-Plain "    PreHookTimeoutSecs: $PreHookTimeoutSecs"
-        Write-Plain "    PollIntervalSec: $PollIntervalSec"
-        Write-Plain "    SkipRollbackOnError: $SkipRollbackOnError"
-        Write-Plain "    DryRun: $DryRun"
         Write-Plain "    ColorType: $ColorType"
+        Write-Plain "    DeploymentSelector: $DeploymentSelector"
+        Write-Plain "    DryRun: $DryRun"
         Write-Plain "    Helm extra params $($parms -join " ")"
+        Write-Plain "    Namespace: $Namespace"
+        Write-Plain "    PodTimeoutSecs: $PodTimeoutSecs"
+        Write-Plain "    PollIntervalSec: $PollIntervalSec"
+        Write-Plain "    PreHookJobName: $PreHookJobName"
+        Write-Plain "    PreHookTimeoutSecs: $PreHookTimeoutSecs"
+        Write-Plain "    ReleaseName: $ReleaseName"
+        Write-Plain "    SkipRollbackOnError: $SkipRollbackOnError"
+        Write-Plain "    StackOnVerbose: $StackOnVerbose"
+        Write-Plain "    ValueFile: $ValueFile"
         Write-Footer
     }
 
@@ -266,7 +273,7 @@ function Invoke-HelmUpgrade {
             return
         }
 
-        Write-VerboseStatus "Recieving helm job output"
+        Write-VerboseStatus "Receiving helm job output"
         Receive-Job $helmJob -Wait -AutoRemoveJob | Write-MyHost
         Write-VerboseStatus "Helm job receive completed"
         if ($upgradeExit -eq 0) {
@@ -276,12 +283,13 @@ function Invoke-HelmUpgrade {
             Write-Status "👆 Check Helm output for error message 👆" -LogLevel Error
         }
         if ($null -ne $getPodJob) {
-            Write-VerboseStatus "Recieving prehook job output"
+            Write-VerboseStatus "Receiving prehook job output"
             Receive-Job $getPodJob -Wait -AutoRemoveJob | Write-MyHost
             Write-VerboseStatus "Get prehook job receive completed"
         } else {
             Write-VerboseStatus "No getPodJob to receive"
         }
+        $VerbosePreference = 'SilentlyContinue' # suppress any verbose from the prehook thread
 
         if ($upgradeExit -ne 0 -or ($status.PreHookStatus -and $status.PreHookStatus.Status -ne [Status]::Completed)) {
             $status.Running = $false

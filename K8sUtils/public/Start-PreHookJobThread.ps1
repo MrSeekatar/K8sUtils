@@ -52,11 +52,12 @@ function Start-PreHookJobThread {
 
     $statusVar = Get-Variable Status
     $module = Join-Path $PSScriptRoot ../K8sUtils.psd1
+    $stackOnVerbose = $script:stackOnVerbose
     $getPodJob = Start-ThreadJob -ScriptBlock {
         $ErrorActionPreference = "Stop"
         Set-StrictMode -Version Latest
 
-        Import-Module $using:module -ArgumentList $true -Verbose:$false
+        Import-Module $using:module -ArgumentList $true,$using:stackOnVerbose -Verbose:$false
         Write-VerboseStatus "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$using:LogFileFolder'"
 
         $inThreadPollIntervalSec = 1
