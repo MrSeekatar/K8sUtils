@@ -81,4 +81,34 @@ if ($test -eq 1 ) {
         Write-Host $_.Exception.Message -ForegroundColor Red
     }
 
+} elseif ($test -eq 5) {
+
+    # set $ErrorActionPreference to 'Stop' inside the job, and 'Stop' outside
+    $ErrorActionPreference = 'Stop'
+    $job = Start-ThreadJob -ScriptBlock {
+        Write-Host "2 In ThreadJob$using:test started, about to write to std error $errorActionPreference" -ForegroundColor Yellow
+        # this writes to stderr and we'll catch an exception with first line
+        # kubectl get --raw /healthz -v=8
+        $output = kubectl get --raw /healthz -v=8 2>&1
+        $dateLine = $output | Select-String -Pattern "Date:" | Select-Object -First 1
+        if ($dateLine) {
+            # Extract the date string (format: "Date: Thu, 15 Jan 2026 10:30:45 GMT")
+            $dateString = $dateLine -replace ".*Date:\s*", ""
+            $serverTime = [DateTime]::ParseExact($dateString.Trim(), "ddd, dd MMM yyyy HH:mm:ss 'GMT'", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AssumeUniversal)
+            $serverTime = $serverTime.ToUniversalTime()
+        }
+        Write-Output "2.1 After get got output. $serverTime"
+    } -ErrorAction Stop
+
+    try {
+        Write-Host "1 About to receive job$test results..." -ForegroundColor Cyan
+        $job | Receive-Job -Wait -AutoRemoveJob
+        Write-Host "3 Finished receiving job$test results." -ForegroundColor Cyan # never get here since stderr throws
+    } catch {
+        Write-Host "3 Caught exception from ThreadJob${test}:" -ForegroundColor Red
+        Write-Host $_.Exception.Message -ForegroundColor Red
+    }
+
+} else {
+    Write-Host "No test specified. Please run with -test N" -ForegroundColor Magenta
 }

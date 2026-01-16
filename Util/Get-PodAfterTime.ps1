@@ -1,4 +1,10 @@
-# Get the current time from the Kubernetes API server using verbose output
+<#
+.SYNOPSIS
+Get the current time from the Kubernetes API server using verbose output
+
+.PARAMETER Namespace
+Kubernetes namespace
+#>
 function Get-K8sServerTime {
     [CmdletBinding()]
     param(
@@ -6,7 +12,12 @@ function Get-K8sServerTime {
     )
 
     # Run kubectl with verbose flag to capture the Date header from the response
-    $output = kubectl get --raw /version -v=8 2>&1
+    # $output = kubectl get --raw /version -v=8 2>&1
+
+    # https://kubernetes.io/docs/reference/using-api/health-checks/#api-endpoints-for-health
+    # v=8 is verbose to show http request (to stderr)
+    #      https://kubernetes.io/docs/reference/kubectl/quick-reference/#kubectl-output-verbosity-and-debugging
+    $output = kubectl get --raw /readyz --v=8 2>&1
 
     # Parse the Date header from the output
     $dateLine = $output | Select-String -Pattern "Date:" | Select-Object -First 1
@@ -25,7 +36,7 @@ function Get-PodAfterTime {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [string] $PreHookJobName,
+        [string] $Selector,
         [string] $Namespace = "default",
         [datetime] $AfterTime = (Get-K8sServerTime)
     )
@@ -34,7 +45,7 @@ function Get-PodAfterTime {
     $afterTimeStr = $AfterTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
 
     # Get pods with the job-name selector
-    $podsJson = kubectl get pod --namespace $Namespace --selector "job-name=$PreHookJobName" -o json | ConvertFrom-Json
+    $podsJson = kubectl get pod --namespace $Namespace --selector $Selector -o json | ConvertFrom-Json
 
     if (!$podsJson -or !$podsJson.items) {
         return $null

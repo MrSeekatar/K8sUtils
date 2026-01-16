@@ -243,7 +243,7 @@ function Invoke-HelmUpgrade {
             Write-Header -Msg "Helm upgrade$hookMsg" -HeaderPrefix ""
         }
 
-        TODO this can run and file prev job instead of new one since it starts before helm upgrade, which is needs to do
+        # TODO this can run and file prev job instead of new one since it starts before helm upgrade, which is needs to do
         $getPodJob = $null
         if (!$DryRun -and $PreHookJobName) {
             $getPodJob = Start-PreHookJobThread $PreHookJobName `

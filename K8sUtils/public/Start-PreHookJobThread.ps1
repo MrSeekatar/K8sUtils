@@ -57,6 +57,8 @@ function Start-PreHookJobThread {
         $ErrorActionPreference = "Stop"
         Set-StrictMode -Version Latest
 
+        Start-Sleep -Seconds 2 # let any previous job go away. TODO replace with time check
+
         Import-Module $using:module -ArgumentList $true,$using:stackOnVerbose -Verbose:$false
         Write-VerboseStatus "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$using:LogFileFolder'"
 
