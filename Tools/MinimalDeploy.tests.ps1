@@ -21,7 +21,7 @@ Describe "Deploys Minimal API" {
     } -Tag 'Happy','t1'
 
     It "runs without init ok" {
-        $deploy = Deploy-Minimal -PassThru -SkipInit
+        $deploy = Deploy-Minimal -PassThru -SkipInit -verbose
 
         Test-Deploy $deploy -ZeroExitCode
 
