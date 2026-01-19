@@ -1,4 +1,4 @@
-param( [bool] $Quiet = $false, [bool] $LogVerboseStack = $false )
+param( [bool] $Quiet = $false, [bool] $LogVerboseStack = $false, [bool] $UseThreadJobs = $true )
 
 if (!(Get-Command "kubectl" -ErrorAction Ignore) -or !(Get-Command "helm" -ErrorAction Ignore)) {
     throw "kubectl and helm must be installed and in the PATH. Correct and reload the module."
@@ -10,8 +10,7 @@ Get-ChildItem $PSScriptRoot\public\*.ps1 | ForEach-Object { . $_; $exports += $_
 $exports += Get-Alias | Where-Object source -eq 'k8sutils' | Select-Object -ExpandProperty Name
 # see psd1 Export-ModuleMember -Function $exports -Alias '*'
 
-Set-K8sUtilsConfig
-$script:verboseStack = $LogVerboseStack
+Set-K8sUtilsConfig -LogVerboseStack:$LogVerboseStack -UseThreadJobs:$UseThreadJobs
 
 if (!$Quiet -and !(Test-Path env:TF_BUILD)) {
     $me = $MyInvocation.MyCommand.Name -split '\.' | Select-Object -First 1

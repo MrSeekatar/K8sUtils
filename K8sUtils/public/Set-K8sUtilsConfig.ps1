@@ -6,7 +6,13 @@ Set some configuration settings for K8sUtils
 Type of color to use for output, defaults to ANSI, can be None or DevOps
 
 .PARAMETER OffsetMinutes
-Number of minutes to offset UTC time.
+Number of minutes to offset UTC time used when finding events
+
+.PARAMETER LogVerboseStack
+Log stack traces for verbose messages
+
+.PARAMETER UseThreadJobs
+Use a separate job thread to monitor prehook pods
 #>
 function Set-K8sUtilsConfig {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions','', Justification = 'Just setting variables')]
@@ -14,9 +20,13 @@ function Set-K8sUtilsConfig {
     param (
         [ValidateSet("None","ANSI","DevOps")]
         [string] $ColorType,
-        [int] $OffsetMinutes = 0.0
+        [int] $OffsetMinutes = 0.0,
+        [switch] $LogVerboseStack,
+        [switch] $UseThreadJobs
     )
     $script:UtcOffset = New-TimeSpan -Minutes $OffsetMinutes
+    $script:LogVerboseStack = $LogVerboseStack
+    $script:UseThreadJobs = $UseThreadJobs
 
     if ($ColorType -eq "None" -or $env:NO_COLOR -eq "1") {
         $script:ColorType = "None"

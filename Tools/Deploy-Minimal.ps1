@@ -136,13 +136,16 @@ function Deploy-Minimal {
         [string] $ServiceAccount = "",
         [string] $registry = "docker.io",
         [int] $activeDeadlineSeconds = 30,
-        [switch] $StackOnVerbose
+        [switch] $StackOnVerbose,
+        [switch] $UseThreadJobs
 
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
 
     Push-Location (Join-Path $PSScriptRoot "../DevOps/Helm")
+
+    Set-K8sUtilsConfig -ColorType $ColorType -LogVerboseStack:$StackOnVerbose -UseThreadJobs:$UseThreadJobs
 
     # to clear out init containers from values.yaml, don't set anything and do this, but requires newer helm
     $helmSet = @()
@@ -228,7 +231,6 @@ function Deploy-Minimal {
                            -Verbose:$VerbosePreference `
                            -LogFileFolder $logFolder `
                            -Debug:($DebugPreference -eq "Continue") `
-                           -StackOnVerbose:$StackOnVerbose
 
         Write-Host "Logs for job are in $logFolder" -ForegroundColor Cyan
         if ($PassThru) {

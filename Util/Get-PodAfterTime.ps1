@@ -4,15 +4,19 @@ Get the current time from the Kubernetes API server using verbose output
 
 .PARAMETER Namespace
 Kubernetes namespace
+
+.OUTPUTS
+Returns the current server time as a DateTime object in UTC. If it cannot be determined, returns local system time in UTC.
 #>
 function Get-K8sServerTime {
     [CmdletBinding()]
     param(
         [string] $Namespace = "default"
     )
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = "Stop"
 
-    # Run kubectl with verbose flag to capture the Date header from the response
-    # $output = kubectl get --raw /version -v=8 2>&1
+    # Run kubectl with v=8 verbose flag to capture the Date header from the response
 
     # https://kubernetes.io/docs/reference/using-api/health-checks/#api-endpoints-for-health
     # v=8 is verbose to show http request (to stderr)
@@ -24,41 +28,62 @@ function Get-K8sServerTime {
     if ($dateLine) {
         # Extract the date string (format: "Date: Thu, 15 Jan 2026 10:30:45 GMT")
         $dateString = $dateLine -replace ".*Date:\s*", ""
-        $serverTime = [DateTime]::ParseExact($dateString.Trim(), "ddd, dd MMM yyyy HH:mm:ss 'GMT'", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AssumeUniversal)
-        return $serverTime.ToUniversalTime()
+        $dateFormat = "ddd, dd MMM yyyy HH:mm:ss 'GMT'"
+        $serverTime = [DateTime]::UtcNow
+        if ([DateTime]::TryParseExact($dateString.Trim(), $dateFormat,
+                                        [System.Globalization.CultureInfo]::InvariantCulture,
+                                        [System.Globalization.DateTimeStyles]::AssumeUniversal,
+                                        [ref]$serverTime)) {
+            return $serverTime.ToUniversalTime()
+        }
     }
 
-    throw "Could not parse server time from kubectl response"
+    Write-Warning "Could not parse server time from kubectl response using UTC now."
+    return Get-Date -AsUTC
+
 }
 
-# Get pods started after the server time with a specific job-name selector
+
+<#
+.SYNOPSIS
+Get pods created after a specified time
+
+.PARAMETER Selector
+Kubernetes label selector to filter pods (e.g., "job-name=my-job")
+
+.PARAMETER AfterTime
+DateTime object specifying the minimum creation time for pods
+
+.PARAMETER Namespace
+Kubernetes namespace to search in (default: "default")
+
+.OUTPUTS
+Returns an array of pod objects created after the specified time, or null if no pods found.
+#>
 function Get-PodAfterTime {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [string] $Selector,
-        [string] $Namespace = "default",
-        [datetime] $AfterTime = (Get-K8sServerTime)
+        [Parameter(Mandatory)]
+        [DateTime] $AfterTime,
+        [string] $Namespace = "default"
     )
-
-    # Format time for comparison (ISO 8601 format used by K8s)
-    $afterTimeStr = $AfterTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = "Stop"
 
     # Get pods with the job-name selector
-    $podsJson = kubectl get pod --namespace $Namespace --selector $Selector -o json | ConvertFrom-Json
+    $pods = kubectl get pod --namespace $Namespace --selector $Selector -o json | ConvertFrom-Json
 
-    if (!$podsJson -or !$podsJson.items) {
+    if (!$pods -or !$pods.items) {
         return $null
     }
 
     # Filter pods created after the specified time
-    $podsAfterTime = $podsJson.items | Where-Object {
-        $_.metadata.creationTimestamp -gt $afterTimeStr
+    $podsAfterTime = $pods.items | Where-Object {
+        Write-Verbose "Comparing timestamp for pod $($_.metadata.name):  creationTimestamp: $($_.metadata.creationTimestamp) > ${afterTime}?"
+        $_.metadata.creationTimestamp -gt $afterTime
     }
 
-    return $podsAfterTime
+    return @($podsAfterTime)
 }
-
-# Example usage:
-# $serverTime = Get-K8sServerTime
-# $pods = Get-PodAfterTime -PreHookJobName "my-prehook-job" -Namespace "default" -AfterTime $serverTime
