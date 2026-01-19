@@ -83,6 +83,7 @@ FunctionsToExport = @(
     'Invoke-HelmUpgrade',
     'Set-K8sUtilsConfig',
     'Test-DeployStatus',
+    'Wait-PreHookJob',
     'Write-VerboseStatus'
 )
 

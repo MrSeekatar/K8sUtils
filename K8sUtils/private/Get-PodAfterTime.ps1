@@ -81,9 +81,11 @@ function Get-PodAfterTime {
 
     # Filter pods created after the specified time
     $podsAfterTime = $pods.items | Where-Object {
-        Write-Verbose "Comparing timestamp for pod $($_.metadata.name):  creationTimestamp: $($_.metadata.creationTimestamp) > ${afterTime}?"
-        $_.metadata.creationTimestamp -gt $afterTime
+        Write-Verbose "Comparing timestamp for pod $($_.metadata.name): creationTimestamp: $($_.metadata.creationTimestamp) > ${afterTime}?"
+        $_.metadata.creationTimestamp -ge $afterTime
     }
 
     return @($podsAfterTime)
 }
+
+

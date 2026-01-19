@@ -43,7 +43,8 @@ param (
     [Alias("context")]
     [Alias("kube-context")]
     [string] $KubeContext = "rancher-desktop",
-    [string] $Registry
+    [string] $Registry,
+    [switch] $UseThreadJobsInTests
 )
 
 $currentTask = ""
@@ -86,6 +87,7 @@ function Invoke-Test {
     }
 
     try {
+        $env:K8sUtils_UseThreadJobs = [bool]$UseThreadJobsInTests
         if (!(Get-Command -Name docker -ErrorAction SilentlyContinue) -or
             !(Get-Command -Name helm -ErrorAction SilentlyContinue) -or
             !(Get-Command -Name Invoke-Pester -ErrorAction SilentlyContinue) ) {
@@ -103,6 +105,7 @@ function Invoke-Test {
         Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i-1}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String  -Width 1000)  -InformationAction Continue
         Write-Information "Test results: are in `$test_results" -InformationAction Continue
         $global:test_results = $result
+        Remove-Item env:K8sUtils_UseThreadJobs -ErrorAction SilentlyContinue
     } finally {
         if ($Registry) {
             $PSDefaultParameterValues.Remove('Deploy-*:registry')

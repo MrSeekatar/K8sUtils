@@ -201,7 +201,6 @@ function Invoke-HelmUpgrade {
         Write-Footer
     }
 
-
     if (!$env:invokeHelmAllowLowTimeouts) {
         if ($PreHookTimeoutSecs -lt $minPreHookTimeoutSecs) {
             Write-Warning "PreHookTimeoutSecs ($PreHookTimeoutSecs) is less than $minPreHookTimeoutSecs seconds, setting to $minPreHookTimeoutSecs."
@@ -228,7 +227,6 @@ function Invoke-HelmUpgrade {
             $prevVersion = $prevReleaseVersion.version
             Write-VerboseStatus "Previous version of $ReleaseName was $prevVersion"
         }
-        "helm upgrade $ReleaseName $Chart --install -f $ValueFile --reset-values --timeout ${PreHookTimeoutSecs}s --namespace $Namespace $($parms -join " ")" | Write-MyHost
 
         if ($DryRun) {
             Write-Status "Doing a helm dry run. Helm output and manifests follow."
@@ -236,97 +234,44 @@ function Invoke-HelmUpgrade {
             Write-Header -Msg "Helm upgrade$hookMsg" -HeaderPrefix ""
         }
 
-        if ($script:UseThreadJobs) {
-            # TODO this can run and file prev job instead of new one since it starts before helm upgrade, which is needs to do
-            $getPodJob = $null
-            if (!$DryRun -and $PreHookJobName) {
-                $getPodJob = Start-PreHookJobThread $PreHookJobName `
-                    -Namespace $Namespace `
-                    -LogFileFolder $LogFileFolder `
-                    -PreHookTimeoutSecs $PreHookTimeoutSecs `
-                    -Status $status
-            }
+        $getPodJob = $null
+        if ($PreHookJobName -and !$DryRun -and $script:UseThreadJobs) {
+            $getPodJob = Start-PreHookJobThread $PreHookJobName `
+                -Namespace $Namespace `
+                -LogFileFolder $LogFileFolder `
+                -PreHookTimeoutSecs $PreHookTimeoutSecs `
+                -Status $status
+        }
 
-            $upgradeExitVar = Get-Variable upgradeExit
+        # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
+        "helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout  ${PreHookTimeoutSecs}s  --namespace $Namespace $($parms -join " ")" | Write-MyHost
+        helm  upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Write-MyHost
+        $upgradeExit = $LASTEXITCODE
 
-            $helmJob = Start-ThreadJob -ScriptBlock {
-                $ErrorActionPreference = "Stop"
-                Set-StrictMode -Version Latest
+        if ($DryRun) {
+            return
+        } elseif ($upgradeExit -eq 0) {
+            Write-Footer "End Helm upgrade OK. (exit code $upgradeExit)" -FooterPrefix ""
+        } else {
+            Write-Footer "Helm upgrade exited with: $upgradeExit" -FooterPrefix ""
+            Write-Status "👆 Check Helm output for error message 👆" -LogLevel Error
+        }
 
-                # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
-                "Start upgrade $((Get-Date).ToString("u"))"
-                helm upgrade --install $using:ReleaseName $using:Chart -f $using:ValueFile --reset-values --timeout "${using:PreHookTimeoutSecs}s" --namespace $using:Namespace @using:parms 2>&1
-                "End upgrade $((Get-Date).ToString("u"))"
-
-                ($using:upgradeExitVar).Value = $LASTEXITCODE
-            }
-            Write-VerboseStatus "Helm jobId is $($helmJob.Id)"
-
-            if ($DryRun) {
-                Receive-Job $helmJob -Wait -AutoRemoveJob | Write-MyHost
-                Write-VerboseStatus "Dry run job receive completed"
-                return
-            }
-
-            Write-VerboseStatus "Receiving helm job output"
-            Receive-Job $helmJob -Wait -AutoRemoveJob | Write-MyHost
-            Write-VerboseStatus "Helm job receive completed"
-            if ($upgradeExit -eq 0) {
-                Write-Footer "End Helm upgrade OK. (exit code $upgradeExit)" -FooterPrefix ""
-            } else {
-                Write-Footer "Helm upgrade exited with: $upgradeExit" -FooterPrefix ""
-                Write-Status "👆 Check Helm output for error message 👆" -LogLevel Error
-            }
-            if ($null -ne $getPodJob) {
-                Write-VerboseStatus "Receiving prehook job output"
-                Receive-Job $getPodJob -Wait -AutoRemoveJob | Write-MyHost
-                Write-VerboseStatus "Get prehook job receive completed"
-            } else {
-                Write-VerboseStatus "No getPodJob to receive"
-            }
-            $VerbosePreference = 'SilentlyContinue' # suppress any verbose from the prehook thread
+        if ($null -ne $getPodJob) {
+            Write-VerboseStatus "Receiving prehook job output"
+            Receive-Job $getPodJob -Wait -AutoRemoveJob | Write-MyHost
+            Write-VerboseStatus "Get prehook job receive completed"
         } else {
             $startTime = (Get-CurrentTime ([TimeSpan]::FromSeconds(-5))) # start a few seconds back to avoid very close timing
-            # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
-            helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Write-MyHost
-            $upgradeExit = $LASTEXITCODE
 
-            if ($DryRun) {
-                return
-            } elseif ($upgradeExit -eq 0) {
-                Write-Footer "End Helm upgrade OK. (exit code $upgradeExit)" -FooterPrefix ""
-            } else {
-                Write-Footer "Helm upgrade exited with: $upgradeExit" -FooterPrefix ""
-                Write-Status "👆 Check Helm output for error message 👆" -LogLevel Error
-            }
-
-            $hookStatus = $null
             if ($PreHookJobName) {
-                $hookStatus = Get-PodStatus -Selector "job-name=$PreHookJobName" `
-                                                            -Namespace $Namespace `
-                                                            -TimeoutSec 1 `
-                                                            -PollIntervalSec $PollIntervalSec `
-                                                            -PodType PreInstallJob `
-                                                            -LogFileFolder $LogFileFolder
-                Write-Debug "Prehook status is $($hookStatus | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
-                if ($hookStatus -is "array" ) {
-                    Write-Warning "Multiple hook statuses returned:`n$($hookStatus  | ConvertTo-Json -Depth 5 -EnumsAsStrings)" # so we can see the status
-                }
-                $status.PreHookStatus = $hookStatus | Select-Object -Last 1 # get the last status, in case it was a job
-                if ($status.PreHookStatus.PodName -eq '<no pods found>') {
-                    $events = Get-JobPodEvent -JobName $PreHookJobName -Since $startTime
-                    if ($events) {
-                        $errors = Write-K8sEvent -Name "$PreHookJobName's pod" `
-                                            -Prefix "PreHookJob" `
-                                            -Events $events `
-                                            -LogLevel error `
-                                            -PassThru
-                        $status.PreHookStatus.LastBadEvents = $errors
-                        Write-Debug "Prehook job '$PreHookJobName' events: $($status.PreHookStatus.LastBadEvents | ConvertTo-Json -Depth 5 -EnumsAsStrings)"
-                    } else {
-                        Write-VerboseStatus "No events found for prehook job '$PreHookJobName'"
-                    }
-                }
+                Get-PreHookJobStatus -PreHookJobName $PreHookJobName `
+                -Namespace $Namespace `
+                -LogFileFolder $LogFileFolder `
+                -StartTime $startTime `
+                -PreHookTimeoutSecs 1 `
+                -PollIntervalSec $PollIntervalSec `
+                -Status $status
             }
         }
 

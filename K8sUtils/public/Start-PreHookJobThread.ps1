@@ -57,24 +57,27 @@ function Start-PreHookJobThread {
         $ErrorActionPreference = "Stop"
         Set-StrictMode -Version Latest
 
-        Start-Sleep -Seconds 2 # let any previous job go away. TODO replace with time check
-
         Import-Module $using:module -ArgumentList $true,$using:stackOnVerbose -Verbose:$false
         Write-VerboseStatus "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$using:LogFileFolder'"
 
-        $inThreadPollIntervalSec = 1
-        $status = ($using:statusVar).Value
-        $InformationPreference = $using:InformationPreference
-        $VerbosePreference = $using:VerbosePreference
-        $DebugPreference = $using:DebugPreference
+        if (Wait-PreHookJob -PreHookJobName $using:PreHookJobName `
+                            -Namespace $using:Namespace `
+                            -PreHookTimeoutSecs $using:PreHookTimeoutSecs) {
 
-        Get-PreHookJobStatus -PreHookJobName $using:PreHookJobName `
-                             -Namespace $using:Namespace `
-                             -LogFileFolder $using:LogFileFolder `
-                             -StartTime $using:startTime `
-                             -PreHookTimeoutSecs $using:PreHookTimeoutSecs `
-                             -PollIntervalSec $inThreadPollIntervalSec `
-                             -Status $status
+            $inThreadPollIntervalSec = 1
+            $status = ($using:statusVar).Value
+            $InformationPreference = $using:InformationPreference
+            $VerbosePreference = $using:VerbosePreference
+            $DebugPreference = $using:DebugPreference
+
+            Get-PreHookJobStatus -PreHookJobName $using:PreHookJobName `
+                                -Namespace $using:Namespace `
+                                -LogFileFolder $using:LogFileFolder `
+                                -StartTime $using:startTime `
+                                -PreHookTimeoutSecs $using:PreHookTimeoutSecs `
+                                -PollIntervalSec $inThreadPollIntervalSec `
+                                -Status $status
+        }
     }
     Write-VerboseStatus "Prehook jobId is $($getPodJob.Id)"
     return $getPodJob

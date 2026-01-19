@@ -25,8 +25,8 @@ function Set-K8sUtilsConfig {
         [switch] $UseThreadJobs
     )
     $script:UtcOffset = New-TimeSpan -Minutes $OffsetMinutes
-    $script:LogVerboseStack = $LogVerboseStack
-    $script:UseThreadJobs = $UseThreadJobs
+    $script:LogVerboseStack = [bool]$LogVerboseStack
+    $script:UseThreadJobs = [bool]$UseThreadJobs
 
     if ($ColorType -eq "None" -or $env:NO_COLOR -eq "1") {
         $script:ColorType = "None"

@@ -135,17 +135,13 @@ function Deploy-Minimal {
         [string] $chartName = "minimal",
         [string] $ServiceAccount = "",
         [string] $registry = "docker.io",
-        [int] $activeDeadlineSeconds = 30,
-        [switch] $StackOnVerbose,
-        [switch] $UseThreadJobs
+        [int] $activeDeadlineSeconds = 30
 
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
 
     Push-Location (Join-Path $PSScriptRoot "../DevOps/Helm")
-
-    Set-K8sUtilsConfig -ColorType $ColorType -LogVerboseStack:$StackOnVerbose -UseThreadJobs:$UseThreadJobs
 
     # to clear out init containers from values.yaml, don't set anything and do this, but requires newer helm
     $helmSet = @()
