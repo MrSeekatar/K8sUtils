@@ -1,5 +1,5 @@
 $script:frames = ""
-$script:stackOnVerbose = $false
+$script:logVerboseStack = $false
 
 # write verbose-like status with call stack
 function Write-VerboseStatus([string] $msg) {
@@ -7,7 +7,7 @@ function Write-VerboseStatus([string] $msg) {
         return
     }
     $frames = ""
-    if ($script:stackOnVerbose)
+    if ($script:logVerboseStack)
     {
         $stack = Get-PSCallStack
         $frameList = @()

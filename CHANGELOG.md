@@ -1,5 +1,16 @@
 # Change Log
 
+## [1.0.35] 2026-01-23
+
+### Changed
+
+- Reworked code around helm upgrade and pre-install hook handling
+  - Now it uses `Start-ThreadJob` so we can get pre-install hook logs while `helm upgrade` is running.
+  - This fixes case where `deadline exceeded` on the job error does not get logs
+  - Write-VerboseStatus messages had to be updated so thread job output would be in order instead of grouped by Write-* type
+- Write-VerboseStatus messages now show all callstack functions and line numbers for better debugging, instead of first one
+- Update older versions of hpa and ingress in Helm chart
+
 ## [1.0.34] 2025-11-24
 
 ### Added
@@ -10,11 +21,6 @@
 ### Changed
 
 - Verbose logging shows a line with the call stack for better debugging
-- Reworked code around helm upgrade and pre-install hook handling
-  - Now it uses `Start-ThreadJob` so we can get pre-install hook logs while `helm upgrade` is running.
-  - This fixes case where `deadline exceeded` error does not get logs
-  - Write-VerboseStatus messages had to be updated so thread job output would be in order instead of grouped by Write-* type
-- Write-VerboseStatus messages now show all callstack functions and line numbers for better debugging, instead of first one
 
 ### Fixed
 

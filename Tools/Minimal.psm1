@@ -1,8 +1,8 @@
-param( [bool] $Quiet = $false, [bool] $LogVerboseStack = $false, [bool] $UseThreadJobs = $true )
+param( [bool] $Quiet = $false, [bool] $LogVerboseStackArg = $false, [bool] $UseThreadJobsArg = $true )
 
 $env:invokeHelmAllowLowTimeouts=1
 
-Import-Module $PSScriptRoot\..\K8sUtils\K8sUtils.psd1 -ArgumentList $true, $LogVerboseStack, $UseThreadJobs -Force
+Import-Module $PSScriptRoot\..\K8sUtils\K8sUtils.psd1 -ArgumentList $true, $LogVerboseStackArg, $UseThreadJobsArg -Force
 Write-Information "Loaded K8sUtils Module in Minimal.psm1" -InformationAction Continue
 
 $exports = @()

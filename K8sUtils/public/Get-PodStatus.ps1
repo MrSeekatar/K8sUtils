@@ -113,15 +113,15 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
     $pods = $pods.items
     Write-VerboseStatus "Got $($pods.Count) pods from kubectl get pod --namespace $Namespace --selector $Selector"
     $podCount = $pods.Count
-    if ($pods.Count){
+    if ($podCount){
         Write-VerboseStatus ( "    $($pods.metadata.name -join ',')" )
     }
 
     # Handle odd case when a pod is a pod in $podStatuses that is no longer in $pods
     #   - remove it from $podStatuses
     #   - get its events and logs for diagnostics
-    $goners = $podStatuses.Keys | Where-Object { $_ -notin $pods.metadata.name }
-    if ($goners) {
+    if ($podCount -gt 0) {
+        $goners = $podStatuses.Keys | Where-Object { $_ -notin $pods.metadata.name }
         foreach ($goner in $goners) {
             Write-Warning "Pod '$goner' is no longer returned by selector $Selector. Removing from podStatuses."
             $podStatuses.Remove($goner)
@@ -260,12 +260,12 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
        } # else no events
        # TODO we've seen case where pod.status.containerStatuses.state.waiting has
        #   message: secret "eventhub-disabled-bootstrap-servers" not found
-       #   reason: CreateContainerConfigErrorreason: ImagePullBackOff
+       #   reason: CreateContainerConfigError reason: ImagePullBackOff
        # but nothing in events. Local testing always has events.
     } # end foreach pod
 
     if ($runningCount -ge $ReplicaCount) {
-        Write-Status "All ${prefix}s ($runningCount/$ReplicaCount) that matched selector $Selector are running`n" -Length 0 -LogLevel normal
+        Write-Status "All ${prefix}s ($runningCount/$ReplicaCount) that matched selector '$Selector' are running`n" -Length 0 -LogLevel normal
         break
     }
 
@@ -280,7 +280,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 $ok = [bool]($runningCount -ge $ReplicaCount)
 if (!$ok) {
     Write-VerboseStatus "Times: $(Get-Date) -lt $($timeoutEnd) Values count: $($podStatuses.Values.Count)"
-    Write-Status "Error getting status for pods that matched selector $Selector after $([int](((Get-Date) - $start).TotalSeconds))s" `
+    Write-Status "Error getting status for pods that matched selector '$Selector' after $([int](((Get-Date) - $start).TotalSeconds))s" `
                 -Length 0 `
                 -LogLevel Error
     Write-Status "    RunningCount: $runningCount ReplicaCount: $ReplicaCount PodCount: $podCount Ok: $ok TimedOut: $timedOut" `

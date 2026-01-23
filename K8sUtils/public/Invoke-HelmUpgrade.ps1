@@ -275,7 +275,6 @@ function Invoke-HelmUpgrade {
             }
         }
 
-
         if ($upgradeExit -ne 0 -or ($status.PreHookStatus -and $status.PreHookStatus.Status -ne [Status]::Completed)) {
             $status.Running = $false
             if ($status.PreHookStatus -and
@@ -310,7 +309,7 @@ function Invoke-HelmUpgrade {
         Write-VerboseStatus "PodStatuses: $($status.PodStatuses | Format-List | Out-String)"
 
         if ($DeploymentSelector -and !$status.Running) {
-            $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release '$ReleaseName' had errors" -PrevVersion $prevVersion
+            $status.RollbackStatus = rollbackAndWarn -SkipRollbackOnError $SkipRollbackOnError -ReleaseName $ReleaseName -Msg "Release '$ReleaseName' is not running" -PrevVersion $prevVersion
             $upgradeExit = 9
         } else {
             $status.RollbackStatus = [RollbackStatus]::DeployedOk

@@ -1,11 +1,13 @@
 # Import the script that defines the Deploy-Minimal -PassThru function
 BeforeAll {
 
-    $useThread = $false
-    $useThread = [bool]::TryParse($env:K8sUtils_UseThreadJobs,[ref]$useThread)
+    $useThreadJobs = $false
+    if (![bool]::TryParse($env:K8sUtils_UseThreadJobs,[ref]$useThreadJobs)) {
+        $useThreadJobs = $false
+    }
 
-    Import-Module $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true, $true, $useThread
-    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true, $true, $useThread
+    Import-Module $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
+    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
 
     $env:invokeHelmAllowLowTimeouts = $true
 

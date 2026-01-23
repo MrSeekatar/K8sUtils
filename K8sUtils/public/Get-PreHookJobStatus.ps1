@@ -66,7 +66,7 @@ function Get-PreHookJobStatus {
             if ($Status.PreHookStatus.PodName -eq '<no pods found>') {
                 $events = Get-JobPodEvent -JobName $PreHookJobName -Since $StartTime
                 if ($events) {
-                    $errors = Write-K8sEvent -Name "$PreHookJobName's pod" `
+                    $errors = Write-K8sEvent -Name "$PreHookJobName's pod since $StartTime" `
                                         -Prefix "PreHookJob" `
                                         -Events $events `
                                         -LogLevel error `
