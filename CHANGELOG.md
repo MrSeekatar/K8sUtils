@@ -9,7 +9,8 @@
   - This fixes case where `deadline exceeded` on the job error does not get logs
   - Write-VerboseStatus messages had to be updated so thread job output would be in order instead of grouped by Write-* type
 - Write-VerboseStatus messages now show all callstack functions and line numbers for better debugging, instead of first one
-- Update older versions of hpa and ingress in Helm chart
+- Update versions of hpa and ingress in Helm chart
+- Update Get-K8sEvent to use events.events.k8s.io to better find events
 
 ## [1.0.34] 2025-11-24
 

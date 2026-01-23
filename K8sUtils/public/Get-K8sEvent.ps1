@@ -48,19 +48,19 @@ function Get-K8sEvent {
         [string] $Namespace = "default",
         [string] $Kind
     )
-    $selector = [bool]$ObjectName ? "involvedObject.name=$ObjectName" : "involvedObject.uid=$Uid"
+    $selector = [bool]$ObjectName ? "regarding.name=$ObjectName" : "regarding.uid=$Uid"
     if ($NoNormal) {
         $selector += ",type!=Normal"
     }
     if ($Kind) {
-        $selector += ",involvedObject.kind=$Kind"
+        $selector += ",regarding.kind=$Kind"
     }
-    Write-VerboseStatus "kubectl get events --namespace $Namespace --field-selector `"$selector`" -o json"
-    $json = kubectl get events --namespace $Namespace --field-selector $selector -o json
+    Write-VerboseStatus "kubectl get events.events.k8s.io --namespace $Namespace --field-selector `"$selector`" -o json"
+    $json = kubectl get events.events.k8s.io --namespace $Namespace --field-selector $selector -o json
 
     Write-VerboseStatus "kubectl exit code: $LASTEXITCODE"
     if ($LASTEXITCODE -ne 0) {
-        Write-Status "kubectl get events --namespace $Namespace --field-selector `"$selector`" -o json" -LogLevel warning
+        Write-Status "kubectl get events.events.k8s.io --namespace $Namespace --field-selector `"$selector`" -o json" -LogLevel warning
         Write-Status "  had exit code of $LASTEXITCODE" -LogLevel warning
         Write-Status "  JSON is $json" -LogLevel warning
         return $null
@@ -74,7 +74,7 @@ function Get-K8sEvent {
     if ($events.items) {
         Write-VerboseStatus "Events count: $($events.items.count)"
         $events.items | ForEach-Object {
-            Write-VerboseStatus "  $($_.message) $($_.eventTime ? $_.eventTime : $_.lastTimestamp)"
+            Write-VerboseStatus "  $($_.note) $($_.metadata.creationTimestamp)"
         }
     }
     $ret = $events.items

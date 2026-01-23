@@ -38,14 +38,13 @@ function Get-JobPodEvent {
 
     # Filter events after the timestamp
     $filteredJobEvents = @($jobEvents | Where-Object {
-        $eventTime = $_.eventTime ? $_.eventTime : $_.lastTimestamp
-        $eventTime -ge $Since
+        $_.metadata.creationTimestamp -ge $Since
     })
     Write-VerboseStatus "Filtered $($jobEvents.Count - $filteredJobEvents.Count) events by time for job $JobName"
 
     # Find the event that created the pod (reason = "SuccessfulCreate")
     $createPodEvent = $filteredJobEvents | Where-Object {
-        $_.reason -eq "SuccessfulCreate" -and $_.involvedObject.kind -eq "Job"
+        $_.reason -eq "SuccessfulCreate" -and $_.regarding.kind -eq "Job"
     } | Select-Object -Last 1
 
     if (-not $createPodEvent) {
@@ -54,7 +53,7 @@ function Get-JobPodEvent {
     }
 
     # Extract pod name from the message (e.g., "Created pod: test-prehook-xxxxx")
-    if ($createPodEvent.message -match "Created pod: (\S+)") {
+    if ($createPodEvent.note -match "Created pod: (\S+)") {
         $podName = $matches[1]
         Write-VerboseStatus "Job created pod: $podName"
     } else {
