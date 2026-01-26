@@ -272,7 +272,7 @@ These scenarios are difficult to test or yet to be covered with tests, but can b
 | Main container startup timeout               |       ✅        | -SkipInit -TimeoutSec 10 -RunCount 10 -SkipPreHook -StartupProbe                                 |
 | Main container startup times out a few times |       ✅        | -SkipInit -TimeoutSec 60 -RunCount 10 -SkipPreHook -StartupProbe                                 |
 | pre-install hook Job `restart: onFailure`    |                |                                                                                                  |
-| Object not owned by Helm                     |       ✅        | `helm uninstall test` then `k apply -f .\DevOps\Kubernetes\deploy-without-helm.yaml` then deploy |
+| Object not owned by Helm                     |       ✅        | `helm uninstall test` then `kubectl apply -f .\DevOps\Kubernetes\deploy-without-helm.yaml` then deploy |
 
 ### Test Helm chart <!-- omit in toc -->
 

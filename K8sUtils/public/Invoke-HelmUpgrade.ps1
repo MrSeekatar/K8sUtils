@@ -258,9 +258,9 @@ function Invoke-HelmUpgrade {
         }
 
         if ($null -ne $getPodJob) {
-            Write-VerboseStatus "Receiving prehook job output"
+            Write-Header "Beginning of prehook job output"
             Receive-Job $getPodJob -Wait -AutoRemoveJob | Write-MyHost
-            Write-VerboseStatus "Get prehook job receive completed"
+            Write-Footer "End of prehook job output"
         } else {
             $startTime = (Get-CurrentTime ([TimeSpan]::FromSeconds(-5))) # start a few seconds back to avoid very close timing
 

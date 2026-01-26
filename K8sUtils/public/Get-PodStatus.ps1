@@ -221,19 +221,27 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         $lastEventTime = (Get-CurrentTime)
         $events = Get-PodEvent -Namespace $Namespace -PodName $pod.metadata.name
         if ($events) {
-            $errors = @($events | Where-Object { $_.type -ne "Normal" -and $_.message -notlike "Startup probe failed:*" -and $_.reason -ne "FailedScheduling"})
+            $errors = @($events | Where-Object { $_.reason -eq "Killing" -or
+                                                 ($_.type -ne "Normal" -and $_.message -notlike "Startup probe failed:*" -and $_.reason -ne "FailedScheduling")})
             Write-VerboseStatus "Got $($errors.count) error of $($events.count) events for pod $($pod.metadata.name) "
+
+            # TODO ok to get logs here?
+            $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit -LogFileFolder $LogFileFolder -SinceTime $lastEventTime
+
             if ($errors -or $pod.status.phase -eq "Failed" ) {
-                Write-Status "Pod $($pod.metadata.name) has $($errors.count) errors" -LogLevel Error
+                Write-Status "Failed pod $($pod.metadata.name) has $($errors.count) errors" -LogLevel Error
                 # write final events and logs for this pod
-                Write-VerboseStatus "Calling Get-AndWriteK8sEvent for pod $($pod.metadata.name) with LogLevel Error"
                 $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit -LogFileFolder $LogFileFolder
+                Write-VerboseStatus "Calling Get-AndWriteK8sEvent for pod $($pod.metadata.name) with LogLevel Error"
                 $podStatuses[$pod.metadata.name].LastBadEvents = Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
 
                 # get latest pod status since sometimes get containerCreating status here
                 $name = $pod.metadata.name
                 Write-VerboseStatus "kubectl get pod --namespace $Namespace $name -o json"
-                $podJson = kubectl get pod --namespace $Namespace $name -o json
+                $podJson = kube get pod --namespace $Namespace $name -o json
+                if ($LASTEXITCODE -ne 0) {
+                    return $podStatuses.Values
+                }
                 $pod = $podJson | ConvertFrom-Json
                 if (!$pod -or !(Get-Member -InputObject $pod -Name metadata)) {
                     Write-Warning "Unexpected response from kubectl get pod --namespace $Namespace $name JSON is: '$podJson'"
@@ -255,7 +263,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 Write-VerboseStatus "No errors found in events for pod $($pod.metadata.name) yet"
 
                 Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
-                $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since $logSeconds -Namespace $Namespace -HasInit:$HasInit
+                $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since $logSeconds -Namespace $Namespace -HasInit:$HasInit -LogFileFolder $LogFileFolder
             }
        } # else no events
        # TODO we've seen case where pod.status.containerStatuses.state.waiting has

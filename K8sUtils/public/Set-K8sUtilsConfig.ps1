@@ -6,7 +6,7 @@ Set some configuration settings for K8sUtils
 Type of color to use for output, defaults to ANSI, can be None or DevOps
 
 .PARAMETER OffsetMinutes
-Number of minutes to offset UTC time used when finding events
+Number of minutes to offset UTC time used when finding events. ET would be -5*60. Default to -1 and uses local time offset.
 
 .PARAMETER LogVerboseStack
 Log stack traces for verbose messages
@@ -20,11 +20,15 @@ function Set-K8sUtilsConfig {
     param (
         [ValidateSet("None","ANSI","DevOps")]
         [string] $ColorType,
-        [int] $OffsetMinutes = 0.0,
+        [int] $OffsetMinutes = -1,
         [switch] $LogVerboseStack,
         [switch] $UseThreadJobs
     )
-    $script:UtcOffset = New-TimeSpan -Minutes $OffsetMinutes
+    if ($OffsetMinutes -ge 0) {
+        $script:UtcOffset = New-TimeSpan -Minutes $OffsetMinutes
+    } else {
+        $script:UtcOffset = [DateTimeOffset]::Now.Offset
+    }
     $script:LogVerboseStack = [bool]$LogVerboseStack
     $script:UseThreadJobs = [bool]$UseThreadJobs
 

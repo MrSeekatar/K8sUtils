@@ -12,6 +12,10 @@
 - Update versions of hpa and ingress in Helm chart
 - Update Get-K8sEvent to use events.events.k8s.io to better find events
 
+### Fixed
+
+- Utc offset was not getting set correct for Get-CurrentTime, which is used when getting events. Now it will be more accurate.
+
 ## [1.0.34] 2025-11-24
 
 ### Added

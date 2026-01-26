@@ -39,6 +39,7 @@ function Write-PodLog {
         [switch] $HasInit,
         [string] $Namespace = "default",
         [string] $Since,
+        [datetime] $SinceTime,
         [ValidateSet("error", "warning", "ok","normal")]
         [string] $LogLevel = "ok",
         [string] $LogFileFolder
@@ -51,20 +52,24 @@ function Write-PodLog {
     if ($Since) {
         $msg += " since ${Since}"
         $extraLogParams += "--since=$logSeconds"
+    } elseif ($SinceTime) {
+        $extraLogParams += "--since-time=$($SinceTime.ToString("o"))"
     }
     if ($HasInit) {
         $extraLogParams = "--prefix", "--all-containers"
     }
     # get the pod status to see if we should look at
-    $podJson = kubectl get pod $PodName --namespace $Namespace -o json
-    $podStatus =  $podJson | ConvertFrom-Json -Depth 100
+    $podJson = kube get pod $PodName --namespace $Namespace -o json
     if ($LASTEXITCODE -ne 0) {
         Write-VerboseStatus "Adding --previous get pod failed with exit code $LASTEXITCODE"
         $previousLogParam += "--previous"
         $LASTEXITCODE = 0
-    } elseif ($podStatus.status.containerStatuses.restartCount -gt 0) {
-        Write-VerboseStatus "Adding --previous because pod $PodName has been restarted"
-        $previousLogParam += "--previous"
+    } else {
+        $podStatus =  $podJson | ConvertFrom-Json -Depth 100
+        if ($podStatus.status.containerStatuses.restartCount -gt 0) {
+            Write-VerboseStatus "Adding --previous because pod $PodName has been restarted"
+            $previousLogParam += "--previous"
+        }
     }
 
     Write-Debug ($podJson | Out-String)
@@ -92,7 +97,7 @@ function Write-PodLog {
         # filter out the transcript header and footer
         Get-Content $tempFile | Select-Object -Skip 4 | ForEach-Object {
             if ($end -or $_ -eq '**********************') { $end = $true } else { $_ }
-        } | Set-Content $logFilename
+        } | Out-File $logFilename -Append
         Remove-Item $tempFile -ErrorAction SilentlyContinue
     }
     Write-Footer "End logs for $prefix $PodName"
@@ -101,30 +106,32 @@ function Write-PodLog {
         $msg = "Error getting logs for pod $PodName (exit = $getLogsExitCode), checking status"
         # TODO if you have multiple containers, this returns multiple chunks of json, but not in an array
         Write-VerboseStatus "kubectl get pod $PodName -o jsonpath='{.status.containerStatuses.*.state}'"
-        $state = ,(kubectl get pod $PodName -o jsonpath="{.status.containerStatuses.*.state}" | ConvertFrom-Json -Depth 5)
-        foreach ($s in $state) {
-            # can have running, waiting, or terminated properties
-            if ($s -and (Get-Member -InputObject $s -Name waiting) -and (Get-Member -InputObject $s.waiting -Name reason)) {
-                if ($msg) { Write-Header $msg -LogLevel warning; $msg = $null }
-                # waiting can have reason, message
-                if ($s.waiting.reason -eq 'ContainerCreating') {
-                    Write-Status "Pod is in ContainerCreating"
+        $state = ,(kube get pod $PodName -o jsonpath="{.status.containerStatuses.*.state}" | ConvertFrom-Json -Depth 5)
+        if ($state) {
+            foreach ($s in $state) {
+                # can have running, waiting, or terminated properties
+                if ($s -and (Get-Member -InputObject $s -Name waiting) -and (Get-Member -InputObject $s.waiting -Name reason)) {
+                    if ($msg) { Write-Header $msg -LogLevel warning; $msg = $null }
+                    # waiting can have reason, message
+                    if ($s.waiting.reason -eq 'ContainerCreating') {
+                        Write-Status "Pod is in ContainerCreating"
+                    } else {
+                        Write-Status "Pod $PodName is waiting" -LogLevel warning
+                        Write-Status ($s.waiting | Out-String -Width 500) -LogLevel warning
+                    }
+                } elseif ($s -and (Get-Member -InputObject $s -Name terminated) -and (Get-Member -InputObject $s.terminated -Name reason)) {
+                    # terminated can have containerID, exitCode, finishedAt, reason, message, signal, startedAt
+                    if ($msg) { Write-Header $msg -LogLevel error; $msg = $null }
+                    Write-Status "Pod was terminated" -LogLevel error
+                    Write-Status ($s.terminated | Out-String -Width 500) -LogLevel error
                 } else {
-                    Write-Status "Pod $PodName is waiting" -LogLevel warning
-                    Write-Status ($s.waiting | Out-String -Width 500) -LogLevel warning
+                    if ($msg) { Write-Header $msg -LogLevel error; $msg = $null }
+                    Write-Warning "Didn't get known state:"
+                    Write-Warning ($s | Out-String)
                 }
-            } elseif ($s -and (Get-Member -InputObject $s -Name terminated) -and (Get-Member -InputObject $s.terminated -Name reason)) {
-                # terminated can have containerID, exitCode, finishedAt, reason, message, signal, startedAt
-                if ($msg) { Write-Header $msg -LogLevel error; $msg = $null }
-                Write-Status "Pod was terminated" -LogLevel error
-                Write-Status ($s.terminated | Out-String -Width 500) -LogLevel error
-            } else {
-                if ($msg) { Write-Header $msg -LogLevel error; $msg = $null }
-                Write-Warning "Didn't get known state:"
-                Write-Warning ($s | Out-String)
             }
+            if ($msg) { Write-Footer "End error messages for $PodName" }
         }
-        Write-Footer
     }
     return $logFilename
 }

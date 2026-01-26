@@ -51,24 +51,24 @@ function Write-K8sEvent {
 
     if ($Since) {
         $msg += " since $($Since.ToString("HH:mm:ss"))"
-        $Events = @($Events | Where-Object { $_.lastTimestamp -gt $Since })
+        $Events = @($Events | Where-Object { $_.metadata.creationTimestamp -gt $Since })
     }
     if ($Events) {
         Write-Debug ($Events | ConvertTo-Json -Depth 5)
     } else {
         Write-VerboseStatus "No events found for $Prefix $Name since $($Since.ToString("HH:mm:ss"))"
     }
-    $errors = $Events | Where-Object { $_.type -ne "Normal" } | Select-Object -ExpandProperty Message
+    $errors = $Events | Where-Object { $_.type -ne "Normal" } | Select-Object -ExpandProperty Note
     if ($errors -and $FilterStartupWarnings) {
         $errors = $errors | Where-Object { $_ -notLike "Startup probe failed:*" }
     }
-    $filteredEvents = $Events | Select-Object type, reason, message, @{n='creationTimestamp';e={$_.metadata.creationTimestamp}}
+    $filteredEvents = $Events | Select-Object type, reason, note, @{n='creationTimestamp';e={$_.metadata.creationTimestamp}}
     if ($filteredEvents) {
         Write-Header $msg -LogLevel $LogLevel
         $filteredEvents | Out-String -Width 500 | Write-Plain
-        Write-Footer "End filtered events for $Prefix $Name"
+        Write-Footer "End events for $Prefix $Name"
     } else {
-        Write-Status "No $msg (filtered)" -LogLevel ok
+        Write-Status "No $msg" -LogLevel ok
     }
 
     if ($PassThru) {

@@ -2,7 +2,7 @@
 {{- if .Values.ingress.enabled }}
 {{- range $host := .Values.ingress.hosts }}
   {{- range .paths }}
-  export INGRESS_IP = k get ingress test-minimal -o jsonpath="{.status.loadBalancer.ingress[0].ip}"
+  export INGRESS_IP = kubectl get ingress test-minimal -o jsonpath="{.status.loadBalancer.ingress[0].ip}"
   *** Edit hosts and add/edit $INGRESS_IP {{ $host.host }}
   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
   {{- end }}

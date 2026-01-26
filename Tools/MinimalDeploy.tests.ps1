@@ -328,5 +328,8 @@ Describe "Deploys Minimal API" {
         $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike '*ErrImage*'
     } -Tag 'Sad','t33'
 
+    It 'test deadlineExceeded getting logs' {
+        $deploy = Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 60 -activeDeadlineSeconds 10 -PassThru -SkipInit
+    }
 }
 
