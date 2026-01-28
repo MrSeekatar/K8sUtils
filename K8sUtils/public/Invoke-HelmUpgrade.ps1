@@ -241,6 +241,10 @@ function Invoke-HelmUpgrade {
                 -LogFileFolder $LogFileFolder `
                 -PreHookTimeoutSecs $PreHookTimeoutSecs `
                 -Status $status
+            for ($i = 0; !$script:jobThreadReady -and $i -lt 10; $i++) {
+                Start-Sleep -Seconds 1 # give thread a moment to start
+            }
+            Write-Status "Waited $i seconds for prehook job thread to start"
         }
 
         # Helm's default timeout is 5 minutes. This doesn't return until preHook is done

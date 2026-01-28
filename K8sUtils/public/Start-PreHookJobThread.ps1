@@ -48,17 +48,25 @@ function Start-PreHookJobThread {
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
 
+    $script:jobThreadReady = $false
+
     $StartTime = (Get-CurrentTime ([TimeSpan]::FromSeconds(-5))) # start a few seconds back to avoid very close timing
 
     $statusVar = Get-Variable Status
+    $jobThreadReadyVar = Get-Variable jobThreadReady -Scope Script
     $module = Join-Path $PSScriptRoot ../K8sUtils.psd1
     $logVerboseStack = $script:logVerboseStack
     $getPodJob = Start-ThreadJob -ScriptBlock {
         $ErrorActionPreference = "Stop"
         Set-StrictMode -Version Latest
 
+        $InformationPreference = $using:InformationPreference
+        $VerbosePreference = $using:VerbosePreference
+        $DebugPreference = $using:DebugPreference
+
         Import-Module $using:module -ArgumentList $true,$using:logVerboseStack -Verbose:$false
-        Write-VerboseStatus "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$using:LogFileFolder'"
+        Write-Status "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$using:LogFileFolder'"
+        ($using:jobThreadReadyVar).Value = $true
 
         if (Wait-PreHookJob -PreHookJobName $using:PreHookJobName `
                             -Namespace $using:Namespace `
@@ -66,9 +74,6 @@ function Start-PreHookJobThread {
 
             $inThreadPollIntervalSec = 1
             $status = ($using:statusVar).Value
-            $InformationPreference = $using:InformationPreference
-            $VerbosePreference = $using:VerbosePreference
-            $DebugPreference = $using:DebugPreference
 
             Get-PreHookJobStatus -PreHookJobName $using:PreHookJobName `
                                 -Namespace $using:Namespace `
@@ -77,6 +82,8 @@ function Start-PreHookJobThread {
                                 -PreHookTimeoutSecs $using:PreHookTimeoutSecs `
                                 -PollIntervalSec $inThreadPollIntervalSec `
                                 -Status $status
+        } else {
+            Write-Status "Didn't find prehook job pods for job '$using:PreHookJobName' in namespace '$using:Namespace' within timeout of $using:PreHookTimeoutSecs seconds" -Status $(($using:statusVar).Value) -Level Warning
         }
     }
     Write-VerboseStatus "Prehook jobId is $($getPodJob.Id)"
