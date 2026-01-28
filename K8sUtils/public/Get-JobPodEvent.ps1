@@ -61,5 +61,10 @@ function Get-JobPodEvent {
         return $null
     }
 
-    Get-K8sEvent -ObjectName $podName -Kind Pod -NoNormal
+    # get any warnings from the job
+    $events = $filteredJobEvents | Where-Object { $_.type -ne "Normal" }
+    if (!$events) {
+        $events = @()
+    }
+    return @($events) + (Get-K8sEvent -ObjectName $podName -Kind Pod -NoNormal)
 }

@@ -63,7 +63,7 @@ function Get-PreHookJobStatus {
                 Write-Warning "Multiple hook statuses returned:`n$($hookStatus  | ConvertTo-Json -Depth 5 -EnumsAsStrings)" # so we can see the status
             }
             $Status.PreHookStatus = $hookStatus | Select-Object -Last 1 # get the last status, in case it was a job
-            if ($Status.PreHookStatus.PodName -eq '<no pods found>') {
+            if ($Status.PreHookStatus.Status -ne [Status]::Completed) {
                 $events = Get-JobPodEvent -JobName $PreHookJobName -Since $StartTime
                 if ($events) {
                     $errors = Write-K8sEvent -Name "$PreHookJobName's pod since $StartTime" `

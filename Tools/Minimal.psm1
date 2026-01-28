@@ -2,9 +2,6 @@ param( [bool] $Quiet = $false, [bool] $LogVerboseStackArg = $false, [bool] $UseT
 
 $env:invokeHelmAllowLowTimeouts=1
 
-Import-Module $PSScriptRoot\..\K8sUtils\K8sUtils.psd1 -ArgumentList $true, $LogVerboseStackArg, $UseThreadJobsArg -Force
-Write-Information "Loaded K8sUtils Module in Minimal.psm1" -InformationAction Continue
-
 $exports = @()
 Get-ChildItem $PSScriptRoot\*.ps1 | Where-Object { $_ -notlike '*.tests.ps1' } | ForEach-Object { . $_; $exports += $_.BaseName }
 
@@ -16,4 +13,8 @@ if (!$Quiet) {
     $exports | Write-Information -InformationAction Continue
 
     Write-Information "`nUse Import-Module $me -ArgumentList `$true to suppress this message`n" -InformationAction Continue
+}
+
+if (!(Get-Module K8sUtils -ErrorAction Ignore)) {
+    Write-Warning "Must import K8sUtils before using this module."
 }

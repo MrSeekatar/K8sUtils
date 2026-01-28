@@ -74,7 +74,7 @@ function Get-K8sEvent {
     if ($events.items) {
         Write-VerboseStatus "Events count: $($events.items.count)"
         $events.items | ForEach-Object {
-            Write-VerboseStatus "  $($_.note) $($_.metadata.creationTimestamp)"
+            Write-VerboseStatus ("  {0,-7}  {1,-17}  {2}  {3}" -f $_.type, $_.reason, $_.metadata.creationTimestamp, $_.note)
         }
     }
     $ret = $events.items

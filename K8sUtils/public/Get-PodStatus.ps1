@@ -287,7 +287,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
 $ok = [bool]($runningCount -ge $ReplicaCount)
 if (!$ok) {
-    Write-VerboseStatus "Times: $(Get-Date) -lt $($timeoutEnd) Values count: $($podStatuses.Values.Count)"
+    Write-VerboseStatus "Not OK. Times: $(Get-Date) -lt $($timeoutEnd) Values count: $($podStatuses.Values.Count)"
     Write-Status "Error getting status for pods that matched selector '$Selector' after $([int](((Get-Date) - $start).TotalSeconds))s" `
                 -Length 0 `
                 -LogLevel Error

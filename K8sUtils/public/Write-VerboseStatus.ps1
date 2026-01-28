@@ -1,7 +1,16 @@
 $script:frames = ""
 $script:logVerboseStack = $false
 
-# write verbose-like status with call stack
+<#
+.SYNOPSIS
+Write verbose-like message with optional call stack
+
+.PARAMETER msg
+Message to write
+
+.NOTES
+If $VerbosePreference is not 'Continue', does nothing. If $script:logVerboseStack is $true, includes the full call stack (function names and line numbers) in the output.
+#>
 function Write-VerboseStatus([string] $msg) {
     if ($VerbosePreference -ne 'Continue') {
         return

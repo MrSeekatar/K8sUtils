@@ -11,10 +11,13 @@ It has been tested on MacOS, Windows, and Linux.
   - [Using `Invoke-HelmUpgrade` in an Azure DevOps Pipeline](#using-invoke-helmupgrade-in-an-azure-devops-pipeline)
 - [Using `Get-JobStatus`](#using-get-jobstatus)
 - [How `Invoke-HelmUpgrade` Works](#how-invoke-helmupgrade-works)
+  - [Without a Thread for Pre-Install Hook](#without-a-thread-for-pre-install-hook)
+  - [With a Thread for Pre-Install Hook](#with-a-thread-for-pre-install-hook)
 - [Testing `Invoke-HelmUpgrade`](#testing-invoke-helmupgrade)
   - [Running the Pester Tests](#running-the-pester-tests)
 - [Pod Phases](#pod-phases)
 - [Container States](#container-states)
+- [Import-Module Arguments](#import-module-arguments)
 - [Pre-Install Hook Job Timeout Settings](#pre-install-hook-job-timeout-settings)
 - [Links](#links)
 
@@ -30,19 +33,23 @@ For the script to get Helm pre-install hook job's output you must set the [helm.
 
 The following table lists the commands in the module. Most are called by `Invoke-HelmUpgrade`, but are available for other uses. `help <command>` will show more details.
 
-| Command              | Description                                            |
-| -------------------- | ------------------------------------------------------ |
-| Add-Annotation       | Helper to add an annotation to a K8s object            |
-| Convert-Value        | Substitutes variables in a file with placeholders      |
-| Get-DeploymentStatus | Get the status of the pods for a deployment            |
-| Get-JobPodEvent      | Get the events for a pod started by a job              |
-| Get-JobPodSelector   | Get the selector for pods for a job                    |
-| Get-JobStatus        | Get the status and logs of a K8s job                   |
-| Get-PodByJobName     | Get a pod given a K8s job name                         |
-| Get-PodEvent         | Get all the K8s events for a pod                       |
-| Get-PodStatus        | Get the status of a pod, dumping events and logs       |
-| Invoke-HelmUpgrade   | Calls `helm upgrade` and polls K8s for events and logs |
-| Set-K8sUtilsConfig   | Sets type of output wanted for Invoke-HelmUpgrade      |
+| Command              | Description                                                                                                                  |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Add-Annotation       | Add or update an annotation to a Kubernetes resource                                                                         |
+| Convert-Value        | One pass replacement of variables in a file, similar to qetza.replacetokens.replacetokens-task.replacetokens in Azure DevOps |
+| Get-DeploymentStatus | Get the status of the pods for a deployment                                                                                  |
+| Get-JobPodEvent      | Retrieves events related to a specific Kubernetes job's pod.                                                                 |
+| Get-JobPodSelector   | Get the selector for pods for a job                                                                                          |
+| Get-JobStatus        | Get the status of the pods for a job                                                                                         |
+| Get-K8sEvent         | Get events for an object                                                                                                     |
+| Get-PodByJobName     | Get Pod object by job name                                                                                                   |
+| Get-PodStatus        | Get the status of the pods for a release                                                                                     |
+| Get-PreHookJobStatus | Gets the status of a Kubernetes pre-hook job and populates status information.                                               |
+| Invoke-HelmUpgrade   | Invoke helm upgrade using helper scripts to catch errors, and rollback                                                       |
+| Set-K8sUtilsConfig   | Set some configuration settings for K8sUtils                                                                                 |
+| Test-DeployStatus    | Test the status of a deployment.                                                                                             |
+| Wait-PreHookJob      | Wait for a Kubernetes pods to appear after a specified time                                                                  |
+| Write-VerboseStatus  | Write verbose-like output with optional call stack                                                                           |
 
 ## Using `Invoke-HelmUpgrade`
 
@@ -156,7 +163,9 @@ $status = Get-JobStatus -JobName "test-job"
 
 ## How `Invoke-HelmUpgrade` Works
 
-`Invoke-HelmUpgrade` calls `helm upgrade` without `-wait` and then will poll K8s during the various phases of the deployment, capturing events and logs along the way.
+### Without a Thread for Pre-Install Hook
+
+This flow does not use a background thread for the pre-install hook, which is the default. `Invoke-HelmUpgrade` calls `helm upgrade` without `-wait` and then will poll K8s during the various phases of the deployment, capturing events and logs along the way.
 
 ```mermaid
 flowchart TD
@@ -186,6 +195,23 @@ flowchart TD
     failed -- No --> rollback[Rollback]
     failed -- Yes --> exit([End<br/>with error])
     rollback --> exit
+```
+
+### With a Thread for Pre-Install Hook
+
+This is essentially the same as above except that code that checks the pre-install hook runs in a background thread instead of when `helm upgrade` returns. This handles the scenario where the pre-install hook gets a `DeadlineExceeded` error and the pod is gone when `helm upgrade` returns. (See [below](#pre-install-hook-job-timeout-settings) for more details.)
+
+```mermaid
+flowchart TD
+    start([Start]) --> prehook{pre-install<br/>hook?}
+    prehook -- Yes --> startThread[Start Job Thread]
+    prehook -- No --> upgrade[helm upgrade]
+    startThread --> upgrade
+    upgrade --> prehook2{pre-install<br/>hook?}
+    prehook2 -- Yes --> getJob[Get thread output] --> checkJob{Job Ok?}
+    prehook2 -- No --> continue[continue...]
+    checkJob -- Yes --> continue
+    checkJob -- No --> exit([End<br/>with error])
 ```
 
 ## Testing `Invoke-HelmUpgrade`
@@ -263,15 +289,15 @@ The following table shows the scenarios of deploying the app with Helm and the v
 
 These scenarios are difficult to test or yet to be covered with tests, but can be manually verified.
 
-| Description                                  | Manual<br>Test | `Deploy-Minimal` Switches                                                                        |
-| -------------------------------------------- | :------------: | ------------------------------------------------------------------------------------------------ |
-| Replica increase                             |       ✅        | -Replicas 3                                                                                      |
-| Replica decrease                             |       ✅        | -Replicas 1                                                                                      |
-| Main container liveness timeout              |       ✅        |                                                                                                  |
-| Another operation in progress                |       ✅        | -SkipInit -HookRunCount 100 in one terminal, -SkipInit in another                                |
-| Main container startup timeout               |       ✅        | -SkipInit -TimeoutSec 10 -RunCount 10 -SkipPreHook -StartupProbe                                 |
-| Main container startup times out a few times |       ✅        | -SkipInit -TimeoutSec 60 -RunCount 10 -SkipPreHook -StartupProbe                                 |
-| pre-install hook Job `restart: onFailure`    |                |                                                                                                  |
+| Description                                  | Manual<br>Test | `Deploy-Minimal` Switches                                                                              |
+| -------------------------------------------- | :------------: | ------------------------------------------------------------------------------------------------------ |
+| Replica increase                             |       ✅        | -Replicas 3                                                                                            |
+| Replica decrease                             |       ✅        | -Replicas 1                                                                                            |
+| Main container liveness timeout              |       ✅        |                                                                                                        |
+| Another operation in progress                |       ✅        | -SkipInit -HookRunCount 100 in one terminal, -SkipInit in another                                      |
+| Main container startup timeout               |       ✅        | -SkipInit -TimeoutSec 10 -RunCount 10 -SkipPreHook -StartupProbe                                       |
+| Main container startup times out a few times |       ✅        | -SkipInit -TimeoutSec 60 -RunCount 10 -SkipPreHook -StartupProbe                                       |
+| pre-install hook Job `restart: onFailure`    |                |                                                                                                        |
 | Object not owned by Helm                     |       ✅        | `helm uninstall test` then `kubectl apply -f .\DevOps\Kubernetes\deploy-without-helm.yaml` then deploy |
 
 ### Test Helm chart <!-- omit in toc -->
@@ -333,9 +359,25 @@ stateDiagram
     Terminated --> [*]
 ```
 
+## Import-Module Arguments
+
+When importing K8sUtils, you can set three boolean arguments, which default to false.
+
+```powershell
+Import-Module ./K8sUtils.psd1 -ArgumentList $true,$true,$false
+```
+
+The booleans arguments are, in order:
+
+- **Quiet** - Do not log a list of public functions and alias on import
+- **LogVerboseStack** - Log the call stack with `Write-VerboseStatus`
+- **UseThreadJobs** - When a pre-install hook is configured, use a background thread to get its output. See the next section for details.
+
+You can also set the latter two options with `Set-K8sUtilsConfig`.
+
 ## Pre-Install Hook Job Timeout Settings
 
-The job has a `activeDeadlineSeconds` setting that will kill the job and its pod after the specified number of seconds. This is true for whether it is running, or failing such as with an image pull error. This takes precedence over the `backoffLimit` setting, which is the number of times to retry the job before giving up.
+A k8s job has a `activeDeadlineSeconds` setting that will kill the job and its pod after the specified number of seconds. This is true for whether it is running, or failing such as with an image pull error. This takes precedence over the `backoffLimit` setting, which is the number of times to retry the job before giving up.
 
 When the job is a pre-install hook, the `helm install --timeout` value comes into play. There are two scenarios to consider:
 
@@ -345,12 +387,14 @@ When the job is a pre-install hook, the `helm install --timeout` value comes int
 | `activeDeadlineSeconds` > `--timeout` | timed out waiting for the condition | Job and pod may still be running, or trying to run |
 
 ```powershell
-# deadline exceeded error, no logs from pre-hook job
+# deadline exceeded error, no logs from pre-hook job since the pod is gone when helm upgrade returns
 Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 10 -activeDeadlineSeconds 5
 
 # timeout error, logs from pre-hook job available
 Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 5 -activeDeadlineSeconds 10
 ```
+
+With the 1.0.35 release (January 2026), you can use the UseThreadJobs argument mentioned above. This will get the logs in the deadline exceeded scenario as well, since it is looking for the pod in a background thread while `helm upgrade` is running.
 
 ## Links
 

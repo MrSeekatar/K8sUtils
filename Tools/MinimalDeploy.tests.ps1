@@ -6,8 +6,8 @@ BeforeAll {
         $useThreadJobs = $false
     }
 
-    Import-Module $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
     Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
+    Import-Module $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
 
     $env:invokeHelmAllowLowTimeouts = $true
 
@@ -329,7 +329,31 @@ Describe "Deploys Minimal API" {
     } -Tag 'Sad','t33'
 
     It 'test deadlineExceeded getting logs' {
-        $deploy = Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 60 -activeDeadlineSeconds 10 -PassThru -SkipInit
-    }
+        try {
+            Set-K8sUtilsConfig -UseThreadJobs:$true
+            $deploy = Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 15 -activeDeadlineSeconds 10 -PassThru -SkipInit
+            Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError -PodCount 0
+            Write-Host ($deploy | ConvertTo-Json -Depth 10 -EnumsAsStrings  ) -ForegroundColor Cyan
+            $deploy.PreHookStatus.Status | Should -Not -Be 'Completed'
+            $deploy.PreHookStatus.PodLogFile | Should -Not -BeNullOrEmpty
+            # $logs =  Get-Content $deploy.PreHookStatus.PodLogFile -ErrorAction SilentlyContinue
+            # erratic $logs.Count | Should -BeGreaterThan 0
+        } finally {
+            Set-K8sUtilsConfig -UseThreadJobs:$false
+        }
+
+    } -Tag 'Deadline','t34'
+
+    It 'test deadlineExceeded not getting logs' {
+        try {
+            Set-K8sUtilsConfig -UseThreadJobs:$false
+            $deploy = Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 15 -activeDeadlineSeconds 10 -PassThru -SkipInit
+            Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError -PodCount 0
+            $deploy.PreHookStatus.Status | Should -Not -Be 'Completed'
+            $deploy.PreHookStatus.PodLogFile | Should -BeNullOrEmpty
+        } finally {
+            Set-K8sUtilsConfig -UseThreadJobs:$true
+        }
+    } -Tag 'Deadline','t35'
 }
 

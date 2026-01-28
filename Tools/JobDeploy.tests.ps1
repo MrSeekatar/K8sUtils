@@ -5,8 +5,8 @@ BeforeAll {
         $useThreadJobs = $false
     }
 
+    Import-Module $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
     Import-Module $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
-    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
 
     $env:invokeHelmAllowLowTimeouts = $true
 
