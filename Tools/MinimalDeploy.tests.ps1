@@ -6,7 +6,7 @@ BeforeAll {
         $useThreadJobs = $false
     }
 
-    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
+    Import-Module $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
     Import-Module $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
 
     $env:invokeHelmAllowLowTimeouts = $true
@@ -331,7 +331,7 @@ Describe "Deploys Minimal API" {
     It 'test deadlineExceeded getting logs' {
         try {
             Set-K8sUtilsConfig -UseThreadJobs:$true
-            $deploy = Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 15 -activeDeadlineSeconds 10 -PassThru -SkipInit
+            $deploy = Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 15 -activeDeadlineSeconds 10 -PassThru -SkipInit -Verbose
             Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError -PodCount 0
             Write-Host ($deploy | ConvertTo-Json -Depth 10 -EnumsAsStrings  ) -ForegroundColor Cyan
             $deploy.PreHookStatus.Status | Should -Not -Be 'Completed'

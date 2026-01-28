@@ -225,9 +225,6 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                                                  ($_.type -ne "Normal" -and $_.message -notlike "Startup probe failed:*" -and $_.reason -ne "FailedScheduling")})
             Write-VerboseStatus "Got $($errors.count) error of $($events.count) events for pod $($pod.metadata.name) "
 
-            # TODO ok to get logs here?
-            $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit -LogFileFolder $LogFileFolder -SinceTime $lastEventTime
-
             if ($errors -or $pod.status.phase -eq "Failed" ) {
                 Write-Status "Failed pod $($pod.metadata.name) has $($errors.count) errors" -LogLevel Error
                 # write final events and logs for this pod
@@ -259,10 +256,12 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 Write-Debug "Get-PodStatus returning $($podStatuses[$pod.metadata.name] | ConvertTo-Json -Depth 10 -EnumsAsStrings)"
                 return $podStatuses.Values
 
-            } elseif ($VerbosePreference -eq 'Continue') {
-                Write-VerboseStatus "No errors found in events for pod $($pod.metadata.name) yet"
+            } else {
+                if ($VerbosePreference -eq 'Continue') {
+                    Write-VerboseStatus "No errors found in events for pod $($pod.metadata.name) yet"
 
-                Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
+                    Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
+                }
                 $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since $logSeconds -Namespace $Namespace -HasInit:$HasInit -LogFileFolder $LogFileFolder
             }
        } # else no events
