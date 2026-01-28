@@ -49,6 +49,7 @@ The following table lists the commands in the module. Most are called by `Invoke
 | Set-K8sUtilsConfig   | Set some configuration settings for K8sUtils                                                                                 |
 | Test-DeployStatus    | Test the status of a deployment.                                                                                             |
 | Wait-PreHookJob      | Wait for a Kubernetes pods to appear after a specified time                                                                  |
+| Write-Status         | Write out a log message                                                                                                      |
 | Write-VerboseStatus  | Write verbose-like output with optional call stack                                                                           |
 
 ## Using `Invoke-HelmUpgrade`

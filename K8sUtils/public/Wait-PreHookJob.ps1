@@ -45,7 +45,7 @@ function Wait-PreHookJob {
     while ($((Get-Date) - $start).TotalSeconds -lt $PreHookTimeoutSecs) {
         $pods = Get-PodAfterTime -Selector $Selector -AfterTime $AfterTime -Namespace $Namespace
         if ($pods) {
-            Write-Verbose "Found one or more pods for selector '$Selector' after $AfterTime"
+            Write-VerboseStatus "Found one or more pods for selector '$Selector' after $AfterTime"
             return $true
         }
         Start-Sleep -Seconds $PollIntervalSec

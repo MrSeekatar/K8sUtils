@@ -109,9 +109,10 @@ function Write-PodLog {
         $state = ,(kube get pod $PodName -o jsonpath="{.status.containerStatuses.*.state}" | ConvertFrom-Json -Depth 5)
         if ($state) {
             foreach ($s in $state) {
+                $wroteHeader = $false
                 # can have running, waiting, or terminated properties
                 if ($s -and (Get-Member -InputObject $s -Name waiting) -and (Get-Member -InputObject $s.waiting -Name reason)) {
-                    if ($msg) { Write-Header $msg -LogLevel warning; $msg = $null }
+                    if ($msg) { Write-Header $msg -LogLevel warning; $msg = $null; $wroteHeader = $true }
                     # waiting can have reason, message
                     if ($s.waiting.reason -eq 'ContainerCreating') {
                         Write-Status "Pod is in ContainerCreating"
@@ -121,16 +122,16 @@ function Write-PodLog {
                     }
                 } elseif ($s -and (Get-Member -InputObject $s -Name terminated) -and (Get-Member -InputObject $s.terminated -Name reason)) {
                     # terminated can have containerID, exitCode, finishedAt, reason, message, signal, startedAt
-                    if ($msg) { Write-Header $msg -LogLevel error; $msg = $null }
+                    if ($msg) { Write-Header $msg -LogLevel error; $msg = $null; $wroteHeader = $true }
                     Write-Status "Pod was terminated" -LogLevel error
                     Write-Status ($s.terminated | Out-String -Width 500) -LogLevel error
                 } else {
-                    if ($msg) { Write-Header $msg -LogLevel error; $msg = $null }
+                    if ($msg) { Write-Header $msg -LogLevel error; $msg = $null; $wroteHeader = $true }
                     Write-Warning "Didn't get known state:"
                     Write-Warning ($s | Out-String)
                 }
+                if ($wroteHeader) { Write-Footer "End error messages for $PodName" }
             }
-            if ($msg) { Write-Footer "End error messages for $PodName" }
         }
     }
     return $logFilename

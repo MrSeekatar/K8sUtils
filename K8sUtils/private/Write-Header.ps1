@@ -87,7 +87,7 @@ function Write-Header() {
         [string] $HeaderPrefix = $script:HeaderPrefix
     )
     if ($script:InHeader -gt 0) {
-        Write-Warning "Nesting Write-Header"
+        Write-Status "Nesting Write-Header ($script:InHeader) with message '$msg'" -LogLevel "warning"
     }
     $script:InHeader += 1
     $headerMessage = $LogLevel -eq "error" ? "ERROR" : ""
@@ -122,63 +122,6 @@ function Write-Footer() {
         }
     }
     $script:InHeader -= 1
-}
-
-function Write-Status() {
-    [CmdletBinding()]
-    param(
-        [Parameter(ValueFromPipeline)]
-        [string]$msg = "",
-        [ValidateSet("error", "warning", "ok", "normal")]
-        [string] $LogLevel = "normal",
-        [int]$Length = $script:Dashes,
-        [string] $Prefix = "",
-        [string] $Suffix = "",
-        [ValidateSet("None", "ANSI", "DevOps")]
-        [string] $ColorType = $script:ColorType,
-        [string] $Char = '─'
-    )
-
-    process {
-        Set-StrictMode -Version Latest
-
-        function mapLogLevel($date, $LogLevel, $Prefix) {
-            if ($Prefix) {
-                return ""
-            }
-            switch ($LogLevel) {
-                "error" {
-                    return "[${date}ERR]"
-                }
-                "warning" {
-                    return "[${date}WRN]"
-                }
-                default {
-                    return "[${date}INF]"
-                }
-            }
-        }
-
-        # if ($VerbosePreference -ne 'Continue') {
-        $statusPrefix = $Prefix + (MapColor $LogLevel $ColorType)
-        # }
-
-        $date = $script:AddDate ? "$((Get-Date).ToString("u")) " : ""
-        if ($Length -gt 0) {
-            $maxWidth = try { $Host.UI.RawUI.WindowSize.Width } catch { 120 } # account for running a JobThread without a host
-            $msgLen = ($statusPrefix + $date + $msg + $Suffix).Length
-            if ($msgLen -lt $maxWidth) {
-                $Length = [Math]::Min($Length, $maxWidth - $msgLen - 1)
-                if ($Char.Length -eq 3) {
-                    $msg = ($Char[1].ToString() * ($Length-2)) + $Char[2] + " $msg "
-                } else {
-                    $msg = ($Char * $Length) + " $msg "
-                }
-            }
-        }
-
-        "${statusPrefix}$(mapLogLevel $date $LogLevel $Prefix) ${msg}${Suffix}" | Write-Plain
-    }
 }
 
 function Write-Plain() {

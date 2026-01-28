@@ -8,6 +8,7 @@
   - It uses `Start-ThreadJob` to get pre-install hook logs while `helm upgrade` is running.
   - This fixes case where `deadline exceeded` on the job error does not get logs since the pod is gone when `helm upgrade` returns.
   - `Write-VerboseStatus` messages was updated so thread job output would be in order instead of grouped by Write-* type
+- `Get-K8sUtilsConfig` to get current config settings
 
 ### Changed
 

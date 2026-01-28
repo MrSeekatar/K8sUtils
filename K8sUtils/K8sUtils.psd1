@@ -85,6 +85,7 @@ FunctionsToExport = @(
     'Set-K8sUtilsConfig',
     'Test-DeployStatus',
     'Wait-PreHookJob',
+    'Write-Status',
     'Write-VerboseStatus'
 )
 
