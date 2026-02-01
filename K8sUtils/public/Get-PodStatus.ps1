@@ -222,7 +222,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         $events = Get-PodEvent -Namespace $Namespace -PodName $pod.metadata.name
         if ($events) {
             $errors = @($events | Where-Object { $_.reason -eq "Killing" -or
-                                                 ($_.type -ne "Normal" -and $_.message -notlike "Startup probe failed:*" -and $_.reason -ne "FailedScheduling")})
+                                                 ($_.type -ne "Normal" -and $_.note -notlike "Startup probe failed:*" -and $_.reason -ne "FailedScheduling")})
             Write-VerboseStatus "Got $($errors.count) error of $($events.count) events for pod $($pod.metadata.name) "
 
             if ($errors -or $pod.status.phase -eq "Failed" ) {

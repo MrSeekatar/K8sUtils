@@ -19,6 +19,7 @@
 ### Fixed
 
 - Utc offset was not getting set correctly in `Get-CurrentTime`, which is used when getting events. Now it will be more accurate.
+- Found some systems had `helm status` failing to convert to JSON due to depth limit. Increased depth to 20 from 10.
 
 ## [1.0.34] 2025-11-24
 

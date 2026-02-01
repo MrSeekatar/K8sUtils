@@ -222,7 +222,7 @@ function Invoke-HelmUpgrade {
         $hookMsg = $PreHookJobName ? " waiting ${PreHookTimeoutSecs}s prehook job '$PreHookJobName'" : ""
 
         Write-VerboseStatus "helm status --namespace $Namespace $ReleaseName -o json"
-        $prevReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10 -AsHashtable # AsHashTable allows for duplicate keys in env, etc.
+        $prevReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 20 -AsHashtable # AsHashTable allows for duplicate keys in env, etc.
         if ($prevReleaseVersion -and ($prevReleaseVersion.ContainsKey('version'))) {
             $prevVersion = $prevReleaseVersion.version
             Write-VerboseStatus "Previous version of $ReleaseName was $prevVersion"
@@ -247,6 +247,7 @@ function Invoke-HelmUpgrade {
             Write-Status "Waited $i seconds for prehook job thread to start"
         }
 
+        $startTime = (Get-CurrentTime ([TimeSpan]::FromSeconds(-3))) # start a few seconds back to avoid very close timing
         # Helm's default timeout is 5 minutes. This doesn't return until preHook is done
         "helm upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout  ${PreHookTimeoutSecs}s  --namespace $Namespace $($parms -join " ")" | Write-MyHost
         helm  upgrade --install $ReleaseName $Chart -f $ValueFile --reset-values --timeout "${PreHookTimeoutSecs}s" --namespace $Namespace @parms 2>&1 | Write-MyHost
@@ -266,7 +267,6 @@ function Invoke-HelmUpgrade {
             Receive-Job $getPodJob -Wait -AutoRemoveJob | Write-MyHost
             Write-Footer "End of prehook job output"
         } else {
-            $startTime = (Get-CurrentTime ([TimeSpan]::FromSeconds(-5))) # start a few seconds back to avoid very close timing
 
             if ($PreHookJobName) {
                 Get-PreHookJobStatus -PreHookJobName $PreHookJobName `

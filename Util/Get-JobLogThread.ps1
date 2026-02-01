@@ -76,10 +76,10 @@ if ($logJob) {
 if ($podUid) {
     "--------------- Pod events"
     $events = Get-K8sEvent -Uid $podUid -Namespace $Namespace
-    $events.message
+    $events.note
 }
 if ($jobUid) {
     "--------------- Job events"
     $events = Get-K8sEvent -Uid $jobUid -Namespace $Namespace
-    $events.message
+    $events.note
 }
