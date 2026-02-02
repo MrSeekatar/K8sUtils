@@ -11,17 +11,25 @@ if ($test -eq 1 ) {
         $job | Receive-Job -Wait -AutoRemoveJob
         Write-Host "3 Finished receiving job$test results." -ForegroundColor Cyan
     } catch {
-        Write-Host "3 Caught exception from ThreadJob${test}:" -ForegroundColor Red
         Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host "3 Caught exception from ThreadJob${test}:" -ForegroundColor Red
     }
 } elseif ($test -eq 2) {
 
     # set $ErrorActionPreference to 'Stop' inside the job, and 'Continue' outside
     $ErrorActionPreference = 'Continue'
     $job = Start-ThreadJob -ScriptBlock {
+        function doit{
         $ErrorActionPreference = 'Stop'
         Write-Host "2 In ThreadJob$using:test started, about to throw exception..." -ForegroundColor Yellow
         throw "2.1 This is a test exception from ThreadJob$using:test"
+        }
+        try {
+            doit
+        } catch {
+            Write-Host "Caught exception inside ThreadJob$using:test: $($_.Exception.Message)`n$($_.ScriptStackTrace)" -ForegroundColor Magenta
+            throw
+        }
     }
 
     $ErrorActionPreference = 'Stop'
@@ -30,8 +38,8 @@ if ($test -eq 1 ) {
         $job | Receive-Job -Wait -AutoRemoveJob
         Write-Host "3 Finished receiving job$test results." -ForegroundColor Cyan
     } catch {
-        Write-Host "3 Caught exception from ThreadJob${test}:" -ForegroundColor Red
         Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host "3 Caught exception from ThreadJob${test}:`n$($_.ScriptStackTrace)" -ForegroundColor Red
     }
 } elseif ($test -eq 3) {
 
@@ -50,8 +58,8 @@ if ($test -eq 1 ) {
         Write-Host "3 Finished receiving job$test results." -ForegroundColor Cyan # never get here
         $ErrorActionPreference = 'Stop'
     } catch {
-        Write-Host "3 Caught exception from ThreadJob${test}:" -ForegroundColor Red
         Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host "3 Caught exception from ThreadJob${test}:`n$($_.ScriptStackTrace)" -ForegroundColor Red
     }
 
 } elseif ($test -eq 4) {
@@ -105,8 +113,8 @@ if ($test -eq 1 ) {
         $job | Receive-Job -Wait -AutoRemoveJob
         Write-Host "3 Finished receiving job$test results." -ForegroundColor Cyan # never get here since stderr throws
     } catch {
-        Write-Host "3 Caught exception from ThreadJob${test}:" -ForegroundColor Red
         Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host "3 Caught exception from ThreadJob${test}:" -ForegroundColor Red
     }
 
 } else {

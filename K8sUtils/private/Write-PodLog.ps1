@@ -125,6 +125,8 @@ function Write-PodLog {
                     if ($msg) { Write-Header $msg -LogLevel error; $msg = $null; $wroteHeader = $true }
                     Write-Status "Pod was terminated" -LogLevel error
                     Write-Status ($s.terminated | Out-String -Width 500) -LogLevel error
+                } elseif ($s -and (Get-Member -InputObject $s -Name running)) {
+                    # Do nothing if it's running
                 } else {
                     if ($msg) { Write-Header $msg -LogLevel error; $msg = $null; $wroteHeader = $true }
                     Write-Warning "Didn't get known state:"

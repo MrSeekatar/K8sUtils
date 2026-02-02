@@ -57,33 +57,38 @@ function Start-PreHookJobThread {
     $module = Join-Path $PSScriptRoot ../K8sUtils.psd1
     $logVerboseStack = $script:logVerboseStack
     $getPodJob = Start-ThreadJob -ScriptBlock {
-        $ErrorActionPreference = "Stop"
-        Set-StrictMode -Version Latest
+        try {
+            $ErrorActionPreference = "Stop"
+            Set-StrictMode -Version Latest
 
-        $InformationPreference = $using:InformationPreference
-        $VerbosePreference = $using:VerbosePreference
-        $DebugPreference = $using:DebugPreference
+            $InformationPreference = $using:InformationPreference
+            $VerbosePreference = $using:VerbosePreference
+            $DebugPreference = $using:DebugPreference
 
-        Import-Module $using:module -ArgumentList $true,$using:logVerboseStack -Verbose:$false
-        Write-Status "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$using:LogFileFolder'"
-        ($using:jobThreadReadyVar).Value = $true
+            Import-Module $using:module -ArgumentList $true,$using:logVerboseStack -Verbose:$false
+            Write-Status "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$using:LogFileFolder'"
+            ($using:jobThreadReadyVar).Value = $true
 
-        if (Wait-PreHookJob -PreHookJobName $using:PreHookJobName `
-                            -Namespace $using:Namespace `
-                            -PreHookTimeoutSecs $using:PreHookTimeoutSecs) {
-
-            $inThreadPollIntervalSec = 1
-            $status = ($using:statusVar).Value
-
-            Get-PreHookJobStatus -PreHookJobName $using:PreHookJobName `
+            if (Wait-PreHookJob -PreHookJobName $using:PreHookJobName `
                                 -Namespace $using:Namespace `
-                                -LogFileFolder $using:LogFileFolder `
-                                -StartTime $using:startTime `
-                                -PreHookTimeoutSecs $using:PreHookTimeoutSecs `
-                                -PollIntervalSec $inThreadPollIntervalSec `
-                                -Status $status
-        } else {
-            Write-Status "Didn't find prehook job pods for job '$using:PreHookJobName' in namespace '$using:Namespace' within timeout of $using:PreHookTimeoutSecs seconds" -Status $(($using:statusVar).Value) -Level Warning
+                                -PreHookTimeoutSecs $using:PreHookTimeoutSecs) {
+
+                $inThreadPollIntervalSec = 1
+                $status = ($using:statusVar).Value
+
+                Get-PreHookJobStatus -PreHookJobName $using:PreHookJobName `
+                                    -Namespace $using:Namespace `
+                                    -LogFileFolder $using:LogFileFolder `
+                                    -StartTime $using:startTime `
+                                    -PreHookTimeoutSecs $using:PreHookTimeoutSecs `
+                                    -PollIntervalSec $inThreadPollIntervalSec `
+                                    -Status $status
+            } else {
+                Write-Status "Didn't find prehook job pods for job '$using:PreHookJobName' in namespace '$using:Namespace' within timeout of $using:PreHookTimeoutSecs seconds" -LogLevel Warning
+            }
+        } catch {
+            Write-Status "Exception in prehook job thread: $($_.Exception.Message)`n$($_.ScriptStackTrace)" -LogLevel Error
+            throw
         }
     }
     Write-VerboseStatus "Prehook jobId is $($getPodJob.Id)"

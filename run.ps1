@@ -87,7 +87,9 @@ function Invoke-Test {
     }
 
     try {
-        $global:k8sutils_last_test_errors = @()
+        if (!$tag -or $tag.Count -gt 0 -or $tag -match '\w\d+') {
+            $global:k8sutils_last_test_errors = @() # clear previous errors if doing > 1 test
+        }
         $env:K8sUtils_UseThreadJobs = [bool]$UseThreadJobsInTests
         if (!(Get-Command -Name docker -ErrorAction SilentlyContinue) -or
             !(Get-Command -Name helm -ErrorAction SilentlyContinue) -or
@@ -106,7 +108,9 @@ function Invoke-Test {
         $errors = $result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed }
         Write-Information ($errors | Select-Object name, @{n='i';e={$i-1}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String -Width 1000) -InformationAction Continue
         Write-Information "Test results: are in `$k8sutils_test_results" -InformationAction Continue
-        $global:k8sutils_last_test_errors = $errors
+        if ($result.TotalCount - $result.NotRunCount -gt 1) {
+            $global:k8sutils_last_test_errors = $errors # save errors for this run if
+        }
         $global:k8sutils_test_results = $result
         Remove-Item env:K8sUtils_UseThreadJobs -ErrorAction SilentlyContinue
     } finally {
