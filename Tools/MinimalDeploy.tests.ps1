@@ -209,11 +209,11 @@ Describe "Deploys Minimal API" {
 
     It "tests error if checking preHook, but not making one" {
         Write-Host (kubectl delete job test-prehook --wait --ignore-not-found) # prev step may have left one
-        do {
-            Write-Host "Still there >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+        while (Get-PodByJobName test-prehook) {
+            Write-Host "test-prehook job still there >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
             Start-Sleep 1
-        } while (Get-PodByJobName test-prehook)
-        $deploy = Deploy-Minimal -PassThru -AlwaysCheckPreHook -SkipPreHook -SkipInit -TimeoutSecs 10
+        }
+        $deploy = Deploy-Minimal -PassThru -AlwaysCheckPreHook -SkipPreHook -SkipInit -TimeoutSecs 10 -verbose
         Test-Deploy $deploy -Running $false -PodCount 0 -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError
 
     } -Tag 'Config','Sad','t23'
@@ -332,9 +332,8 @@ Describe "Deploys Minimal API" {
     It 'test deadlineExceeded getting logs' {
         try {
             Set-K8sUtilsConfig -UseThreadJobs:$true
-            $deploy = Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 15 -activeDeadlineSeconds 10 -PassThru -SkipInit -Verbose
+            $deploy = Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 15 -activeDeadlineSeconds 10 -PassThru -SkipInit
             Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError -PodCount 0
-            Write-Host ($deploy | ConvertTo-Json -Depth 10 -EnumsAsStrings  ) -ForegroundColor Cyan
             $deploy.PreHookStatus.Status | Should -Not -Be 'Completed'
             $deploy.PreHookStatus.PodLogFile | Should -Not -BeNullOrEmpty
             # $logs =  Get-Content $deploy.PreHookStatus.PodLogFile -ErrorAction SilentlyContinue

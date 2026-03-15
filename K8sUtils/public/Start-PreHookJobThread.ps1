@@ -56,6 +56,11 @@ function Start-PreHookJobThread {
     $jobThreadReadyVar = Get-Variable jobThreadReady -Scope Script
     $module = Join-Path $PSScriptRoot ../K8sUtils.psd1
     $logVerboseStack = $script:logVerboseStack
+
+    # pessimistically set the value since [PodStatus] not public
+    $status.PreHookStatus = [PodStatus]::new($PreHookJobName)
+    $status.PreHookStatus.Status = [Status]::Timeout
+
     $getPodJob = Start-ThreadJob -ScriptBlock {
         try {
             $ErrorActionPreference = "Stop"
