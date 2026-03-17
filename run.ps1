@@ -86,12 +86,12 @@ function Invoke-Test {
         $PSDefaultParameterValues['Deploy-*:registry'] = $Registry
     }
 
-    $prevValue = $env:K8sUtils_UseThreadJobs
+    $prevValue = $env:K8SUTILS_USETHREADJOBS # in AzDO, variables are folded to upper case.
     try {
         if (!$tag -or $tag.Count -gt 0 -or $tag -match '\w\d+') {
             $global:k8sutils_last_test_errors = @() # clear previous errors if doing > 1 test
         }
-        $env:K8sUtils_UseThreadJobs = ([bool]$UseThreadJobsInTests).ToString()
+        $env:K8SUTILS_USETHREADJOBS = ([bool]$UseThreadJobsInTests).ToString()
         if (!(Get-Command -Name docker -ErrorAction SilentlyContinue) -or
             !(Get-Command -Name helm -ErrorAction SilentlyContinue) -or
             !(Get-Command -Name Invoke-Pester -ErrorAction SilentlyContinue) ) {
@@ -114,7 +114,7 @@ function Invoke-Test {
         }
         $global:k8sutils_test_results = $result
     } finally {
-        $env:K8sUtils_UseThreadJobs = $prevValue
+        $env:K8SUTILS_USETHREADJOBS = $prevValue
         if ($Registry) {
             $PSDefaultParameterValues.Remove('Deploy-*:registry')
         }

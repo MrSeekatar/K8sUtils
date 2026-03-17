@@ -12,8 +12,8 @@ $exports += Get-Alias | Where-Object source -eq 'k8sutils' | Select-Object -Expa
 
 $LogVerboseStackVal = $false
 $UseThreadJobsVal = $false
-$null = [bool]::TryParse($env:K8sUtils_LogVerboseStack, [ref]$LogVerboseStackVal)
-$null = [bool]::TryParse($env:K8sUtils_UseThreadJobs, [ref]$UseThreadJobsVal)
+$null = [bool]::TryParse($env:K8SUTILS_LOGVERBOSESTACK, [ref]$LogVerboseStackVal)
+$null = [bool]::TryParse($env:K8SUTILS_USETHREADJOBS, [ref]$UseThreadJobsVal)
 Set-K8sUtilsConfig -LogVerboseStack:$LogVerboseStackVal -UseThreadJobs:$UseThreadJobsVal
 
 if (!$Quiet -and !(Test-Path env:TF_BUILD)) {

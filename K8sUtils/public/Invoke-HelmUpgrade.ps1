@@ -154,8 +154,8 @@ function Invoke-HelmUpgrade {
         throw "helm and kubectl must be installed and in the path"
     }
 
-    if ($env:K8sUtils_UseThreadJobs -eq 'true' -and !($script:UseThreadJobs)) {
-        Write-Warning "Environment variable K8sUtils_UseThreadJobs overriding config"
+    if ($env:K8SUTILS_USETHREADJOBS -eq 'true' -and !($script:UseThreadJobs)) {
+        Write-Warning "Environment variable K8SUTILS_USETHREADJOBS overriding config"
         $script:UseThreadJobs = $true
     }
     $prev = $script:ColorType
