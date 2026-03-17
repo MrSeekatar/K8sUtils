@@ -1,6 +1,6 @@
-param( [bool] $Quiet = $false, [bool] $LogVerboseStackArg = $false, [bool] $UseThreadJobsArg = $true )
+param( [bool] $Quiet = $false)
 
-$env:invokeHelmAllowLowTimeouts=1
+$env:K8sUtils_AllowLowTimeouts=1
 
 $exports = @()
 Get-ChildItem $PSScriptRoot\*.ps1 | Where-Object { $_ -notlike '*.tests.ps1' } | ForEach-Object { . $_; $exports += $_.BaseName }

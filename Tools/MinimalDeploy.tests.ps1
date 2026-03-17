@@ -1,15 +1,10 @@
 # Import the script that defines the Deploy-Minimal -PassThru function
 BeforeAll {
+    Import-Module $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true
+    Import-Module $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true
 
-    $useThreadJobs = $false
-    if (![bool]::TryParse($env:K8sUtils_UseThreadJobs,[ref]$useThreadJobs)) {
-        $useThreadJobs = $false
-    }
-
-    Import-Module $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
-    Import-Module $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
-
-    $env:invokeHelmAllowLowTimeouts = $true
+    $env:K8sUtils_AllowLowTimeouts = $true
+    Get-K8sUtilsConfig
 
     . $PSScriptRoot\TestHelpers.ps1
 }
@@ -318,18 +313,41 @@ Describe "Deploys Minimal API" {
         $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike '*ErrImage*'
     } -Tag 'Sad','prehook','t32'
 
-    It "tests prehook with bad tag and short active deadline " {
-        $deploy = Deploy-Minimal -PassThru -SkipInit -PreHookTimeoutSecs 5 -HookTag zzz -ActiveDeadlineSeconds 2
-        Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError -PodCount 0
+    It "tests prehook with bad tag and short active deadline without thread jobs" {
+        $prevValue = (Get-K8sUtilsConfig).UseThreadJobs
+        try {
+            Set-K8sUtilsConfig -UseThreadJobs:$false
+            $deploy = Deploy-Minimal -PassThru -SkipInit -PreHookTimeoutSecs 5 -HookTag zzz -ActiveDeadlineSeconds 2
+            Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError -PodCount 0
 
-        $deploy.PreHookStatus.Status | Should -Be 'Timeout'
-        $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
-        $deploy.PreHookStatus.LastBadEvents[0] | Should -BeLike '*longer than specified deadline'
-        $deploy.PreHookStatus.LastBadEvents[1] | Should -Match '(is not present with pull|Failed to pull image)'
-        $deploy.PreHookStatus.LastBadEvents[2] | Should -BeLike '*ErrImage*'
+            $deploy.PreHookStatus.Status | Should -Be 'Timeout'
+            $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
+            $deploy.PreHookStatus.LastBadEvents[0] | Should -BeLike '*longer than specified deadline'
+            $deploy.PreHookStatus.LastBadEvents[1] | Should -Match '(is not present with pull|Failed to pull image)'
+            $deploy.PreHookStatus.LastBadEvents[2] | Should -BeLike '*ErrImage*'
+        } finally {
+            Set-K8sUtilsConfig -UseThreadJobs:$prevValue
+        }
     } -Tag 'Sad','prehook','t33'
 
+    It "tests prehook with bad tag and short active deadline with thread jobs" {
+        $prevValue = (Get-K8sUtilsConfig).UseThreadJobs
+        try {
+            Set-K8sUtilsConfig -UseThreadJobs:$true
+            $deploy = Deploy-Minimal -PassThru -SkipInit -PreHookTimeoutSecs 5 -HookTag zzz -ActiveDeadlineSeconds 2
+            Test-Deploy $deploy -Running $false -RollbackStatus 'RolledBack' -ExpectedStatus $prehookError -PodCount 0
+
+            $deploy.PreHookStatus.Status | Should -Be 'ConfigError'
+            $deploy.PreHookStatus.LastBadEvents.Count | Should -BeGreaterThan 1
+            $deploy.PreHookStatus.LastBadEvents[0] | Should -Match '(is not present with pull|Failed to pull image)'
+            $deploy.PreHookStatus.LastBadEvents[1] | Should -BeLike '*ErrImage*'
+        } finally {
+            Set-K8sUtilsConfig -UseThreadJobs:$prevValue
+        }
+    } -Tag 'Sad','prehook','t33.1'
+
     It 'test deadlineExceeded getting logs' {
+        $prevValue = (Get-K8sUtilsConfig).UseThreadJobs
         try {
             Set-K8sUtilsConfig -UseThreadJobs:$true
             $deploy = Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 15 -activeDeadlineSeconds 10 -PassThru -SkipInit
@@ -339,12 +357,13 @@ Describe "Deploys Minimal API" {
             # $logs =  Get-Content $deploy.PreHookStatus.PodLogFile -ErrorAction SilentlyContinue
             # erratic $logs.Count | Should -BeGreaterThan 0
         } finally {
-            Set-K8sUtilsConfig -UseThreadJobs:$false
+            Set-K8sUtilsConfig -UseThreadJobs:$prevValue
         }
 
     } -Tag 'Deadline','prehook','t34'
 
     It 'test deadlineExceeded not getting logs' {
+        $prevValue = (Get-K8sUtilsConfig).UseThreadJobs
         try {
             Set-K8sUtilsConfig -UseThreadJobs:$false
             $deploy = Deploy-Minimal -HookRunCount 100 -PreHookTimeoutSecs 15 -activeDeadlineSeconds 10 -PassThru -SkipInit
@@ -352,7 +371,7 @@ Describe "Deploys Minimal API" {
             $deploy.PreHookStatus.Status | Should -Not -Be 'Completed'
             $deploy.PreHookStatus.PodLogFile | Should -BeNullOrEmpty
         } finally {
-            Set-K8sUtilsConfig -UseThreadJobs:$true
+            Set-K8sUtilsConfig -UseThreadJobs:$prevValue
         }
     } -Tag 'Deadline','t35'
 }

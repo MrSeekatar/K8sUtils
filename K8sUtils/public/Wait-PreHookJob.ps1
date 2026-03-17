@@ -20,6 +20,9 @@ Maximum time in seconds to wait for pods to appear (default: 10)
 .PARAMETER PollIntervalSec
 Time in seconds between polling attempts (default: 1)
 
+.PARAMETER Status
+ReleaseStatus object to update with hook status
+
 .OUTPUTS
 Returns $true if pods are found, $false if timeout is reached.
 #>
@@ -32,7 +35,9 @@ function Wait-PreHookJob {
         [string] $Namespace = "default",
         [DateTime] $AfterTime = (Get-K8sServerTime),
         [int] $PreHookTimeoutSecs = 10,
-        [int] $PollIntervalSec = 1
+        [int] $PollIntervalSec = 1,
+        [Parameter(Mandatory)]
+        $Status
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
@@ -50,6 +55,10 @@ function Wait-PreHookJob {
         }
         Start-Sleep -Seconds $PollIntervalSec
     }
-    Write-Warning "Didn't find any pods selector '$Selector' after ${PreHookTimeoutSecs}s"
+    Write-Status "Didn't find prehook job pods for job '$using:PreHookJobName' in namespace '$using:Namespace' within timeout of $using:PreHookTimeoutSecs seconds" -LogLevel Warning
+    $jobStatus = [PodStatus]::new("<no pods found>")
+    $jobStatus.Status = [Status]::Timeout
+    $Status.PreHookStatus = $jobStatus
+
     return $false
 }

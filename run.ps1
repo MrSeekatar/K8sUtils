@@ -86,11 +86,12 @@ function Invoke-Test {
         $PSDefaultParameterValues['Deploy-*:registry'] = $Registry
     }
 
+    $prevValue = $env:K8sUtils_UseThreadJobs
     try {
         if (!$tag -or $tag.Count -gt 0 -or $tag -match '\w\d+') {
             $global:k8sutils_last_test_errors = @() # clear previous errors if doing > 1 test
         }
-        $env:K8sUtils_UseThreadJobs = [bool]$UseThreadJobsInTests
+        $env:K8sUtils_UseThreadJobs = ([bool]$UseThreadJobsInTests).ToString()
         if (!(Get-Command -Name docker -ErrorAction SilentlyContinue) -or
             !(Get-Command -Name helm -ErrorAction SilentlyContinue) -or
             !(Get-Command -Name Invoke-Pester -ErrorAction SilentlyContinue) ) {
@@ -112,8 +113,8 @@ function Invoke-Test {
             $global:k8sutils_last_test_errors = $errors # save errors for this run if
         }
         $global:k8sutils_test_results = $result
-        Remove-Item env:K8sUtils_UseThreadJobs -ErrorAction SilentlyContinue
     } finally {
+        $env:K8sUtils_UseThreadJobs = $prevValue
         if ($Registry) {
             $PSDefaultParameterValues.Remove('Deploy-*:registry')
         }
@@ -135,6 +136,17 @@ try {
                 executeSB -RelativeDirectory DevOps/Kubernetes {
                     # wildcards give an error (*.y*)
                     kubectl apply -f .
+                }
+            }
+            'testLastFailed' {
+                if ($k8sutils_last_test_errors -and $k8sutils_last_test_file) {
+                    $Tag = @($k8sutils_last_test_errors.tag | Where-Object { $_ -match '\w\d+' })
+                    Write-Information "Re-running tests with tags: $($Tag -join ', ')" -InformationAction Continue
+                    executeSB  {
+                        Invoke-Test $k8sutils_last_test_file
+                    }
+                } else {
+                    Write-Warning "No previous test errors found"
                 }
             }
             'publishK8sUtils' {
@@ -159,16 +171,19 @@ try {
             }
             'test' {
                 executeSB  {
+                    $global:k8sutils_last_test_file = "Tools/MinimalDeploy.tests.ps1"
                     Invoke-Test Tools/MinimalDeploy.tests.ps1
                 }
             }
             'testJob' {
                 executeSB  {
+                    $global:k8sutils_last_test_file = "Tools/JobDeploy.tests.ps1"
                     Invoke-Test Tools/JobDeploy.tests.ps1
                 }
             }
             'testJobK8s' {
                 executeSB  {
+                    $global:k8sutils_last_test_file = "Tools/JobDeployK8s.tests.ps1"
                     Invoke-Test Tools/JobDeployK8s.tests.ps1
                 }
             }

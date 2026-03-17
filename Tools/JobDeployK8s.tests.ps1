@@ -1,14 +1,9 @@
 # Import the script that defines the Deploy-MinimalJobK8s function
 BeforeAll {
-    $useThreadJobs = $false
-    if (![bool]::TryParse($env:K8sUtils_UseThreadJobs,[ref]$useThreadJobs)) {
-        $useThreadJobs = $false
-    }
+    Import-Module $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true
+    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true
 
-    Import-Module $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
-    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true, $true, $useThreadJobs
-
-    $env:invokeHelmAllowLowTimeouts = $true
+    $env:K8sUtils_AllowLowTimeouts = $true
 
     . $PSScriptRoot\TestHelpers.ps1
 }

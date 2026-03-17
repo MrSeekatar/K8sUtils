@@ -74,12 +74,13 @@ function Start-PreHookJobThread {
             Write-Status "In thread. Loaded K8sUtil version $((Get-Module K8sUtils).Version). LogFileFolder is '$using:LogFileFolder'"
             ($using:jobThreadReadyVar).Value = $true
 
+            $status = ($using:statusVar).Value
             if (Wait-PreHookJob -PreHookJobName $using:PreHookJobName `
                                 -Namespace $using:Namespace `
-                                -PreHookTimeoutSecs $using:PreHookTimeoutSecs) {
+                                -PreHookTimeoutSecs $using:PreHookTimeoutSecs `
+                                -Status $status) {
 
                 $inThreadPollIntervalSec = 1
-                $status = ($using:statusVar).Value
 
                 Get-PreHookJobStatus -PreHookJobName $using:PreHookJobName `
                                     -Namespace $using:Namespace `
@@ -88,8 +89,6 @@ function Start-PreHookJobThread {
                                     -PreHookTimeoutSecs $using:PreHookTimeoutSecs `
                                     -PollIntervalSec $inThreadPollIntervalSec `
                                     -Status $status
-            } else {
-                Write-Status "Didn't find prehook job pods for job '$using:PreHookJobName' in namespace '$using:Namespace' within timeout of $using:PreHookTimeoutSecs seconds" -LogLevel Warning
             }
         } catch {
             Write-Status "Exception in prehook job thread: $($_.Exception.Message)`n$($_.ScriptStackTrace)" -LogLevel Error

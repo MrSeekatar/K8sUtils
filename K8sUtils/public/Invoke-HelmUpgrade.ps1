@@ -205,7 +205,7 @@ function Invoke-HelmUpgrade {
         Write-Footer
     }
 
-    if (!$env:invokeHelmAllowLowTimeouts) {
+    if ($env:K8sUtils_AllowLowTimeouts -ne 'true') {
         if ($PreHookTimeoutSecs -lt $minPreHookTimeoutSecs) {
             Write-Warning "PreHookTimeoutSecs ($PreHookTimeoutSecs) is less than $minPreHookTimeoutSecs seconds, setting to $minPreHookTimeoutSecs."
             $PreHookTimeoutSecs = $minPreHookTimeoutSecs
@@ -267,9 +267,9 @@ function Invoke-HelmUpgrade {
         }
 
         if ($null -ne $getPodJob) {
-            Write-Header "Beginning of prehook job output"
+            Write-Header "Beginning of prehook job thread output"
             Receive-Job $getPodJob -Wait -AutoRemoveJob | Write-MyHost
-            Write-Footer "End of prehook job output"
+            Write-Footer "End of prehook job thread output"
         } else {
 
             if ($PreHookJobName) {
