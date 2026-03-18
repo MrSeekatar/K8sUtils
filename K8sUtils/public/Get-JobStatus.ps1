@@ -66,7 +66,7 @@ function Get-JobStatus {
             if ($jobEvents) {
                 Write-VerboseStatus "Job '$JobName' has $($jobEvents.Count) events"
                 $status.Status = "ConfigError"
-                $status.LastBadEvents = $jobEvents.Message | ForEach-Object { $_ -replace 'Pod "[\w-]*"', 'Pod "..."' } | Select-Object -Unique
+                $status.LastBadEvents = $jobEvents.note | ForEach-Object { $_ -replace 'Pod "[\w-]*"', 'Pod "..."' } | Select-Object -Unique
             }
         }
         return $status

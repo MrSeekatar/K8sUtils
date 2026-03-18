@@ -74,7 +74,7 @@ function Deploy-MinimalJob {
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
 
-    Push-Location (Join-Path $PSScriptRoot "../DevOps/helm")
+    Push-Location (Join-Path $PSScriptRoot "../DevOps/Helm")
 
     $imagePullPolicy=$($Registry -eq "docker.io" ? "Never" : "Always")
 

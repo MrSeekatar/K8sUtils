@@ -43,7 +43,8 @@ param (
     [Alias("context")]
     [Alias("kube-context")]
     [string] $KubeContext = "rancher-desktop",
-    [string] $Registry
+    [string] $Registry,
+    [switch] $UseThreadJobsInTests
 )
 
 $currentTask = ""
@@ -85,7 +86,12 @@ function Invoke-Test {
         $PSDefaultParameterValues['Deploy-*:registry'] = $Registry
     }
 
+    $prevValue = $env:K8SUTILS_USETHREADJOBS # in AzDO, variables are folded to upper case.
     try {
+        if (!$tag -or $tag.Count -gt 0 -or $tag -match '\w\d+') {
+            $global:k8sutils_last_test_errors = @() # clear previous errors if doing > 1 test
+        }
+        $env:K8SUTILS_USETHREADJOBS = ([bool]$UseThreadJobsInTests).ToString()
         if (!(Get-Command -Name docker -ErrorAction SilentlyContinue) -or
             !(Get-Command -Name helm -ErrorAction SilentlyContinue) -or
             !(Get-Command -Name Invoke-Pester -ErrorAction SilentlyContinue) ) {
@@ -100,10 +106,15 @@ function Invoke-Test {
         }
         $result = Invoke-Pester -PassThru -Tag $tag -Path $testFile
         $i = 0
-        Write-Information ($result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed } | Select-Object name, @{n='i';e={$i-1}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String  -Width 1000)  -InformationAction Continue
-        Write-Information "Test results: are in `$test_results" -InformationAction Continue
-        $global:test_results = $result
+        $errors = $result.tests | Where-Object { $i+=1; $_.executed -and !$_.passed }
+        Write-Information ($errors | Select-Object name, @{n='i';e={$i-1}},@{n='tags';e={$_.tag -join ','}}, @{n='Error';e={$_.ErrorRecord.DisplayErrorMessage -Replace [Environment]::NewLine,"\n" }} | Out-String -Width 1000) -InformationAction Continue
+        Write-Information "Test results: are in `$k8sutils_test_results" -InformationAction Continue
+        if ($result.TotalCount - $result.NotRunCount -gt 1) {
+            $global:k8sutils_last_test_errors = $errors # save errors for this run if
+        }
+        $global:k8sutils_test_results = $result
     } finally {
+        $env:K8SUTILS_USETHREADJOBS = $prevValue
         if ($Registry) {
             $PSDefaultParameterValues.Remove('Deploy-*:registry')
         }
@@ -125,6 +136,17 @@ try {
                 executeSB -RelativeDirectory DevOps/Kubernetes {
                     # wildcards give an error (*.y*)
                     kubectl apply -f .
+                }
+            }
+            'testLastFailed' {
+                if ($k8sutils_last_test_errors -and $k8sutils_last_test_file) {
+                    $Tag = @($k8sutils_last_test_errors.tag | Where-Object { $_ -match '\w\d+' })
+                    Write-Information "Re-running tests with tags: $($Tag -join ', ')" -InformationAction Continue
+                    executeSB  {
+                        Invoke-Test $k8sutils_last_test_file
+                    }
+                } else {
+                    Write-Warning "No previous test errors found"
                 }
             }
             'publishK8sUtils' {
@@ -149,16 +171,19 @@ try {
             }
             'test' {
                 executeSB  {
+                    $global:k8sutils_last_test_file = "Tools/MinimalDeploy.tests.ps1"
                     Invoke-Test Tools/MinimalDeploy.tests.ps1
                 }
             }
             'testJob' {
                 executeSB  {
+                    $global:k8sutils_last_test_file = "Tools/JobDeploy.tests.ps1"
                     Invoke-Test Tools/JobDeploy.tests.ps1
                 }
             }
             'testJobK8s' {
                 executeSB  {
+                    $global:k8sutils_last_test_file = "Tools/JobDeployK8s.tests.ps1"
                     Invoke-Test Tools/JobDeployK8s.tests.ps1
                 }
             }

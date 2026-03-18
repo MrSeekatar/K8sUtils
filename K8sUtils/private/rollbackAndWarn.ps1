@@ -4,8 +4,8 @@ function rollbackAndWarn {
     param ($SkipRollbackOnError, $releaseName, $msg, $prevVersion)
 
     try {
-        Write-Debug "helm status --namespace $Namespace $ReleaseName -o json"
-        $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 10 -AsHashtable # AsHashTable allows for duplicate keys in env, etc.
+        Write-VerboseStatus "helm status --namespace $Namespace $ReleaseName -o json"
+        $currentReleaseVersion = helm status --namespace $Namespace $ReleaseName -o json | ConvertFrom-Json -Depth 20 -AsHashtable # AsHashTable allows for duplicate keys in env, etc.
         if (!$currentReleaseVersion -or !($currentReleaseVersion.ContainsKey('version'))) {
             Write-Status "Unexpected response from helm status, not rolling back" -LogLevel warning
             Write-Status "Current helm release: $($currentReleaseVersion | ConvertTo-Json -Depth 20 -EnumsAsStrings)"

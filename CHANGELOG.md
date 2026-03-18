@@ -1,5 +1,26 @@
 # Change Log
 
+## [1.0.35] 2026-03-15
+
+### Added
+
+- Option to get pre-install hook logs in a background thread.
+  - It uses `Start-ThreadJob` to get pre-install hook logs while `helm upgrade` is running.
+  - This fixes case where `deadline exceeded` on the job error does not get logs since the pod is gone when `helm upgrade` returns.
+  - `Write-VerboseStatus` messages was updated so thread job output would be in order instead of grouped by Write-* type
+- `Get-K8sUtilsConfig` to get current config settings
+
+### Changed
+
+- `Write-VerboseStatus` messages now show all callstack functions, instead of first one, and line numbers for better debugging
+- Updated `Get-K8sEvent` to use events.events.k8s.io to better find events
+- Updated versions of hpa and ingress in Helm chart
+
+### Fixed
+
+- Utc offset was not getting set correctly in `Get-CurrentTime`, which is used when getting events. Now it will be more accurate.
+- Found some systems had `helm status` failing to convert to JSON due to depth limit. Increased depth to 20 from 10.
+
 ## [1.0.34] 2025-11-24
 
 ### Added

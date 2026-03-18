@@ -1,9 +1,9 @@
 # Import the script that defines the Deploy-MinimalJob -PassThru function
 BeforeAll {
-    Import-Module  $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true
-    Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true
+    Import-Module $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true
+    Import-Module $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true
 
-    $env:invokeHelmAllowLowTimeouts = $true
+    $env:K8sUtils_AllowLowTimeouts = $true
 
     . $PSScriptRoot\TestHelpers.ps1
 }

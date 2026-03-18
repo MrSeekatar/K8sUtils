@@ -12,7 +12,7 @@
 RootModule = 'K8sUtils.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.34'
+ModuleVersion = '1.0.35'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -77,11 +77,16 @@ FunctionsToExport = @(
     'Get-JobPodSelector',
     'Get-JobStatus',
     'Get-K8sEvent',
+    'Get-K8sUtilsConfig',
     'Get-PodByJobName',
     'Get-PodStatus',
+    'Get-PreHookJobStatus',
     'Invoke-HelmUpgrade',
     'Set-K8sUtilsConfig',
-    'Test-DeployStatus'
+    'Test-DeployStatus',
+    'Wait-PreHookJob',
+    'Write-Status',
+    'Write-VerboseStatus'
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

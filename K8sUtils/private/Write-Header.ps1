@@ -87,7 +87,7 @@ function Write-Header() {
         [string] $HeaderPrefix = $script:HeaderPrefix
     )
     if ($script:InHeader -gt 0) {
-        Write-Warning "Nesting Write-Header"
+        Write-Status "Nesting Write-Header ($script:InHeader) with message '$msg'" -LogLevel "warning"
     }
     $script:InHeader += 1
     $headerMessage = $LogLevel -eq "error" ? "ERROR" : ""
@@ -124,63 +124,6 @@ function Write-Footer() {
     $script:InHeader -= 1
 }
 
-function Write-Status() {
-    [CmdletBinding()]
-    param(
-        [Parameter(ValueFromPipeline)]
-        [string]$msg = "",
-        [ValidateSet("error", "warning", "ok", "normal")]
-        [string] $LogLevel = "normal",
-        [int]$Length = $script:Dashes,
-        [string] $Prefix = "",
-        [string] $Suffix = "",
-        [ValidateSet("None", "ANSI", "DevOps")]
-        [string] $ColorType = $script:ColorType,
-        [string] $Char = '─'
-    )
-
-    process {
-        Set-StrictMode -Version Latest
-
-        function mapLogLevel($date, $LogLevel, $Prefix) {
-            if ($Prefix) {
-                return ""
-            }
-            switch ($LogLevel) {
-                "error" {
-                    return "[${date}ERR]"
-                }
-                "warning" {
-                    return "[${date}WRN]"
-                }
-                default {
-                    return "[${date}INF]"
-                }
-            }
-        }
-
-        # if ($VerbosePreference -ne 'Continue') {
-        $statusPrefix = $Prefix + (MapColor $LogLevel $ColorType)
-        # }
-
-        $date = $script:AddDate ? "$((Get-Date).ToString("u")) " : ""
-        if ($Length -gt 0) {
-            $maxWidth = $Host.UI.RawUI.WindowSize.Width
-            $msgLen = ($statusPrefix + $date + $msg + $Suffix).Length
-            if ($msgLen -lt $maxWidth) {
-                $Length = [Math]::Min($Length, $maxWidth - $msgLen - 1)
-                if ($Char.Length -eq 3) {
-                    $msg = ($Char[1].ToString() * ($Length-2)) + $Char[2] + " $msg "
-                } else {
-                    $msg = ($Char * $Length) + " $msg "
-                }
-            }
-        }
-
-        "${statusPrefix}$(mapLogLevel $date $LogLevel $Prefix) ${msg}${Suffix}" | Write-Plain
-    }
-}
-
 function Write-Plain() {
     [CmdletBinding()]
     param(
@@ -191,21 +134,4 @@ function Write-Plain() {
     process {
         $msg | Write-MyHost
     }
-}
-
-function Write-VerboseStatus([string] $msg) {
-    if ($VerbosePreference -ne 'Continue') {
-        return
-    }
-    $stack = Get-PSCallStack
-    $frameList = @()
-    $frames = $stack | Select-Object -Skip 1 -SkipLast 1
-    foreach ($frame in $frames) {
-        $location = $frame.Location -match "line (\d+)" ? $Matches[1] : ""
-        if ($frame.Command -eq 'Invoke-HelmUpgrade') {
-            break
-        }
-        $frameList += "$($frame.Command):$Location"
-    }
-    Write-Host "$($PSStyle.Formatting.Verbose)VRB: $($frameList -join " <- ")`n => $msg$($PSStyle.Reset)"
 }

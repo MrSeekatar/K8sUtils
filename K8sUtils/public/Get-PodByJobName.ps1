@@ -21,7 +21,7 @@ function Get-PodByJobName {
         [string] $Namespace = "default"
     )
 
-    Write-Debug "kubectl get job $JobName --namespace $Namespace -o json"
+    Write-VerboseStatus "kubectl get job $JobName --namespace $Namespace -o json"
     $job = kubectl get job $JobName --namespace $Namespace -o json | ConvertFrom-Json
     if ($job) {
         Write-VerboseStatus "kubectl get pod --namespace $Namespace --selector 'batch.kubernetes.io/controller-uid=$($job.metadata.labels.'batch.kubernetes.io/controller-uid')' -o json"
