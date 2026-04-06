@@ -1,5 +1,12 @@
 # Change Log
 
+## [1.0.36] 2026-04-06
+
+### Changed
+
+- Update thread header footer to not nest headers since AzDO doesn't support nesting groups.
+- Update to log as error if prehook job fails
+
 ## [1.0.35] 2026-03-15
 
 ### Added
