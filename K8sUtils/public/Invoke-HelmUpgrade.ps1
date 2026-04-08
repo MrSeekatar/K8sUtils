@@ -267,9 +267,9 @@ function Invoke-HelmUpgrade {
         }
 
         if ($null -ne $getPodJob) {
-            Write-Header "Beginning of prehook job thread output"
+            Write-Status "Beginning of prehook job thread output" -Char "v"
             Receive-Job $getPodJob -Wait -AutoRemoveJob | Write-MyHost
-            Write-Footer "End of prehook job thread output"
+            Write-Status "End of prehook job thread output" -Char "^"
         } else {
 
             if ($PreHookJobName) {
