@@ -91,10 +91,11 @@ function allContainersReady($containerStatuses) {
 
 $start = Get-Date
 $timeoutEnd = $start.AddSeconds($TimeoutSec)
-$logSeconds = "600s"
+$logSeconds = 600
 $extraSeconds = 1 # extra seconds to add to logSeconds to avoid missing something
 $lastEventTime = (Get-CurrentTime ([TimeSpan]::FromMinutes(-5)))
 $timedOut = $false
+$logExitCode = 0
 
 Write-Status "Checking status of pods of type $podType that match selector $Selector for ${TimeoutSec}s"
 $podCount = 0
@@ -204,7 +205,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                                                                                 -LogLevel ok `
                                                                                 -FilterStartupWarnings
 
-                $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit -LogFileFolder $LogFileFolder
+                ($logExitCode, $podStatuses[$pod.metadata.name].PodLogFile) = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit -LogFileFolder $LogFileFolder
                 continue
             } else {
                 Write-VerboseStatus "Pod $($pod.metadata.name) is ready (phase = $okPhase), but pod containerStatuses are: $($pod.status.containerStatuses | out-string)"
@@ -213,7 +214,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
         if ($timedOut) {
             Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -FilterStartupWarnings
-            $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -HasInit:$HasInit -LogFileFolder $LogFileFolder
+            ($logExitCode, $podStatuses[$pod.metadata.name].PodLogFile) = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel warning -HasInit:$HasInit -LogFileFolder $LogFileFolder
             break
         }
 
@@ -228,7 +229,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             if ($errors -or $pod.status.phase -eq "Failed" ) {
                 Write-Status "Failed pod $($pod.metadata.name) has $($errors.count) errors" -LogLevel Error
                 # write final events and logs for this pod
-                $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit -LogFileFolder $LogFileFolder
+                ($logExitCode, $podStatuses[$pod.metadata.name].PodLogFile) = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit -LogFileFolder $LogFileFolder
                 Write-VerboseStatus "Calling Get-AndWriteK8sEvent for pod $($pod.metadata.name) with LogLevel Error"
                 $podStatuses[$pod.metadata.name].LastBadEvents = Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
 
@@ -262,7 +263,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
 
                     Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
                 }
-                $podStatuses[$pod.metadata.name].PodLogFile = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since $logSeconds -Namespace $Namespace -HasInit:$HasInit -LogFileFolder $LogFileFolder
+                ($logExitCode, $podStatuses[$pod.metadata.name].PodLogFile) = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since "${logSeconds}s" -Namespace $Namespace -HasInit:$HasInit -LogFileFolder $LogFileFolder
             }
        } # else no events
        # TODO we've seen case where pod.status.containerStatuses.state.waiting has
@@ -281,7 +282,11 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
     }
     Write-VerboseStatus "Sleeping $PollIntervalSec second$($PollIntervalSec -eq 1 ? '': 's'). Running Count = $runningCount ReplicaCount = $ReplicaCount"
     Start-Sleep -Seconds $PollIntervalSec
-    $logSeconds = "$($PollIntervalSec + $extraSeconds)s"
+    if ($logExitCode -eq 0) {
+        $logSeconds = $PollIntervalSec + $extraSeconds
+    } else {
+        $logSeconds += $PollIntervalSec
+    }
 } # end while check pods
 
 $ok = [bool]($runningCount -ge $ReplicaCount)

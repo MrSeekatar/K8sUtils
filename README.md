@@ -253,7 +253,7 @@ In the `DevOps/Kubernetes` folder are the following manifests:
 | deploy-without-helm.yaml | Used for testing without Helm                                |
 | lock-down-secrets.yml    | Creates service accounts and roles for testing secret access |
 
-> Set `$env:invokeHelmAllowLowTimeouts=1` to allow short timeouts for testing, otherwise it will set the minimum to 120s for pre-install hook and 180s for main. Setting `$env:TF_BUILD=$true` will simulate running in an Azure DevOps pipeline and change header and footer output format.
+> `Set-K8sUtilsConfig -AllowLowTimeouts` to allow short timeouts for testing, otherwise it will set the minimum to 120s for pre-install hook and 180s for main. Setting `$env:TF_BUILD=$true` will simulate running in an Azure DevOps pipeline and change header and footer output format.
 
 ### Tested Scenarios <!-- omit in toc -->
 

@@ -80,7 +80,7 @@ function Start-PreHookJobThread {
                                 -PreHookTimeoutSecs $using:PreHookTimeoutSecs `
                                 -Status $status) {
 
-                $inThreadPollIntervalSec = 1
+                $inThreadPollIntervalSec = 2
 
                 Get-PreHookJobStatus -PreHookJobName $using:PreHookJobName `
                                     -Namespace $using:Namespace `

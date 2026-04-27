@@ -205,7 +205,7 @@ function Invoke-HelmUpgrade {
         Write-Footer
     }
 
-    if ($env:K8sUtils_AllowLowTimeouts -ne 'true') {
+    if (!$script:AllowLowTimeouts) {
         if ($PreHookTimeoutSecs -lt $minPreHookTimeoutSecs) {
             Write-Warning "PreHookTimeoutSecs ($PreHookTimeoutSecs) is less than $minPreHookTimeoutSecs seconds, setting to $minPreHookTimeoutSecs."
             $PreHookTimeoutSecs = $minPreHookTimeoutSecs

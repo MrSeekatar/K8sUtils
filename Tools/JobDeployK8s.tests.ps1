@@ -3,7 +3,7 @@ BeforeAll {
     Import-Module $PSScriptRoot\Minimal.psm1 -Force -ArgumentList $true
     Import-Module  $PSScriptRoot\..\K8sUtils\K8sUtils.psm1 -Force -ArgumentList $true
 
-    $env:K8sUtils_AllowLowTimeouts = $true
+    Set-K8sUtilsConfig -AllowLowTimeouts
 
     . $PSScriptRoot\TestHelpers.ps1
 }
