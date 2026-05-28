@@ -223,7 +223,10 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
         $events = Get-PodEvent -Namespace $Namespace -PodName $pod.metadata.name
         if ($events) {
             $errors = @($events | Where-Object { $_.reason -eq "Killing" -or
-                                                 ($_.type -ne "Normal" -and $_.note -notlike "Startup probe failed:*" -and $_.reason -ne "FailedScheduling")})
+                                                 ($_.type -ne "Normal" -and
+                                                  $_.note -notlike "*probe*failed*" -and
+                                                  $_.note -notlike "*failed*probe*" -and
+                                                  $_.reason -ne "FailedScheduling")})
             Write-VerboseStatus "Got $($errors.count) error of $($events.count) events for pod $($pod.metadata.name) "
 
             if ($errors -or $pod.status.phase -eq "Failed" ) {
@@ -248,7 +251,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 }
 
                 $podStatuses[$pod.metadata.name].ContainerStatuses = @($pod.status.containerStatuses | ForEach-Object {
-                        Write-Debug "Pod status: $($_ | ConvertTo-Json -Depth 10)"
+                        Write-Debug "Failed pod status: $($_ | ConvertTo-Json -Depth 10)"
                         [ContainerStatus]::new($_.name, $_) })
                 if ($HasInit) {
                     $podStatuses[$pod.metadata.name].InitContainerStatuses = @($pod.status.initContainerStatuses | ForEach-Object { [ContainerStatus]::new($_.name, $_) })
