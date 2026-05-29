@@ -208,7 +208,7 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
                 ($logExitCode, $podStatuses[$pod.metadata.name].PodLogFile) = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel ok -HasInit:$HasInit -LogFileFolder $LogFileFolder
                 continue
             } else {
-                Write-VerboseStatus "Pod $($pod.metadata.name) is ready (phase = $okPhase), but pod containerStatuses are: $($pod.status.containerStatuses | out-string)"
+                Write-VerboseStatus "Pod $($pod.metadata.name) is ready (phase = $okPhase), but pod containerStatuses are: $($pod.status.containerStatuses | ConvertTo-Json -Depth 10 -EnumsAsStrings). This can occur for jobs where the pod is marked as Succeeded before all containers are marked as terminated with reason Completed. Will check containerStatuses for details."
             }
         }
 
@@ -230,44 +230,44 @@ while ($runningCount -lt $ReplicaCount -and !$timedOut)
             Write-VerboseStatus "Got $($errors.count) error of $($events.count) events for pod $($pod.metadata.name) "
 
             if ($errors -or $pod.status.phase -eq "Failed" ) {
-                Write-Status "Failed pod $($pod.metadata.name) has $($errors.count) errors" -LogLevel Error
-                # write final events and logs for this pod
-                ($logExitCode, $podStatuses[$pod.metadata.name].PodLogFile) = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit -LogFileFolder $LogFileFolder
-                Write-VerboseStatus "Calling Get-AndWriteK8sEvent for pod $($pod.metadata.name) with LogLevel Error"
-                $podStatuses[$pod.metadata.name].LastBadEvents = Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
+            Write-Status "Failed pod $($pod.metadata.name) has $($errors.count) errors" -LogLevel Error
+            # write final events and logs for this pod
+            ($logExitCode, $podStatuses[$pod.metadata.name].PodLogFile) = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -HasInit:$HasInit -LogFileFolder $LogFileFolder
+            Write-VerboseStatus "Calling Get-AndWriteK8sEvent for pod $($pod.metadata.name) with LogLevel Error"
+            $podStatuses[$pod.metadata.name].LastBadEvents = Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Namespace $Namespace -LogLevel Error -PassThru
 
-                # get latest pod status since sometimes get containerCreating status here
-                $name = $pod.metadata.name
-                Write-VerboseStatus "kubectl get pod --namespace $Namespace $name -o json"
-                $podJson = kube get pod --namespace $Namespace $name -o json
-                if ($LASTEXITCODE -ne 0) {
-                    return $podStatuses.Values
-                }
-                $pod = $podJson | ConvertFrom-Json
-                if (!$pod -or !(Get-Member -InputObject $pod -Name metadata)) {
-                    Write-Warning "Unexpected response from kubectl get pod --namespace $Namespace $name JSON is: '$podJson'"
-                    # throw "Unexpected response from kubectl get pod --namespace $Namespace $name"
-                    return $podStatuses.Values
-                }
-
-                $podStatuses[$pod.metadata.name].ContainerStatuses = @($pod.status.containerStatuses | ForEach-Object {
-                        Write-Debug "Failed pod status: $($_ | ConvertTo-Json -Depth 10)"
-                        [ContainerStatus]::new($_.name, $_) })
-                if ($HasInit) {
-                    $podStatuses[$pod.metadata.name].InitContainerStatuses = @($pod.status.initContainerStatuses | ForEach-Object { [ContainerStatus]::new($_.name, $_) })
-                }
-                $podStatuses[$pod.metadata.name].DetermineStatus()
-                Write-Debug "Get-PodStatus returning $($podStatuses[$pod.metadata.name] | ConvertTo-Json -Depth 10 -EnumsAsStrings)"
+            # get latest pod status since sometimes get containerCreating status here
+            $name = $pod.metadata.name
+            Write-VerboseStatus "kubectl get pod --namespace $Namespace $name -o json"
+            $podJson = kube get pod --namespace $Namespace $name -o json
+            if ($LASTEXITCODE -ne 0) {
                 return $podStatuses.Values
-
-            } else {
-                if ($VerbosePreference -eq 'Continue') {
-                    Write-VerboseStatus "No errors found in events for pod $($pod.metadata.name) yet"
-
-                    Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
-                }
-                ($logExitCode, $podStatuses[$pod.metadata.name].PodLogFile) = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since "${logSeconds}s" -Namespace $Namespace -HasInit:$HasInit -LogFileFolder $LogFileFolder
             }
+            $pod = $podJson | ConvertFrom-Json
+            if (!$pod -or !(Get-Member -InputObject $pod -Name metadata)) {
+                Write-Warning "Unexpected response from kubectl get pod --namespace $Namespace $name JSON is: '$podJson'"
+                # throw "Unexpected response from kubectl get pod --namespace $Namespace $name"
+                return $podStatuses.Values
+            }
+
+            $podStatuses[$pod.metadata.name].ContainerStatuses = @($pod.status.containerStatuses | ForEach-Object {
+                    Write-Debug "Failed container status: $($_ | ConvertTo-Json -Depth 10)"
+                    [ContainerStatus]::new($_.name, $_) })
+            if ($HasInit) {
+                $podStatuses[$pod.metadata.name].InitContainerStatuses = @($pod.status.initContainerStatuses | ForEach-Object { [ContainerStatus]::new($_.name, $_) })
+            }
+            $podStatuses[$pod.metadata.name].DetermineStatus()
+            Write-Debug "Get-PodStatus returning $($podStatuses[$pod.metadata.name] | ConvertTo-Json -Depth 10 -EnumsAsStrings)"
+            return $podStatuses.Values
+
+        } else {
+            if ($VerbosePreference -eq 'Continue') {
+                Write-VerboseStatus "No errors found in events for pod $($pod.metadata.name) yet"
+
+                Get-AndWriteK8sEvent -Prefix $prefix -PodName $pod.metadata.name -Since $lastEventTime -Namespace $Namespace
+            }
+            ($logExitCode, $podStatuses[$pod.metadata.name].PodLogFile) = Write-PodLog -Prefix $prefix -PodName $pod.metadata.name -Since "${logSeconds}s" -Namespace $Namespace -HasInit:$HasInit -LogFileFolder $LogFileFolder
+        }
        } # else no events
        # TODO we've seen case where pod.status.containerStatuses.state.waiting has
        #   message: secret "eventhub-disabled-bootstrap-servers" not found
