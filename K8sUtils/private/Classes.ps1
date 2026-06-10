@@ -48,6 +48,10 @@ function mapContainerStatus($containerStatus) {
         return [Status]::Crash,"Restarted $restartCount times"
     }
 
+    if ($terminated = Get-Value $containerStatus 'state.terminated.reason') {
+        return $terminated -eq 'completed' ? [Status]::Running : [Status]::Crash,($terminated)
+    }
+
     if ($terminated = Get-Value $containerStatus 'lastState.terminated.reason') {
         return $terminated -eq 'completed' ? [Status]::Running : [Status]::Crash,($terminated)
     }

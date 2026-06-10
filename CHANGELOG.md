@@ -1,6 +1,6 @@
 # Change Log
 
-## [1.0.37] 2026-04-27
+## [1.0.37] 2026-06-10
 
 ### Changed
 
@@ -8,6 +8,7 @@
 - Suppress logging header and footer if there are no logs when polling for them.
 - `Set-K8sUtilsConfig -AllowLowTimeouts` switch added instead of using environment variable. This is a breaking change, but only affects testing.
 - Added DELAY_SEC parameter for testing in the minimal app. Depends on using the latest minimal app.
+- Update bad pod reason detection by using restart count
 
 ### Fixed
 
