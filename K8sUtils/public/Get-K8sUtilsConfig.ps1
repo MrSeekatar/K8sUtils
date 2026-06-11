@@ -7,6 +7,7 @@ function Get-K8sUtilsConfig {
     [CmdletBinding()]
     param ()
     @{
+        AllowLowTimeouts = $script:AllowLowTimeouts
         UtcOffset = $script:UtcOffset
         LogVerboseStack = $script:LogVerboseStack
         UseThreadJobs = $script:UseThreadJobs

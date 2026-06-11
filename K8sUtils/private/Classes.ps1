@@ -36,12 +36,26 @@ function mapContainerStatus($containerStatus) {
     if ($containerStatus.ready) {
         return [Status]::Running
     }
-    if ((Get-Member -InputObject $containerStatus.state -Name 'waiting') -and $containerStatus.state.waiting) {
-        return $containerStatus.state.waiting.reason -eq "CrashLoopBackOff" ? [Status]::Crash : [Status]::ConfigError,($containerStatus.state.waiting.reason)
+
+    if ($waiting = Get-Value $containerStatus 'state.waiting.reason') {
+        return $waiting -eq "CrashLoopBackOff" ? [Status]::Crash : [Status]::ConfigError,($waiting)
     }
-    if ((Get-Member -InputObject $containerStatus.state -Name 'terminated') -and $containerStatus.state.terminated) {
-        return $containerStatus.state.terminated.reason -eq 'completed' ? [Status]::Running : [Status]::Crash,($containerStatus.state.terminated.reason)
+
+    if ($restartCount = Get-Value $containerStatus 'restartCount') {
+        if ($lastState = Get-Value $containerStatus 'lastState.terminated.reason') {
+            return [Status]::Crash,$lastState
+        }
+        return [Status]::Crash,"Restarted $restartCount times"
     }
+
+    if ($terminated = Get-Value $containerStatus 'state.terminated.reason') {
+        return $terminated -eq 'completed' ? [Status]::Running : [Status]::Crash,($terminated)
+    }
+
+    if ($terminated = Get-Value $containerStatus 'lastState.terminated.reason') {
+        return $terminated -eq 'completed' ? [Status]::Running : [Status]::Crash,($terminated)
+    }
+
     return [Status]::Unknown,"Possible timeout or probe failure"
 }
 

@@ -45,6 +45,8 @@ spec:
         env:
           - name: RUN_COUNT
             value: "{{ .Values.preHook.runCount }}"
+          - name: DELAY_SEC
+            value: "{{ .Values.preHook.delaySec }}"
           - name: FAIL
             value: "{{ .Values.preHook.fail }}"
         volumeMounts:

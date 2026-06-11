@@ -1,5 +1,19 @@
 # Change Log
 
+## [1.0.37] 2026-06-10
+
+### Changed
+
+- Update pre-install hook log retrieval to get first lines that may be lost
+- Suppress logging header and footer if there are no logs when polling for them.
+- `Set-K8sUtilsConfig -AllowLowTimeouts` switch added instead of using environment variable. This is a breaking change, but only affects testing.
+- Added DELAY_SEC parameter for testing in the minimal app. Depends on using the latest minimal app.
+- Update bad pod reason detection by using restart count
+
+### Fixed
+
+- Bug in Get-PodStatus the --since parameter was using the wrong variable
+
 ## [1.0.36] 2026-04-06
 
 ### Changed

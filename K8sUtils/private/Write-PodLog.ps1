@@ -23,11 +23,9 @@ Log level to use for the header, defaults to ok
 .PARAMETER LogFileFolder
 Optional folder to write the logs to
 
-.EXAMPLE
-An example
+.OUTPUTS
+Exit code for getting the logs, and if LogFileFolder is specified, the path to the log file
 
-.NOTES
-General notes
 #>
 function Write-PodLog {
     [CmdletBinding()]
@@ -51,7 +49,7 @@ function Write-PodLog {
     $msg = "Logs for $prefix $PodName"
     if ($Since) {
         $msg += " since ${Since}"
-        $extraLogParams += "--since=$logSeconds"
+        $extraLogParams += "--since=$Since"
     } elseif ($SinceTime) {
         $extraLogParams += "--since-time=$($SinceTime.ToString("o"))"
     }
@@ -73,7 +71,6 @@ function Write-PodLog {
     }
 
     Write-Debug ($podJson | Out-String)
-    Write-Header $msg -LogLevel $LogLevel
     $tempFile = Get-TempLogFile
     if ($LogFileFolder) {
         Start-Transcript -Path $tempFile -UseMinimalHeader | Out-Null
@@ -88,7 +85,15 @@ function Write-PodLog {
         $logs = kubectl logs --namespace $Namespace $PodName @extraLogParams 2>&1
         $getLogsExitCode = $LASTEXITCODE
     }
-    $logs | Where-Object { $_ -NotMatch 'Error.*: (PodInitializing|ContainerCreating)' } | Write-Plain
+
+    $outputLogs = $logs | Where-Object { $_ -NotMatch 'Error.*: (PodInitializing|ContainerCreating)' }
+    if ($outputLogs) {
+        Write-Header $msg -LogLevel $LogLevel
+        $outputLogs | Write-Plain
+        Write-Footer "End logs for $prefix $PodName"
+    } else {
+        Write-Status "$msg not found" -Length 0
+    }
 
     if ($LogFileFolder) {
         Stop-Transcript | Out-Null
@@ -100,7 +105,6 @@ function Write-PodLog {
         } | Out-File $logFilename -Append
         Remove-Item $tempFile -ErrorAction SilentlyContinue
     }
-    Write-Footer "End logs for $prefix $PodName"
 
     if ($getLogsExitCode -ne 0) {
         $msg = "Error getting logs for pod $PodName (exit = $getLogsExitCode), checking status"
@@ -136,5 +140,5 @@ function Write-PodLog {
             }
         }
     }
-    return $logFilename
+    return ($getLogsExitCode, $logFilename)
 }

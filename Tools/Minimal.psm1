@@ -1,6 +1,7 @@
 param( [bool] $Quiet = $false)
 
-$env:K8sUtils_AllowLowTimeouts=1
+Set-K8sUtilsConfig -AllowLowTimeouts
+
 
 $exports = @()
 Get-ChildItem $PSScriptRoot\*.ps1 | Where-Object { $_ -notlike '*.tests.ps1' } | ForEach-Object { . $_; $exports += $_.BaseName }

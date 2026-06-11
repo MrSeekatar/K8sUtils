@@ -95,6 +95,12 @@ Container registry to use, defaults to docker.io
 .PARAMETER activeDeadlineSeconds
 How long to wait for the preHook job to complete before it is killed, defaults to 30 seconds
 
+.PARAMETER HookDelaySec
+Delay in seconds for the preHook job before it completes its work, defaults to 1 second
+
+.PARAMETER InitDelaySec
+Delay in seconds for the init container before it completes, defaults to 1 second
+
 .EXAMPLE
 Deploy-Minimal -PassThru -SkipInit -SkipPreHook -registry loyal.azurecr.io -ImageTag test-198145
 
@@ -135,7 +141,9 @@ function Deploy-Minimal {
         [string] $chartName = "minimal",
         [string] $ServiceAccount = "",
         [string] $registry = "docker.io",
-        [int] $activeDeadlineSeconds = 30
+        [int] $activeDeadlineSeconds = 30,
+        [int] $HookDelaySec = 1,
+        [int] $InitDelaySec = 1
 
     )
     Set-StrictMode -Version Latest
@@ -163,6 +171,10 @@ function Deploy-Minimal {
                 @{
                     name  = "FAIL"
                     value = $InitFail.ToString()
+                },
+                @{
+                    name  = "DELAY_SEC"
+                    value = $InitDelaySec.ToString()
                 }
             )
             volumeMounts  = @(
@@ -200,6 +212,7 @@ function Deploy-Minimal {
                 "preHook.fail=$HookFail",
                 "preHook.imageTag=$HookTag",
                 "preHook.runCount=$HookRunCount",
+                "preHook.delaySec=$HookDelaySec",
                 "preHook.cpuRequest=$HookCpuRequest",
                 "readinessPath=$Readiness",
                 "registry=$registry",

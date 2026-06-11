@@ -23,7 +23,8 @@ function Set-K8sUtilsConfig {
         [string] $ColorType = "DontSet",
         [int] $OffsetMinutes = -1,
         [switch] $LogVerboseStack,
-        [switch] $UseThreadJobs
+        [switch] $UseThreadJobs,
+        [switch] $AllowLowTimeouts
     )
     if ($OffsetMinutes -ge 0) {
         $script:UtcOffset = New-TimeSpan -Minutes $OffsetMinutes
@@ -32,6 +33,7 @@ function Set-K8sUtilsConfig {
     }
     $script:LogVerboseStack = [bool]$LogVerboseStack
     $script:UseThreadJobs = [bool]$UseThreadJobs
+    $script:AllowLowTimeouts = [bool]$AllowLowTimeouts
 
     if ($ColorType -eq "None" -or $env:NO_COLOR -eq "1") {
         $script:ColorType = "None"
